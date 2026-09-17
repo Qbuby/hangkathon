@@ -1,5 +1,13 @@
 # 杭客松首页升级 — Design QA
 
+## Hackathon vocabulary retired — 2026-09-16
+
+- 黑客松 is no longer a concept in this project; 杭客松 replaces it everywhere. Demo activity 01 became `AI 创造者杭客松` with the type label `AI HANGKATHON`, and the QA log below no longer quotes the retired word when describing the removed sculpture caption.
+- A repository-wide search for 黑客松 / HACKATHON / Hackathon across source, docs and config now returns nothing. The two PNGs under `docs/` were captured before this pass and still show the old sculpture caption in their pixels; they are left in place because `design-qa.md` cites them as historical evidence.
+- ESLint passed with zero errors or warnings, `tsc --noEmit` passed against a freshly generated `.next`, and both build targets (Vercel `next build` and the local Vinext build) completed successfully.
+
+final result: passed
+
 ## Top navigation relabelled — 2026-09-16
 
 - The three header navigation items are now `AI 活动`, `广场` and `数算`, replacing `活动`, `作品` and `关于我们`.
@@ -12,7 +20,7 @@ final result: passed
 
 ## Hero copy and scene control removal — 2026-09-16
 
-- Removed the four hero overlays the user flagged: the `AI 创造者共创平台 · 杭州` eyebrow, the `连接算力、开源模型与真实场景。` subtitle, the right-hand `更多的人 / 更好的 AI / 更真实的世界` sculpture caption with its `HANGZHOU / AI / HACKATHON` line, and the `轻触水面，泛起涟漪` scene toolbar together with its pause and calm-water buttons.
+- Removed the four hero overlays the user flagged: the `AI 创造者共创平台 · 杭州` eyebrow, the `连接算力、开源模型与真实场景。` subtitle, the right-hand `更多的人 / 更好的 AI / 更真实的世界` sculpture caption with its English city-and-event line, and the `轻触水面，泛起涟漪` scene toolbar together with its pause and calm-water buttons.
 - The 22 CSS rules that existed only for those elements were deleted from `app/globals.css` (hero eyebrow/subtitle, sculpture-label and its children, scene-toolbar/drag-hint/scene-buttons/scene-control/reset-control, plus their tablet and mobile overrides and the trailing pointer-events patch). `.eyebrow` itself stays: the dialog and the activities section still use it.
 - `BridgeScene` no longer takes props. `paused`/`onPause`/`reset`/`onState` existed to drive the removed buttons, and `onState` had no remaining consumer, so the component now owns its own pause state. The `prefers-reduced-motion` self-pause is unchanged apart from no longer reporting upward; it was code-inspected rather than re-run in a browser with the media feature forced.
 - Water interaction still works after the rewiring: six pointer moves across the water produced six ripple events (`canvas.dataset.ripples` 0 → 6), the scene reported `ready` with 16,206 triangles, and no `.scene-message` error appeared.

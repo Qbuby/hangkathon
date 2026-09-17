@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } fr
 import BridgeScene from "./scene";
 
 const events = [
-  { number: "01", type: "AI HACKATHON", title: "把想法，做成第一个原型。", name: "AI 创造者黑客松", description: "从一个灵感出发，和不同背景的队友一起，把 AI 想法变成可体验的作品。", tag: "组队共创", details: "示例流程：灵感交流 → 自由组队 → 原型共创 → 作品展示。具体时间、地点及报名方式尚未设置。" },
+  { number: "01", type: "AI HANGKATHON", title: "把想法，做成第一个原型。", name: "AI 创造者杭客松", description: "从一个灵感出发，和不同背景的队友一起，把 AI 想法变成可体验的作品。", tag: "组队共创", details: "示例流程：灵感交流 → 自由组队 → 原型共创 → 作品展示。具体时间、地点及报名方式尚未设置。" },
   { number: "02", type: "REAL-WORLD ACTIVITY", title: "让真实问题，遇见新解法。", name: "真实需求共创", description: "围绕具体使用场景，拆解问题、验证思路，探索 AI 在真实需求中的可能。", tag: "问题驱动", details: "示例流程：理解需求 → 拆解场景 → 方案验证 → 原型反馈。此处没有已发布的真实需求。" },
   { number: "03", type: "BUILD & SHARE", title: "带上作品，遇见同路人。", name: "作品交流开放日", description: "分享你正在做的东西，交换灵感与反馈，也找到下一次一起动手的人。", tag: "交流分享", details: "示例流程：介绍作品 → 现场体验 → 交流反馈。此处没有已确定的分享嘉宾或活动安排。" },
 ];
