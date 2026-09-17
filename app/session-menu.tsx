@@ -8,11 +8,22 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } fr
 
 type SessionState = {
   configured: boolean;
+  secret: boolean;
   providers: { id: string; name: string; configured: boolean }[];
   user: { name: string | null; email: string | null } | null;
 };
 
-const SIGNED_OUT: SessionState = { configured: false, providers: [], user: null };
+const SIGNED_OUT: SessionState = { configured: false, secret: false, providers: [], user: null };
+
+/** Names the pieces a deployment is still missing, so the dialog can be specific. */
+function missingConfig(state: SessionState) {
+  const missing: string[] = [];
+  if (!state.secret) missing.push("AUTH_SECRET（会话签名密钥）");
+  if (!state.providers.some((provider) => provider.configured)) {
+    missing.push("GitHub 或 Google 其中一家的 OAuth 凭据");
+  }
+  return missing;
+}
 
 function GoogleMark() {
   return (
@@ -64,6 +75,7 @@ export default function SessionMenu() {
   const user = session?.user ?? null;
   const providers = session?.providers ?? [];
   const ready = Boolean(session?.configured);
+  const missing = session ? missingConfig(session) : [];
 
   return (
     <>
@@ -115,7 +127,7 @@ export default function SessionMenu() {
                   <button
                     key={provider.id}
                     className="provider-button"
-                    disabled={!provider.configured || pending !== null}
+                    disabled={!ready || !provider.configured || pending !== null}
                     onClick={() => {
                       setPending(provider.id);
                       void signIn(provider.id, { callbackUrl: "/" });
@@ -132,7 +144,7 @@ export default function SessionMenu() {
                 <p>
                   {ready
                     ? "登录仅用于识别身份，本站不会读取你的仓库、邮件或其他账号数据。"
-                    : "登录尚未配置。需要在部署环境提供 AUTH_SECRET 以及 GitHub / Google 的 OAuth 客户端凭据后才会启用。"}
+                    : `登录尚未启用：部署环境还缺少 ${missing.join(" 和 ")}。`}
                 </p>
               </div>
             </>

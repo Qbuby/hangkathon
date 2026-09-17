@@ -21,8 +21,10 @@ export const oauthProviders = [
   },
 ];
 
+export const sessionSecretConfigured = Boolean(process.env.AUTH_SECRET);
+
 export const authConfigured =
-  Boolean(process.env.AUTH_SECRET) && oauthProviders.some((provider) => provider.configured);
+  sessionSecretConfigured && oauthProviders.some((provider) => provider.configured);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -34,4 +36,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   // No database is provisioned, so the session lives in a signed cookie.
   session: { strategy: "jwt" },
+  pages: { error: "/auth-error" },
 });

@@ -23,9 +23,13 @@
 
 | 变量 | 说明 |
 | --- | --- |
-| `AUTH_SECRET` | 会话 cookie 的签名密钥，用 `npx auth secret` 生成 |
+| `AUTH_SECRET` | **必填**，会话 cookie 的签名密钥，用 `npx auth secret` 生成 |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth App 的 Client ID 与 Client Secret |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth 2.0 客户端的客户端 ID 与客户端密钥 |
+
+`AUTH_SECRET` 缺失时 Auth.js 会在 `/api/auth/error` 抛出 `Configuration` 错误，只配服务商凭据是不够的。缺少哪一项会直接显示在登录弹窗和错误页上，不需要去翻服务端日志。
+
+至少配齐一个服务商的凭据加 `AUTH_SECRET`，登录才会启用；只配了其中一家时，另一家的按钮会置灰并标注「未配置」。
 
 ### 注册 OAuth 应用
 

@@ -1,5 +1,16 @@
 # 杭客松首页升级 — Design QA
 
+## Sign-in failure modes made explicit — 2026-09-16
+
+- A deployment with `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` but no `AUTH_SECRET` sent the visitor to Auth.js's bare "Server error / Check the server logs" page. Two defects behind that were fixed.
+- The provider buttons were disabled only by the per-provider flag, so GitHub stayed clickable while the dialog simultaneously said login was not configured. They are now disabled unless the whole configuration is ready.
+- `/api/session` reports `secret` separately from the provider flags, and the dialog names the missing piece instead of a generic sentence. Verified against a local server started with GitHub credentials and no `AUTH_SECRET`: both buttons disabled, and the note reads `登录尚未启用：部署环境还缺少 AUTH_SECRET（会话签名密钥）。`
+- Auth.js now routes failures to `/auth-error`, which states the error code in Chinese and lists which credentials the running deployment is missing. Verified at `/auth-error?error=Configuration` with no `AUTH_SECRET`: `当前部署缺少 AUTH_SECRET。在部署环境补上并重新部署后即可登录。`
+- With `AUTH_SECRET` plus GitHub credentials, `/api/session` reports `configured: true` and the dialog enables GitHub while leaving Google disabled and marked `未配置`. Partial configuration is usable, which is the intended behaviour.
+- ESLint passed with zero errors or warnings. The Vercel build reports `/` static plus `/api/auth/[...nextauth]`, `/api/session` and `/auth-error` dynamic; `tsc --noEmit` passed against the fresh build.
+
+final result: passed
+
 ## GitHub and Google sign-in entry — 2026-09-16
 
 - The header now carries a sign-in entry at the far right of `.header-actions`, after the language control. Signed out it reads `登录` with a user icon; signed in it shows an initials avatar and the account name. It opens a dialog matching the existing panel style, listing GitHub and Google.
