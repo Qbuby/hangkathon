@@ -78,19 +78,17 @@ function backgroundMaterial(reference:THREE.Texture,clean:THREE.Texture){
  }`});
 }
 
-type Props={paused:boolean;onPause:(v:boolean)=>void;reset:number;onState:(v:string)=>void};
-export default function BridgeScene({paused,onPause,reset,onState}:Props){
- const mount=useRef<HTMLDivElement>(null),control=useRef({paused,reset});const[status,setStatus]=useState("loading");
- useEffect(()=>{control.current={paused,reset};},[paused,reset]);
+export default function BridgeScene(){
+ const mount=useRef<HTMLDivElement>(null),control=useRef({paused:false});const[status,setStatus]=useState("loading");
  useEffect(()=>{
   const host=mount.current;if(!host)return;let renderer:THREE.WebGLRenderer;
-  try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:"low-power"});}catch{const failureTimer=window.setTimeout(()=>{setStatus("error");onState("error");},0);return()=>window.clearTimeout(failureTimer);}
+  try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:"low-power"});}catch{const failureTimer=window.setTimeout(()=>setStatus("error"),0);return()=>window.clearTimeout(failureTimer);}
   const canvas=renderer.domElement;host.appendChild(canvas);canvas.tabIndex=0;canvas.setAttribute("role","img");canvas.setAttribute("aria-label","实时三维桥与交互水面：移动鼠标或轻触水面产生涟漪，空格键泛起涟漪，Home 键使水面平静");
   renderer.setClearColor(0x000000,0);renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-8.36,8.36,4.705,-4.705,.1,100);camera.position.z=20;camera.lookAt(0,0,0);
   let mobile=window.innerWidth<=760,disposed=false,ready=0,contextLost=false,dirty=true,inView=true,frame=0,previous=0,time=0;
-  const loaded=()=>{if(disposed)return;ready++;dirty=true;if(ready===2){setStatus("ready");onState("ready");}};
-  const failed=()=>{if(!disposed){setStatus("error");onState("error");}};
+  const loaded=()=>{if(disposed)return;ready++;dirty=true;if(ready===2)setStatus("ready");};
+  const failed=()=>{if(!disposed)setStatus("error");};
   const loader=new THREE.TextureLoader();
   const reference=loader.load("/assets/hangzhou-upgrade-reference.png",loaded,undefined,failed),clean=loader.load("/assets/hangzhou-upgrade-background.png",loaded,undefined,failed);
   reference.colorSpace=clean.colorSpace=THREE.SRGBColorSpace;reference.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
@@ -102,8 +100,8 @@ export default function BridgeScene({paused,onPause,reset,onState}:Props){
   const ripplePositions=bgMaterial.uniforms.uRipples.value as THREE.Vector4[];
   const spawnRipple=(point:THREE.Vector2,strength=1)=>{if(control.current.paused)return;ripplePositions[rippleIndex].set(point.x,point.y,time,strength);rippleIndex=(rippleIndex+1)%12;lastSpawn=time;rippleCount++;dirty=true;canvas.dataset.ripples=String(rippleCount);};
   const pointOnWater=(e:PointerEvent)=>{const rect=canvas.getBoundingClientRect();const x=WIDTH/2+((e.clientX-rect.left)/rect.width-.5)*(camera.right-camera.left)/UNIT,y=HEIGHT/2+((e.clientY-rect.top)/rect.height-.5)*(camera.top-camera.bottom)/UNIT;return y>=684&&y<900?new THREE.Vector2(x,y):null;};
-  let lastReset=control.current.reset,lastPaused=control.current.paused;
-  const reduced=window.matchMedia("(prefers-reduced-motion: reduce)");const motionChange=()=>{if(reduced.matches){control.current.paused=true;onPause(true);}dirty=true;};motionChange();reduced.addEventListener("change",motionChange);
+  let lastPaused=control.current.paused;
+  const reduced=window.matchMedia("(prefers-reduced-motion: reduce)");const motionChange=()=>{if(reduced.matches)control.current.paused=true;dirty=true;};motionChange();reduced.addEventListener("change",motionChange);
   const resize=()=>{
    const w=host.clientWidth,h=host.clientHeight,aspect=w/h;mobile=window.innerWidth<=760;
    renderer.setPixelRatio(Math.min(window.devicePixelRatio,mobile?1.25:1.75));renderer.setSize(w,h);
@@ -120,18 +118,18 @@ export default function BridgeScene({paused,onPause,reset,onState}:Props){
   const leave=()=>{waterPointer=null;};const up=(e:PointerEvent)=>{if(e.pointerType!=="mouse")waterPointer=null;};
   const clear=()=>{ripplePositions.forEach(r=>r.set(0,0,-100,0));waterPointer=null;dirty=true;};
   const keydown=(e:KeyboardEvent)=>{if(e.key===" "||e.key==="Enter"){e.preventDefault();spawnRipple(new THREE.Vector2(900,755),1.25);}if(e.key==="Home"){e.preventDefault();clear();}};
-  const lost=(e:Event)=>{e.preventDefault();contextLost=true;failed();};const restored=()=>{contextLost=false;dirty=true;setStatus("ready");onState("ready");};
+  const lost=(e:Event)=>{e.preventDefault();contextLost=true;failed();};const restored=()=>{contextLost=false;dirty=true;setStatus("ready");};
   canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);canvas.addEventListener("pointerleave",leave);canvas.addEventListener("pointerup",up);canvas.addEventListener("pointercancel",leave);canvas.addEventListener("keydown",keydown);canvas.addEventListener("webglcontextlost",lost);canvas.addEventListener("webglcontextrestored",restored);
   const render=(now:number)=>{
    if(disposed)return;frame=requestAnimationFrame(render);if(ready<2||contextLost||!inView||document.hidden){previous=now;return;}
    const delta=now-previous;if(delta<(mobile?1000/30:1000/60)-1)return;previous=now;const c=control.current;
-   if(c.reset!==lastReset){clear();lastReset=c.reset;}if(c.paused!==lastPaused){lastPaused=c.paused;dirty=true;}if(c.paused&&!dirty)return;
+   if(c.paused!==lastPaused){lastPaused=c.paused;dirty=true;}if(c.paused&&!dirty)return;
    if(!c.paused)time+=Math.min(delta,80)*.001;if(!c.paused&&waterPointer&&time-lastSpawn>.72)spawnRipple(waterPointer,.7);
    if(!dirty&&!ripplePositions.some(r=>r.w>0&&time-r.z<5))return;
    bgMaterial.uniforms.uTime.value=time;renderer.render(scene,camera);
    canvas.dataset.engine="three-webgl-textured-geometry";canvas.dataset.bridgeRotation="fixed";canvas.dataset.frames=String(renderer.info.render.frame);canvas.dataset.triangles=String(renderer.info.render.triangles);canvas.dataset.paused=String(c.paused);dirty=false;
   };frame=requestAnimationFrame(render);
   return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();visibility.disconnect();reduced.removeEventListener("change",motionChange);document.removeEventListener("visibilitychange",visibleChange);canvas.removeEventListener("pointerdown",down);canvas.removeEventListener("pointermove",move);canvas.removeEventListener("pointerleave",leave);canvas.removeEventListener("pointerup",up);canvas.removeEventListener("pointercancel",leave);canvas.removeEventListener("keydown",keydown);canvas.removeEventListener("webglcontextlost",lost);canvas.removeEventListener("webglcontextrestored",restored);geometry.dispose();material.dispose();labels.forEach(l=>{l.geometry.dispose();l.material.dispose();});reference.dispose();clean.dispose();bgGeometry.dispose();bgMaterial.dispose();renderer.dispose();canvas.remove();};
- },[onPause,onState]);
+ },[]);
  return <div ref={mount} className="scene-mount" data-scene-state={status}>{status==="loading"&&<div className="scene-message" role="status">正在加载杭州的暮色…</div>}{status==="error"&&<div className="scene-message" role="alert"><strong>当前环境无法显示实时 3D</strong><span>请使用支持 WebGL 的浏览器，开启硬件加速后刷新。下方活动仍可浏览。</span></div>}</div>;
 }

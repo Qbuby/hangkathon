@@ -1,5 +1,16 @@
 # 杭客松首页升级 — Design QA
 
+## Hero copy and scene control removal — 2026-09-16
+
+- Removed the four hero overlays the user flagged: the `AI 创造者共创平台 · 杭州` eyebrow, the `连接算力、开源模型与真实场景。` subtitle, the right-hand `更多的人 / 更好的 AI / 更真实的世界` sculpture caption with its `HANGZHOU / AI / HACKATHON` line, and the `轻触水面，泛起涟漪` scene toolbar together with its pause and calm-water buttons.
+- The 22 CSS rules that existed only for those elements were deleted from `app/globals.css` (hero eyebrow/subtitle, sculpture-label and its children, scene-toolbar/drag-hint/scene-buttons/scene-control/reset-control, plus their tablet and mobile overrides and the trailing pointer-events patch). `.eyebrow` itself stays: the dialog and the activities section still use it.
+- `BridgeScene` no longer takes props. `paused`/`onPause`/`reset`/`onState` existed to drive the removed buttons, and `onState` had no remaining consumer, so the component now owns its own pause state. The `prefers-reduced-motion` self-pause is unchanged apart from no longer reporting upward; it was code-inspected rather than re-run in a browser with the media feature forced.
+- Water interaction still works after the rewiring: six pointer moves across the water produced six ripple events (`canvas.dataset.ripples` 0 → 6), the scene reported `ready` with 16,206 triangles, and no `.scene-message` error appeared.
+- ESLint passed with zero errors or warnings. TypeScript passed with `--noEmit --incremental false`.
+- Desktop 1440 × 900 and mobile 390 × 844 both re-checked: the headline and the two actions are the only hero copy left, the Three.js bridge still renders, and mobile shows no horizontal overflow (`scrollWidth` 375 against a 390 viewport).
+
+final result: passed
+
 ## Brand artwork swap and activity vocabulary pass — 2026-09-16
 
 - The header wordmark was replaced with the newly supplied silver "杭客松 / Hangkathon" artwork. The source PNG was already alpha-keyed but carried faint cut-out speckles and colour fringing from the original white plate, so the derivative pipeline zeroed sub-22 alpha, pulled low-alpha chroma toward luminance, and resized through premultiplied alpha. `public/brand/hangkathon-logo.png` is 1400 × 468, ratio 2.991.

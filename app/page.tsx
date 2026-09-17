@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { ArrowUpRight, ArrowRight, Pause, Play, RotateCcw, Waves, X, Cpu, Box, NotebookText, UsersRound } from "lucide-react";
+import { ArrowUpRight, ArrowRight, X, Cpu, Box, NotebookText, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import BridgeScene from "./scene";
@@ -21,10 +21,7 @@ const info = {
 type Panel = keyof typeof info | number | null;
 
 export default function Home() {
-  const [paused, setPaused] = useState(false);
-  const [reset, setReset] = useState(0);
   const [panel, setPanel] = useState<Panel>(null);
-  const [sceneState, setSceneState] = useState("loading");
   const event = typeof panel === "number" ? events[panel] : null;
   const content = typeof panel === "string" ? info[panel] : null;
   return (
@@ -42,24 +39,14 @@ export default function Home() {
 
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
-          <p className="eyebrow">AI 创造者共创平台 · 杭州</p>
           <h1 id="hero-title"><span>世界 <em>AI</em> 上杭州</span></h1>
-          <p className="hero-subtitle">连接算力、开源模型与真实场景。</p>
           <div className="hero-actions">
             <Button asChild className="primary-action"><a href="#activities">探索活动 <ArrowRight size={20} /></a></Button>
             <Button variant="ghost" className="secondary-action" onClick={() => setPanel("create")}>发起活动 <ArrowUpRight size={19} /></Button>
           </div>
         </div>
         <div className="sculpture-wrap">
-          <div className="sculpture-label"><span>更多的人<br />更好的 AI<br />更真实的世界</span><i /><small>HANGZHOU<br />AI<br />HACKATHON</small><i /></div>
-          <BridgeScene paused={paused} onPause={setPaused} reset={reset} onState={setSceneState} />
-          <div className="scene-toolbar">
-            <span className="drag-hint"><Waves size={15} /><span>轻触水面，泛起涟漪</span></span>
-            <div className="scene-buttons">
-              <Button variant="ghost" className="scene-control" aria-label={paused ? "继续动画" : "暂停动画"} aria-pressed={paused} onClick={() => setPaused(v => !v)} disabled={sceneState === "error"}>{paused ? <Play size={13} /> : <Pause size={13} />}<span>{paused ? "继续" : "暂停"}</span></Button>
-              <Button variant="ghost" className="scene-control reset-control" aria-label="平静水面" onClick={() => setReset(v => v + 1)} disabled={sceneState === "error"}><RotateCcw size={13} /></Button>
-            </div>
-          </div>
+          <BridgeScene />
         </div>
         <div className="hero-bottom">
           <button className="hero-feature" onClick={() => setPanel("about")}><Cpu /><span><strong>算力与数据</strong><small>探索 AI 计算资源</small></span></button>
