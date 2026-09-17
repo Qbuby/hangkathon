@@ -1,5 +1,15 @@
 # 杭客松首页升级 — Design QA
 
+## Top navigation relabelled — 2026-09-16
+
+- The three header navigation items are now `AI 活动`, `广场` and `数算`, replacing `活动`, `作品` and `关于我们`.
+- Because 广场 and 数算 are new section names, the dialogs behind them were rewritten to match rather than left describing the old labels: the works panel became the `PLAZA` panel, and a new `DATA & COMPUTE` panel was added for 数算. The 算力与数据 hero feature now opens 数算 instead of the about panel, so the card and the navigation agree.
+- `关于我们` no longer has a navigation entry. The `ABOUT HANGKESONG` panel is still reachable from the 模型与开源 and 共创社区 hero features.
+- Browser verification: the header renders all three labels with the active underline on `AI 活动` at 1440, 1024, 768 and 390 px. No logo/navigation/CTA overlap and no horizontal overflow at any of those widths. Clicking 广场 and 数算 opened the rewritten panels, and Escape closed them.
+- ESLint passed with zero errors or warnings. `npx tsc --noEmit` initially reported `AppRoutes`/`LayoutRoutes`/`ParamMap` missing from `.next/types/routes.js`; that was a stale generated artifact from an earlier build, and a fresh `next build` followed by the same `tsc` invocation passed cleanly. It was not a source error.
+
+final result: passed
+
 ## Hero copy and scene control removal — 2026-09-16
 
 - Removed the four hero overlays the user flagged: the `AI 创造者共创平台 · 杭州` eyebrow, the `连接算力、开源模型与真实场景。` subtitle, the right-hand `更多的人 / 更好的 AI / 更真实的世界` sculpture caption with its `HANGZHOU / AI / HACKATHON` line, and the `轻触水面，泛起涟漪` scene toolbar together with its pause and calm-water buttons.

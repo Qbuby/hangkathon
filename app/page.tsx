@@ -14,7 +14,8 @@ const events = [
 ];
 const info = {
   create: { label: "ACTIVITIES", title: "让一个真实问题，成为一次活动的起点。", text: "发起活动功能正在筹备。未来，你可以在这里描述一个真实场景或问题，发起一次活动，连接愿意一起动手的 AI 创造者。", note: "当前为首页交互演示，尚未开放提交，也不会收集或保存信息。" },
-  works: { label: "SELECTED WORKS", title: "作品，会在这里相遇。", text: "这里将展示创造者做出的 AI 原型与作品。每一个可体验的想法，都值得被看见。", note: "作品区为占位内容，目前没有上架作品。" },
+  plaza: { label: "PLAZA", title: "广场，让作品和人在这里相遇。", text: "广场将聚集创造者做出的 AI 原型与作品，也聚集正在找队友的活动。每一个可体验的想法，都值得被看见。", note: "广场为占位内容，目前没有上架作品，也没有公开活动。" },
+  compute: { label: "DATA & COMPUTE", title: "数算：算力与数据，在这里汇聚。", text: "数算入口将汇集可用的算力资源、数据集与开源模型，让一个想法不必卡在资源这一步。", note: "数算区为占位内容，目前没有接入任何算力或数据服务。" },
   language: { label: "LANGUAGE", title: "英文版本正在筹备。", text: "当前首页提供中文体验。", note: "此入口为语言切换演示，尚未开放英文内容。" },
   about: { label: "ABOUT HANGKESONG", title: "在杭州，连接想法与行动。", text: "杭客松连接 AI 创造者、企业真实需求和城市里的活动。我们希望让人们找到队友，围绕具体问题，一起把想法做出来。", note: "此网站为首页 Demo，活动内容均为演示数据。" },
 };
@@ -30,9 +31,9 @@ export default function Home() {
       <header className="site-header">
         <a href="#top" className="wordmark" aria-label="杭客松首页"><Image className="wordmark-image" src="/brand/hangkathon-logo.png" alt="杭客松 Hangkathon" width={1400} height={468} priority draggable={false} /></a>
         <nav aria-label="主导航">
-          <a className="nav-active" href="#activities">活动</a>
-          <button onClick={() => setPanel("works")}>作品</button>
-          <button onClick={() => setPanel("about")}>关于我们</button>
+          <a className="nav-active" href="#activities">AI 活动</a>
+          <button onClick={() => setPanel("plaza")}>广场</button>
+          <button onClick={() => setPanel("compute")}>数算</button>
         </nav>
         <div className="header-actions"><button className="header-create" onClick={() => setPanel("create")}>发起活动 <ArrowUpRight size={18} /></button><button className="language-control" onClick={() => setPanel("language")} aria-label="语言，当前为中文"><strong>中</strong><span>/ EN</span></button></div>
       </header>
@@ -49,7 +50,7 @@ export default function Home() {
           <BridgeScene />
         </div>
         <div className="hero-bottom">
-          <button className="hero-feature" onClick={() => setPanel("about")}><Cpu /><span><strong>算力与数据</strong><small>探索 AI 计算资源</small></span></button>
+          <button className="hero-feature" onClick={() => setPanel("compute")}><Cpu /><span><strong>算力与数据</strong><small>探索 AI 计算资源</small></span></button>
           <button className="hero-feature" onClick={() => setPanel("about")}><Box /><span><strong>模型与开源</strong><small>连接全球开源生态</small></span></button>
           <button className="hero-feature" onClick={() => setPanel("create")}><NotebookText /><span><strong>真实需求</strong><small>面向产业的实际问题</small></span></button>
           <button className="hero-feature" onClick={() => setPanel("about")}><UsersRound /><span><strong>共创社区</strong><small>开发者 · 企业 · 创造者</small></span></button>
