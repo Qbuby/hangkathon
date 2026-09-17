@@ -1,5 +1,17 @@
 # 杭客松首页升级 — Design QA
 
+## Brand artwork swap and activity vocabulary pass — 2026-09-16
+
+- The header wordmark was replaced with the newly supplied silver "杭客松 / Hangkathon" artwork. The source PNG was already alpha-keyed but carried faint cut-out speckles and colour fringing from the original white plate, so the derivative pipeline zeroed sub-22 alpha, pulled low-alpha chroma toward luminance, and resized through premultiplied alpha. `public/brand/hangkathon-logo.png` is 1400 × 468, ratio 2.991.
+- The square mark, `favicon.ico` (16/32/48/64/128/256), `apple-touch-icon.png`, and `icon-192/512.png` were regenerated from the same artwork. The mark keeps the complete base lens: the 杭客松 / Hangkathon lockup and the `g` descender were masked out rather than cropped, so no flat cut edge appears on the lens.
+- `.wordmark` is now height-driven (`height: 68px` desktop / `60px` tablet / `50px` mobile, image `height: 100%; width: auto`). The previous fixed 210 × 68 box rendered the old 2.43-ratio artwork correctly but stretched this 2.99-ratio artwork horizontally by 3.2%. Measured render is now 203 × 68, ratio 2.991 against a natural 2.991.
+- Hero headline changed from "在杭州，把 AI 想法做出来。" to "世界 AI 上杭州" (single line, `AI` retaining the cyan emphasis). Rendered 476 × 79 at 1440 px and 334 × 44 at 390 px; `layout.tsx` metadata title, footer tagline, and README were updated to match.
+- Activity vocabulary unified: the separate 活动 / 挑战 entries are gone. Navigation is 活动 / 作品 / 关于我们; the header call to action and the hero secondary action are both 发起活动; the dialog panel key, its label (`CHALLENGES` → `ACTIVITIES`), and its copy were rewritten. Demo activity 02 was renamed from "真实需求挑战" to "真实需求共创" with its type relabelled `REAL-WORLD CHALLENGE` → `REAL-WORLD ACTIVITY`, and the hero feature "真实赛题" became "真实需求" so no third synonym survives. The internal CSS class `header-challenge` was renamed `header-create`.
+- ESLint passed with zero errors or warnings. TypeScript passed with `--noEmit --incremental false`. The production build completed successfully with its pre-existing Vinext advisories (client chunk over 500 kB, route classification unknown).
+- Browser verification on the local dev server: desktop 1440 × 900, tablet 768 × 900 and 1024 × 900, mobile 390 × 844. The logo is transparent with no plate or rectangle, the headline fits on one line, `documentElement.scrollWidth` never exceeds the viewport, and logo/navigation/CTA boxes do not overlap at any checked width. The 发起活动 header button opened the rewritten `ACTIVITIES` dialog, and Escape closed it with `body` overflow returning to `visible`.
+
+final result: passed
+
 ## Migration and brand refresh verification — 2026-09-16
 
 - The handed-off source was migrated into the `Qbuby/hangkathon` repository without generated dependencies, build output, environment files, or local Wrangler/Vinext state.
