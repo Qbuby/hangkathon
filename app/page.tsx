@@ -6,6 +6,7 @@ import { ArrowUpRight, ArrowRight, X, Cpu, Box, NotebookText, UsersRound } from 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import BridgeScene from "./scene";
+import SessionMenu from "./session-menu";
 
 const events = [
   { number: "01", type: "AI HANGKATHON", title: "把想法，做成第一个原型。", name: "AI 创造者杭客松", description: "从一个灵感出发，和不同背景的队友一起，把 AI 想法变成可体验的作品。", tag: "组队共创", details: "示例流程：灵感交流 → 自由组队 → 原型共创 → 作品展示。具体时间、地点及报名方式尚未设置。" },
@@ -35,7 +36,7 @@ export default function Home() {
           <button onClick={() => setPanel("plaza")}>广场</button>
           <button onClick={() => setPanel("compute")}>数算</button>
         </nav>
-        <div className="header-actions"><button className="header-create" onClick={() => setPanel("create")}>发起活动 <ArrowUpRight size={18} /></button><button className="language-control" onClick={() => setPanel("language")} aria-label="语言，当前为中文"><strong>中</strong><span>/ EN</span></button></div>
+        <div className="header-actions"><button className="header-create" onClick={() => setPanel("create")}>发起活动 <ArrowUpRight size={18} /></button><button className="language-control" onClick={() => setPanel("language")} aria-label="语言，当前为中文"><strong>中</strong><span>/ EN</span></button><SessionMenu /></div>
       </header>
 
       <section className="hero" aria-labelledby="hero-title">

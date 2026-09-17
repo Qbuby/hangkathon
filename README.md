@@ -15,6 +15,32 @@
 
 单独触发某一目标时用 `npm run build:vercel` 或 `npm run build:cloudflare`。
 
+## 登录
+
+右上角提供 GitHub 与 Google 登录。凭据按环境注入：没有配置时入口仍然显示，但会明确标出「未配置」并说明缺少什么，不会把访问者送进服务商的错误页。
+
+需要的环境变量见 `.env.example`：
+
+| 变量 | 说明 |
+| --- | --- |
+| `AUTH_SECRET` | 会话 cookie 的签名密钥，用 `npx auth secret` 生成 |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth App 的 Client ID 与 Client Secret |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth 2.0 客户端的客户端 ID 与客户端密钥 |
+
+### 注册 OAuth 应用
+
+GitHub 在 Settings → Developer settings → OAuth Apps → New OAuth App 创建，Authorization callback URL 填 `https://hangkathon.net/api/auth/callback/github`。
+
+Google 在 Google Cloud Console → API 和服务 → 凭据 → 创建凭据 → OAuth 客户端 ID（Web 应用）创建，已获授权的重定向 URI 填 `https://hangkathon.net/api/auth/callback/google`。
+
+本地开发要另外注册一组回调地址为 `http://localhost:5175/api/auth/callback/github`（Google 同理）的应用，或者把本地地址一并加进同一个应用的回调列表。
+
+### 在 Vercel 配置
+
+Project → Settings → Environment Variables，把上面几个变量加到 Production；需要预览部署也能登录的话再加到 Preview。加完重新部署一次。
+
+没有数据库：会话是签名 cookie，登录状态只用于识别身份，不写入任何存储。前端通过 `GET /api/session` 拿到「是否已配置 / 有哪些服务商 / 当前登录者」。
+
 ## 视觉来源
 
 用户最新提供的蓝金色杭州参考图（hangzhou-upgrade-reference.png）用于桥体投影材质及局部背景。`public/assets/hangzhou-upgrade-background.png` 为基于同一参考图清除界面与桥体后的背景图。桥为实时三维网格；远景为图片；水面交互为实时着色器。

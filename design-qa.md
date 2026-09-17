@@ -1,5 +1,17 @@
 # 杭客松首页升级 — Design QA
 
+## GitHub and Google sign-in entry — 2026-09-16
+
+- The header now carries a sign-in entry at the far right of `.header-actions`, after the language control. Signed out it reads `登录` with a user icon; signed in it shows an initials avatar and the account name. It opens a dialog matching the existing panel style, listing GitHub and Google.
+- Auth is Auth.js v5 (`next-auth@5.0.0-beta.32`) with JWT sessions, so no database is needed. `app/api/auth/[...nextauth]/route.ts` serves the OAuth flow and `GET /api/session` reports whether OAuth is configured, which providers are usable, and who is signed in. The home page stays statically prerendered; only the two API routes are dynamic.
+- Credentials are read from the environment and each provider joins the config only when both its id and secret are present. With no environment set, the dialog disables both buttons, marks them `未配置`, and explains that `AUTH_SECRET` plus provider credentials are required — verified against the local dev server, which has no credentials.
+- With placeholder credentials the GitHub flow was followed into a real redirect: `https://github.com/login?...` carrying `client_id`, `code_challenge` with `code_challenge_method=S256`, `redirect_uri=http://localhost:4301/api/auth/callback/github` and `scope=read:user user:email`. GitHub then showed its own sign-in page, which is the expected end state for a client id that does not exist.
+- Google could not be followed the same way in this environment: Auth.js performs OIDC discovery against `accounts.google.com`, and this sandbox blocks outbound requests from local processes to that host (`curl` to both `accounts.google.com` and `google.com` returns no response). The provider is registered and `/api/auth/providers` reports the correct callback URL, but the authorize redirect was not observed and is not claimed as verified.
+- Layout checked at 1440, 1024, 768 and 390 px: no logo/navigation/action overlap and no horizontal overflow. The entry shows its text label at 1440 and 390, and collapses to a 36 px circular icon button at 1024 and 768 where the header runs out of room.
+- ESLint passed with zero errors or warnings, and both build targets completed: the Vercel `next build` reports `/` as static with the two API routes dynamic, and the Vinext build still emits `dist/server/wrangler.json`.
+
+final result: passed
+
 ## Hackathon vocabulary retired — 2026-09-16
 
 - 黑客松 is no longer a concept in this project; 杭客松 replaces it everywhere. Demo activity 01 became `AI 创造者杭客松` with the type label `AI HANGKATHON`, and the QA log below no longer quotes the retired word when describing the removed sculpture caption.
