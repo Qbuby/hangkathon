@@ -1,5 +1,18 @@
 # 杭客松首页升级 — Design QA
 
+## Activity creation flow — 2026-09-16
+
+- `/create` is a six-step wizard modelled on Kaggle's Community Competition setup, with Kaggle's dataset/scoring/leaderboard sections replaced by the two axes this site needs: 线上/线下 and 免费/收费. The step list is declarative (`STEPS` in `lib/activity.ts`); the page only renders and validates it.
+- The whole flow was walked end to end in the browser and every value landed in storage correctly: conditional fields swapped when 线下 → 线上 and 免费 → 收费, the date-order check blocked a deadline earlier than the start date, the criteria repeater added and removed rows while keeping a live weight total, and the weight check blocked advancing at 110% with `权重合计需要是 100%，当前是 110%`.
+- A real defect surfaced during that walkthrough: slugifying a Chinese title left only `ai`, producing a useless URL. Auto-fill now only applies when the ASCII result is at least three characters; otherwise the field stays empty and the required-field validation asks for one, with the help text saying so.
+- The form labels were also not associated with their inputs. `Label` now renders a real `<label for>` for text, textarea, date, number and url fields, verified by reading `input.labels[0]` for all five fields on step one.
+- The created activity appears at the top of the homepage list with its `线上 · 收费` type line and `收费` tag, the section label switches to `含本机创建 · 未同步到服务器`, and its detail dialog shows the real host, dates, team size and online entry with a `本机创建` note instead of the demo-data note.
+- Responsive: at 1240 px the preview column drops, at 900 px the step nav becomes a horizontal scroller, and `documentElement.scrollWidth` never exceeds the viewport at 1240, 900 or 390 px.
+- Storage is `localStorage` under `hangkathon.activities.v1`; nothing is sent to a server and the UI says so on the list, in the dialog and on the success screen.
+- ESLint passed with zero errors or warnings. The Vercel build reports `/` and `/create` static with the three API/auth routes dynamic.
+
+final result: passed
+
 ## Sign-in failure modes made explicit — 2026-09-16
 
 - A deployment with `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` but no `AUTH_SECRET` sent the visitor to Auth.js's bare "Server error / Check the server logs" page. Two defects behind that were fixed.

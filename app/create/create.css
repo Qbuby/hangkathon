@@ -1,0 +1,118 @@
+/* 发起活动流程 —— 独立于首页 globals.css，避免继续膨胀。 */
+
+.create-page{min-height:100svh;background:linear-gradient(180deg,#071a30 0%,#0a2137 45%,#081c30 100%)}
+.create-top{display:flex;align-items:center;gap:20px;padding:22px 6%;border-bottom:1px solid #b4d8ff22}
+.create-back{display:flex;align-items:center;gap:9px;font-size:14px;color:#bcd6ee}
+.create-back:hover{color:#fff}
+.create-top-title{font-size:17px;letter-spacing:2px;color:#eaf3ff}
+.create-top-step{margin-left:auto;font-size:12px;letter-spacing:1px;color:#8fa8c0}
+
+.create-body{display:grid;grid-template-columns:262px minmax(0,1fr) 300px;gap:44px;padding:40px 6% 70px;align-items:start}
+
+.create-steps{display:flex;flex-direction:column;gap:6px;position:sticky;top:24px;scrollbar-width:thin;scrollbar-color:#2f5476 transparent}
+.create-steps::-webkit-scrollbar{height:4px}
+.create-steps::-webkit-scrollbar-thumb{background:#2f5476;border-radius:4px}
+.create-step{display:flex;gap:13px;align-items:flex-start;text-align:left;padding:13px 14px;border:1px solid transparent;border-radius:10px;background:transparent;color:#9fb8d0;transition:background .2s,border-color .2s}
+.create-step:hover{background:#a0d8ff0a}
+.create-step.is-current{border-color:#bcddff35;background:#a0d8ff0d;color:#eaf3ff}
+.create-step.is-done{color:#8fd8c4}
+.create-step-index{flex:none;width:24px;height:24px;border-radius:50%;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:12px}
+.create-step-text{display:flex;flex-direction:column;gap:5px}
+.create-step-text strong{font-size:15px;font-weight:550;letter-spacing:1px}
+.create-step-text small{font-size:11px;line-height:1.6;color:#7f9ab2}
+.create-step.is-current .create-step-text small{color:#a8c2d8}
+
+.create-form{display:flex;flex-direction:column;gap:30px;min-width:0}
+.create-form-head h2{font-size:27px;font-weight:550;margin:0 0 10px;letter-spacing:1px}
+.create-form-head p{font-size:13px;color:#9fb8d0;margin:0}
+
+.cf-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px 24px}
+.cf-field{display:flex;flex-direction:column;gap:10px;grid-column:1/-1;min-width:0}
+.cf-field.cf-half{grid-column:auto}
+.cf-label{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.cf-label-text{display:flex;align-items:center;gap:8px;font-size:14px;letter-spacing:1px;color:#dce9f8}
+.cf-label-text i{font-style:normal;font-size:10px;letter-spacing:1px;color:#7fd8f5;border:1px solid #7fd8f555;border-radius:3px;padding:1px 5px}
+.cf-help{font-size:11.5px;line-height:1.7;color:#8aa4bc;margin:0}
+.cf-error{font-size:11.5px;line-height:1.7;color:#f79a9a;margin:0}
+
+.cf-input{width:100%;min-width:0;background:#0b2437;border:1px solid #b4d8ff2e;border-radius:9px;padding:13px 15px;font:inherit;font-size:14px;color:#eaf3ff;outline:none;transition:border-color .18s,box-shadow .18s}
+.cf-input::placeholder{color:#6d88a1}
+.cf-input:focus-visible{border-color:#54d7ff88;box-shadow:0 0 0 3px #54d7ff22}
+.cf-input[aria-invalid="true"]{border-color:#f4777777}
+textarea.cf-input{resize:vertical;line-height:1.8}
+
+.cf-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.cf-options-inline{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+.cf-option{display:flex;flex-direction:column;gap:6px;text-align:left;padding:15px 17px;border:1px solid #b4d8ff2e;border-radius:10px;background:transparent;color:#cfe0f2;transition:border-color .18s,background .18s}
+.cf-option:hover{background:#a0d8ff0a}
+.cf-option.is-selected{border-color:#54d7ff99;background:#54d7ff14;color:#f2f9ff}
+.cf-option-compact{align-items:center;justify-content:center;padding:12px 14px}
+.cf-option-label{font-size:14px;letter-spacing:1px}
+.cf-option-hint{font-size:11px;line-height:1.6;color:#8aa4bc}
+
+.cf-switch{display:flex;align-items:center;gap:13px;background:none;border:0;padding:6px 0;color:#dce9f8}
+.cf-switch-track{flex:none;width:44px;height:25px;border-radius:20px;border:1px solid #b4d8ff44;background:#0b2437;position:relative;transition:background .2s,border-color .2s}
+.cf-switch-thumb{position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#8aa4bc;transition:transform .2s,background .2s}
+.cf-switch.is-on .cf-switch-track{border-color:#54d7ff99;background:#54d7ff2e}
+.cf-switch.is-on .cf-switch-thumb{transform:translateX(19px);background:#8deaff}
+.cf-switch-text{font-size:14px;letter-spacing:1px}
+
+.cf-repeater{display:flex;flex-direction:column;gap:12px}
+.cf-repeater-title{font-size:12px;letter-spacing:1px;color:#8fd8c4}
+.cf-row{display:flex;align-items:center;gap:10px}
+.cf-row .cf-input{flex:1}
+.cf-input-weight{flex:none;width:88px;text-align:center}
+.cf-input-reward{flex:1.4}
+.cf-unit{font-size:12px;color:#8aa4bc;flex:none}
+.cf-remove{flex:none;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid #b4d8ff2e;border-radius:8px;background:transparent;color:#9fb8d0}
+.cf-remove:hover{border-color:#f4777766;color:#f79a9a}
+.cf-add{align-self:flex-start;display:flex;align-items:center;gap:8px;font-size:13px;color:#8deaff;background:none;border:1px dashed #8deaff55;border-radius:9px;padding:10px 15px}
+.cf-add:hover{border-style:solid;background:#8deaff12}
+
+.create-actions{display:flex;align-items:center;justify-content:space-between;gap:20px;border-top:1px solid #b4d8ff22;padding-top:26px}
+.create-primary,.create-secondary{height:52px!important;border-radius:9px!important;padding:0 26px!important;gap:11px!important;font-size:15px!important;letter-spacing:1px!important;min-width:0!important}
+.create-primary{background:#f1f7ff!important;color:#082b64!important;font-weight:650!important}
+.create-primary:hover{background:white!important}
+.create-secondary{background:transparent!important;border:1px solid #d7eaff55!important;color:#e8f5ff!important}
+.create-secondary:hover:not(:disabled){background:#c7e6ff12!important}
+.create-secondary:disabled{opacity:.35!important}
+
+.create-preview{position:sticky;top:24px;display:flex;flex-direction:column;gap:14px}
+.create-preview-label{font-size:10px;letter-spacing:2.4px;color:#8aa4bc}
+.create-card{border:1px solid #b4d8ff2e;border-radius:14px;background:#0c2338;padding:24px;display:flex;flex-direction:column;gap:14px}
+.create-card-tags{display:flex;flex-wrap:wrap;gap:8px}
+.create-card-tags span{font-size:11px;letter-spacing:1px;color:#a9d8f0;border:1px solid #a9d8f040;border-radius:4px;padding:3px 9px}
+.create-card h3{font-size:19px;font-weight:550;line-height:1.5;margin:0;letter-spacing:.5px;word-break:break-word}
+.create-card-sub{font-size:12.5px;line-height:1.75;color:#9fb8d0;margin:0;word-break:break-word}
+.create-card-meta{display:flex;flex-direction:column;gap:11px;margin:4px 0 0;border-top:1px solid #b4d8ff22;padding-top:16px}
+.create-card-meta div{display:flex;justify-content:space-between;gap:14px;font-size:12px}
+.create-card-meta dt{color:#8aa4bc;flex:none}
+.create-card-meta dd{margin:0;color:#dce9f8;text-align:right;word-break:break-all}
+
+.create-done{max-width:600px;margin:0 auto;padding:14vh 6% 0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:18px}
+.create-done-mark{width:60px;height:60px;border-radius:50%;border:1px solid #8fd8c455;background:#8fd8c414;color:#8fd8c4;display:flex;align-items:center;justify-content:center}
+.create-done h1{font-size:30px;font-weight:600;margin:0;letter-spacing:2px}
+.create-done p{font-size:14px;line-height:1.9;color:#a8c2d8;margin:0}
+.create-done-actions{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:10px}
+.create-done-actions .primary-action,.create-done-actions .secondary-action{height:52px!important;min-width:0!important;font-size:15px!important;padding:0 26px!important}
+
+@media(max-width:1240px){
+  .create-body{grid-template-columns:236px minmax(0,1fr);gap:34px}
+  .create-preview{display:none}
+}
+@media(max-width:900px){
+  .create-body{grid-template-columns:1fr;gap:26px;padding:26px 6% 56px}
+  .create-steps{position:static;flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:6px}
+  .create-step{flex:none;padding:10px 13px}
+  .create-step-text small{display:none}
+  .cf-grid{grid-template-columns:1fr;gap:22px}
+  .cf-field.cf-half{grid-column:1/-1}
+  .cf-row{flex-wrap:wrap}
+  .cf-input-reward{flex:1 1 100%}
+}
+@media(max-width:600px){
+  .create-form-head h2{font-size:22px}
+  .create-actions{flex-direction:column-reverse;align-items:stretch}
+  .create-primary,.create-secondary{width:100%!important;justify-content:center!important}
+  .cf-options,.cf-options-inline{grid-template-columns:1fr}
+}
