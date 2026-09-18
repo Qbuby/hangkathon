@@ -202,7 +202,7 @@ export default function CreateActivityPage() {
               <div><dt>队伍</dt><dd>每队最多 {String(values.maxTeamSize || "—")} 人</dd></div>
               <div><dt>评审</dt><dd>{criteria.filter((c) => c.name).length} 个维度</dd></div>
               <div><dt>奖项</dt><dd>{values.awardsEnabled ? `${awards.filter((a) => a.name).length} 项` : "不设奖"}</dd></div>
-              <div><dt>链接</dt><dd>/{String(values.slug || "…")}</dd></div>
+              <div><dt>活动地址</dt><dd>/{String(values.slug || "…")}</dd></div>
             </dl>
           </div>
         </aside>

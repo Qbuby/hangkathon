@@ -27,14 +27,15 @@ const demoRows: Row[] = [
 ];
 
 function activityRow(activity: Activity): Row {
-  const where = activity.format === "offline" ? `地点：${activity.venue}。` : activity.onlineUrl ? `线上入口：${activity.onlineUrl}。` : "线上参与。";
+  const where = activity.format === "offline" ? `地点：${activity.venue}。` : "线上参与。";
+  const criteria = activity.criteria.map((c) => `${c.name} ${c.weight}%`).join("、");
   return {
     type: `${formatLabel(activity)} · ${pricingLabel(activity)}`,
     title: activity.subtitle,
     name: activity.title,
     description: activity.overview || activity.subtitle,
     tag: activity.pricing === "free" ? "免费" : "收费",
-    details: `主办方：${activity.host}。时间：${activity.startsAt} 至 ${activity.endsAt}。每队最多 ${activity.maxTeamSize} 人。${where}`,
+    details: `主办方：${activity.host}。时间：${activity.startsAt} 至 ${activity.endsAt}。每队最多 ${activity.maxTeamSize} 人。${where}评审维度：${criteria || "未设置"}。`,
     custom: activity,
   };
 }

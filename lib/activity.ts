@@ -23,7 +23,6 @@ export type Activity = {
   host: string;
   format: ActivityFormat;
   venue: string;
-  onlineUrl: string;
   pricing: ActivityPricing;
   fee: string;
   startsAt: string;
@@ -44,10 +43,10 @@ export type Activity = {
 export type Draft = Record<string, unknown>;
 
 export const SUBMISSION_TYPES = [
-  { value: "repo", label: "代码仓库" },
+  { value: "writeup", label: "项目说明" },
+  { value: "files", label: "代码或文件" },
   { value: "video", label: "演示视频" },
-  { value: "demo", label: "在线 Demo" },
-  { value: "writeup", label: "说明文档" },
+  { value: "demo", label: "交互 Demo" },
   { value: "live", label: "现场演示" },
 ];
 
@@ -61,7 +60,7 @@ export type Field =
   | {
       name: string;
       label: string;
-      type: "text" | "textarea" | "date" | "number" | "url";
+      type: "text" | "textarea" | "date" | "number";
       placeholder?: string;
       help?: string;
       required?: boolean;
@@ -96,7 +95,6 @@ export type Step = {
   fields: (Field & { showIf?: (v: Draft) => boolean })[];
 };
 
-const isOnline = (v: Draft) => v.format === "online";
 const isOffline = (v: Draft) => v.format === "offline";
 const isPaid = (v: Draft) => v.pricing === "paid";
 const hasAwards = (v: Draft) => v.awardsEnabled === true;
@@ -109,7 +107,7 @@ export const STEPS: Step[] = [
     summary: "活动的名字、一句话说明和主办方",
     fields: [
       { name: "title", label: "活动名称", type: "text", required: true, placeholder: "例如：AI 创造者杭客松 · 夏季场", help: "写清楚这一场要解决什么，比写得多更管用。" },
-      { name: "slug", label: "链接地址", type: "text", required: true, placeholder: "ai-creators-autumn", help: "活动的网址后缀，只能用字母、数字和连字符。中文标题需要自己写一个。" },
+      { name: "slug", label: "活动地址", type: "text", required: true, placeholder: "ai-creators-autumn", help: "活动在杭客松上的网址后缀，只能用字母、数字和连字符。中文标题需要自己写一个。" },
       { name: "subtitle", label: "一句话说明", type: "text", required: true, placeholder: "用一个周末，把想法做成能跑的原型" },
       { name: "overview", label: "详细介绍", type: "textarea", placeholder: "背景、面向谁、期待什么样的作品……" },
       { name: "host", label: "主办方", type: "text", required: true, placeholder: "个人、团队或机构名称" },
@@ -126,12 +124,12 @@ export const STEPS: Step[] = [
         type: "radio",
         required: true,
         options: [
-          { value: "online", label: "线上", hint: "不限地点，线上组队与提交" },
+          { value: "online", label: "线上", hint: "不限地点，在杭客松上组队与提交" },
           { value: "offline", label: "线下", hint: "需要到场参与" },
         ],
+        help: "活动在杭客松平台内进行，不需要跳转到其他网站。",
       },
-      { name: "venue", label: "活动地点", type: "text", required: true, showIf: isOffline, placeholder: "例如：杭州市西湖区 · 某某空间" },
-      { name: "onlineUrl", label: "线上入口", type: "url", showIf: isOnline, placeholder: "https://", help: "直播、会议或活动主页链接，可稍后补充。" },
+      { name: "venue", label: "活动地点", type: "text", required: true, showIf: isOffline, placeholder: "例如：杭州市西湖区 · 某某空间", help: "线下活动需要说明在哪里集合。" },
       {
         name: "pricing",
         label: "参与费用",
@@ -161,7 +159,7 @@ export const STEPS: Step[] = [
     title: "提交与评审",
     summary: "作品以什么形式提交，由谁、按什么标准评审",
     fields: [
-      { name: "submissionTypes", label: "接受的提交形式", type: "checks", required: true, options: SUBMISSION_TYPES },
+      { name: "submissionTypes", label: "接受的提交形式", type: "checks", required: true, options: SUBMISSION_TYPES, help: "参与者直接在杭客松上提交，不需要填写任何外部链接。" },
       {
         name: "judging",
         label: "评审方式",
@@ -197,7 +195,7 @@ export const STEPS: Step[] = [
         required: true,
         options: [
           { value: "public", label: "公开", hint: "在活动列表和搜索中可见" },
-          { value: "unlisted", label: "不公开", hint: "只有拿到链接的人能看到" },
+          { value: "unlisted", label: "不公开", hint: "只有拿到活动地址的人能看到" },
         ],
       },
       {
@@ -207,7 +205,7 @@ export const STEPS: Step[] = [
         required: true,
         options: [
           { value: "anyone", label: "所有人" },
-          { value: "link", label: "持有链接的人" },
+          { value: "link", label: "持有活动地址的人" },
           { value: "email", label: "限定邮箱域名" },
         ],
       },
@@ -225,7 +223,6 @@ export function initialDraft(host = ""): Draft {
     host,
     format: "offline",
     venue: "",
-    onlineUrl: "",
     pricing: "free",
     fee: "",
     startsAt: "",
@@ -272,9 +269,6 @@ export function validateStep(step: Step, values: Draft): Record<string, string> 
 
     if (field.type === "text" && field.name === "slug" && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(String(value))) {
       errors[field.name] = "只能使用小写字母、数字和连字符";
-    }
-    if (field.type === "url" && !/^https?:\/\/\S+$/.test(String(value))) {
-      errors[field.name] = "需要以 http:// 或 https:// 开头";
     }
     if (field.type === "number") {
       const n = Number(value);
@@ -329,7 +323,6 @@ export function toActivity(values: Draft): Activity {
     host: String(values.host ?? "").trim(),
     format: values.format === "online" ? "online" : "offline",
     venue: values.format === "offline" ? String(values.venue ?? "").trim() : "",
-    onlineUrl: values.format === "online" ? String(values.onlineUrl ?? "").trim() : "",
     pricing: values.pricing === "paid" ? "paid" : "free",
     fee: values.pricing === "paid" ? String(values.fee ?? "").trim() : "",
     startsAt: String(values.startsAt ?? ""),
@@ -352,6 +345,46 @@ export function toActivity(values: Draft): Activity {
 
 export const STORAGE_KEY = "hangkathon.activities.v1";
 
+const text = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
+const list = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+/**
+ * Stored activities outlive schema changes, so fill in anything an older
+ * record is missing rather than letting the list render crash on it.
+ */
+function normalize(raw: unknown): Activity | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Record<string, unknown>;
+  const title = text(value.title);
+  if (!title) return null;
+
+  return {
+    id: text(value.id) || `a_${title}`,
+    slug: text(value.slug) || "activity",
+    title,
+    subtitle: text(value.subtitle),
+    overview: text(value.overview),
+    host: text(value.host),
+    format: value.format === "online" ? "online" : "offline",
+    venue: text(value.venue),
+    pricing: value.pricing === "paid" ? "paid" : "free",
+    fee: text(value.fee),
+    startsAt: text(value.startsAt),
+    endsAt: text(value.endsAt),
+    maxTeamSize: Number(value.maxTeamSize) || 1,
+    openTeam: value.openTeam !== false,
+    submissionTypes: list<string>(value.submissionTypes),
+    judging: (value.judging as Judging) ?? "judges",
+    criteria: list<Criterion>(value.criteria).filter((c) => c && typeof c.name === "string"),
+    awardsEnabled: value.awardsEnabled === true,
+    awards: list<Award>(value.awards).filter((a) => a && typeof a.name === "string"),
+    visibility: value.visibility === "unlisted" ? "unlisted" : "public",
+    joinPolicy: (value.joinPolicy as JoinPolicy) ?? "anyone",
+    emailDomain: text(value.emailDomain),
+    createdAt: text(value.createdAt, new Date(0).toISOString()),
+  };
+}
+
 /** Activities live in the browser until a database is provisioned. */
 export function loadActivities(): Activity[] {
   if (typeof window === "undefined") return [];
@@ -360,7 +393,7 @@ export function loadActivities(): Activity[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is Activity => Boolean(item) && typeof item === "object" && typeof (item as Activity).title === "string");
+    return parsed.map(normalize).filter((item): item is Activity => item !== null);
   } catch {
     return [];
   }

@@ -1,5 +1,16 @@
 # 杭客松首页升级 — Design QA
 
+## Activities stay on-platform — 2026-09-18
+
+- The creation flow no longer asks for anything that points off-site. The `线上入口` url field was removed entirely (including the `url` field type and its validator), so an online activity is simply an activity run on 杭客松 rather than a redirect to a meeting link.
+- The submission-type options were reworded for the same reason: `代码仓库` → `代码或文件`, `在线 Demo` → `交互 Demo`, `说明文档` → `项目说明`. The old labels implied a hosted external repository or site; the new ones describe what a participant submits inside the platform.
+- Wording followed the change: the format step now states 活动在杭客松平台内进行，不需要跳转到其他网站, the submission step says participants submit on 杭客松 without filling in external links, `链接地址` became `活动地址`, and the unlisted/link-only options now say 持有活动地址的人.
+- Legacy stored records are normalized on read instead of trusted. This was not theoretical: an activity created before the change was still in localStorage carrying the removed `onlineUrl` key, and `activityRow` mapped `activity.criteria` unguarded, so any older or partial record could have crashed the list. A planted record missing `criteria`, `awards` and `slug`, plus a non-activity object, now renders without error and the detail dialog falls back to `评审维度：未设置`.
+- Re-verified end to end after the change: 线上 selected shows only 参与形式 and 参与费用 with zero `input[type="url"]` on the page, the new submission labels render, and the created record stores with no `onlineUrl` key.
+- ESLint passed with zero errors or warnings, `tsc --noEmit` passed, and the Vercel build still reports `/` and `/create` static with the three API/auth routes dynamic.
+
+final result: passed
+
 ## Activity creation flow — 2026-09-16
 
 - `/create` is a six-step wizard modelled on Kaggle's Community Competition setup, with Kaggle's dataset/scoring/leaderboard sections replaced by the two axes this site needs: 线上/线下 and 免费/收费. The step list is declarative (`STEPS` in `lib/activity.ts`); the page only renders and validates it.

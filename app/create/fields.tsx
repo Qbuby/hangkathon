@@ -253,7 +253,7 @@ export default function FieldControl({ field, value, error, onChange }: Props) {
       ) : (
         <input
           {...shared}
-          type={field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "url" ? "url" : "text"}
+          type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
           min={"min" in field ? field.min : undefined}
           max={"max" in field ? field.max : undefined}
         />
