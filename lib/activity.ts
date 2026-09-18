@@ -107,7 +107,7 @@ export const STEPS: Step[] = [
     summary: "活动的名字、一句话说明和主办方",
     fields: [
       { name: "title", label: "活动名称", type: "text", required: true, placeholder: "例如：AI 创造者杭客松 · 夏季场", help: "写清楚这一场要解决什么，比写得多更管用。" },
-      { name: "slug", label: "活动地址", type: "text", required: true, placeholder: "ai-creators-autumn", help: "活动在杭客松上的网址后缀，只能用字母、数字和连字符。中文标题需要自己写一个。" },
+      { name: "slug", label: "活动代号", type: "text", required: true, placeholder: "ai-creators-autumn", help: "给这场活动起一个代号，站内用它来指代这场活动。只能用字母、数字和连字符，中文标题需要自己起一个。" },
       { name: "subtitle", label: "一句话说明", type: "text", required: true, placeholder: "用一个周末，把想法做成能跑的原型" },
       { name: "overview", label: "详细介绍", type: "textarea", placeholder: "背景、面向谁、期待什么样的作品……" },
       { name: "host", label: "主办方", type: "text", required: true, placeholder: "个人、团队或机构名称" },
@@ -195,7 +195,7 @@ export const STEPS: Step[] = [
         required: true,
         options: [
           { value: "public", label: "公开", hint: "在活动列表和搜索中可见" },
-          { value: "unlisted", label: "不公开", hint: "只有拿到活动地址的人能看到" },
+          { value: "unlisted", label: "不公开", hint: "不在活动列表中展示，只有拿到代号的人能找到" },
         ],
       },
       {
@@ -205,7 +205,7 @@ export const STEPS: Step[] = [
         required: true,
         options: [
           { value: "anyone", label: "所有人" },
-          { value: "link", label: "持有活动地址的人" },
+          { value: "link", label: "知道活动代号的人" },
           { value: "email", label: "限定邮箱域名" },
         ],
       },

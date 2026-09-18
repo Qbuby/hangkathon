@@ -1,5 +1,14 @@
 # 杭客松首页升级 — Design QA
 
+## The identifier field renamed again — 2026-09-18
+
+- `活动地址` still read as "type a URL here", so the field is now `活动代号` with the help text 给这场活动起一个代号，站内用它来指代这场活动。 It is an in-platform identifier, not a destination.
+- The preview card also stopped presenting it as a path: it rendered `/{slug}`, which is exactly what made the field look like a URL. It now shows the bare value under the `活动代号` row.
+- The two access options that referenced it followed: 不公开 now reads 不在活动列表中展示，只有拿到代号的人能找到, and the restricted join policy reads 知道活动代号的人.
+- ESLint passed with zero errors or warnings, `tsc --noEmit` passed, and the Vercel build succeeded.
+
+final result: passed
+
 ## Activities stay on-platform — 2026-09-18
 
 - The creation flow no longer asks for anything that points off-site. The `线上入口` url field was removed entirely (including the `url` field type and its validator), so an online activity is simply an activity run on 杭客松 rather than a redirect to a meeting link.
