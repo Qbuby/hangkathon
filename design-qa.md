@@ -1,5 +1,17 @@
 # 杭客松首页升级 — Design QA
 
+## Activity detail pages behind the board cards — 2026-09-18
+
+- Clicking an activity card on the board now goes to `/activities/[slug]`, a second-level page for that activity. The three demo pages (`midautumn-poetry` / `shop-ai-assistant` / `city-memory-map`) are prerendered with `generateStaticParams`; activities created on this device resolve from localStorage after mount, so the same route serves both sources.
+- The detail page reuses the `/create` secondary-page skeleton: back bar, hero with category/format/pricing/visibility tags, then sections for 活动介绍 / 评审维度 (weight bars) / 奖项 / 提交形式, plus a sticky sidebar with 关键信息 (time, venue, team, prize, fee, team policy, join policy, 活动代号) and a join panel. The 报名参加 button is disabled on purpose — registration does not exist yet — and the note under it says plainly whether the activity is fictional demo data or a local record that never left this browser.
+- Unknown slugs get a dedicated not-found state that explains local activities only exist on the device that created them, with a link back to the board.
+- Browser-verified on the production build: card click → `/activities/midautumn-poetry` with correct title, four sections, eight fact rows, criteria weights (40/30/30) and three awards; back link returns to `/#activities`; `/activities/no-such-activity` shows the not-found state; a planted localStorage activity rendered with the 本机创建 label, its venue/fee/prize, and appeared as a fourth card on the board (共 4 场) linking to its own page.
+- Responsive: at 390 px the sidebar (facts + join) moves above the long sections (`order: -1`) and nothing overflows; at 1440 px the sidebar sits to the right of the main column. Verified numerically in the browser at both widths.
+- The creation flow's success screen now links to `/activities/[slug]` of the activity just published, plus 回到活动看板. That href uses the same verified Link pattern as the board cards; the full six-step form was not re-walked end to end this time.
+- ESLint passed with zero errors or warnings (`set-state-in-effect` on the detail page resolved the same way `scene.tsx` does — deferred via timeout callback), `tsc --noEmit` passed, and both build targets succeeded. The Vercel build lists the three demo detail routes as SSG.
+
+final result: passed
+
 ## 关于我们 shortened to a sentence or two — 2026-09-18
 
 - The homepage about section was too long. It now keeps only the eyebrow, the heading 关于我们, and two sentences: what 杭客松 connects (AI 创造者 / 真实需求 / 城市场景) and the question the platform keeps asking. The three principle cards, the three evaluating forces, the blockquote and the demo note were removed; `about.css` shrank to match.

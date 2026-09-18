@@ -105,7 +105,8 @@ export default function CreateActivityPage() {
             「{published.title}」已经加入活动列表。当前版本把活动保存在这台设备的浏览器里，换设备或清理数据后会消失。
           </p>
           <div className="create-done-actions">
-            <Button asChild className="primary-action"><Link href="/#activities">去活动列表看它 <ArrowRight size={18} /></Link></Button>
+            <Button asChild className="primary-action"><Link href={`/activities/${published.slug}`}>查看活动页 <ArrowRight size={18} /></Link></Button>
+            <Button variant="ghost" className="secondary-action"><Link href="/#activities">回到活动看板</Link></Button>
             <Button variant="ghost" className="secondary-action" onClick={() => { setPublished(null); setValues(initialDraft()); setStepIndex(0); setSlugTouched(false); }}>
               再办一场
             </Button>

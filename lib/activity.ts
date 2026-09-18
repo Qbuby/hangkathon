@@ -249,7 +249,7 @@ export function initialDraft(host = ""): Draft {
     endsAt: "",
     maxTeamSize: 4,
     openTeam: true,
-    submissionTypes: ["repo", "demo"],
+    submissionTypes: ["writeup", "demo"],
     judging: "judges",
     criteria: EMPTY_CRITERIA.map((c) => ({ ...c })),
     awardsEnabled: true,
@@ -434,4 +434,33 @@ export function formatLabel(activity: Activity) {
 
 export function pricingLabel(activity: Activity) {
   return activity.pricing === "free" ? "免费" : "收费";
+}
+
+export function prizeText(activity: Activity) {
+  if (!activity.awardsEnabled) return "不设奖";
+  if (activity.prizePool > 0) return `奖金 ¥${activity.prizePool.toLocaleString("zh-CN")}`;
+  return "荣誉奖项";
+}
+
+export function judgingLabel(judging: Judging) {
+  return judging === "public" ? "公众评价" : judging === "both" ? "评审 + 公众" : "评审评价";
+}
+
+export function visibilityLabel(visibility: Visibility) {
+  return visibility === "unlisted" ? "不公开" : "公开";
+}
+
+export function joinPolicyLabel(activity: Activity) {
+  if (activity.joinPolicy === "email") return `限 ${activity.emailDomain || "指定邮箱域名"} 的邮箱`;
+  if (activity.joinPolicy === "link") return "知道活动代号的人";
+  return "所有人可报名";
+}
+
+export function submissionLabels(types: string[]) {
+  return types.map((value) => SUBMISSION_TYPES.find((item) => item.value === value)?.label ?? value);
+}
+
+/** Resolve one activity by its 活动代号, searching this device's records first. */
+export function findActivityBySlug(slug: string, demoActivities: Activity[] = []): Activity | null {
+  return loadActivities().find((item) => item.slug === slug) ?? demoActivities.find((item) => item.slug === slug) ?? null;
 }

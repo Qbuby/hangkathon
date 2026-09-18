@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CalendarDays, Coins, MapPin, Users } from "lucide-react";
-import { CATEGORIES, categoryLabel, formatLabel, pricingLabel, type Activity } from "@/lib/activity";
+import { CATEGORIES, categoryLabel, formatLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
 import "./board.css";
 
 type PrizeFilter = "all" | "with" | "without";
@@ -34,12 +34,6 @@ const SORTS: { value: Sort; label: string }[] = [
   { value: "prize", label: "奖金最高" },
   { value: "ending", label: "即将截止" },
 ];
-
-function prizeText(activity: Activity) {
-  if (!activity.awardsEnabled) return "不设奖";
-  if (activity.prizePool > 0) return `奖金 ¥${activity.prizePool.toLocaleString("zh-CN")}`;
-  return "荣誉奖项";
-}
 
 function Chip({
   active,
@@ -167,7 +161,7 @@ export default function ActivityBoard({
       ) : (
         <div className="board-grid">
           {shown.map((activity) => (
-            <article className="board-card" key={activity.id}>
+            <Link className="board-card" href={`/activities/${activity.slug}`} key={activity.id} aria-label={`查看${activity.title}详情`}>
               <div className="board-card-tags">
                 <span className="is-category">{categoryLabel(activity.category)}</span>
                 <span>{formatLabel(activity)}</span>
@@ -195,7 +189,8 @@ export default function ActivityBoard({
               </dl>
 
               <p className="board-card-host">主办方 · {activity.host}</p>
-            </article>
+              <span className="board-card-more">查看详情 <ArrowUpRight size={15} /></span>
+            </Link>
           ))}
         </div>
       )}
