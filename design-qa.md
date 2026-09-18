@@ -1,5 +1,17 @@
 # 杭客松首页升级 — Design QA
 
+## Header dedup: 算盘 placeholder, duplicate board entries removed — 2026-09-18
+
+- The user pointed out two duplicate clusters on the homepage: the header carried 发起活动 twice (nav link + right pill, both to `/create`), and the activity board had four entry points (nav AI 活动, hero 探索活动, hero-bottom 了解更多, skip-link — three of them the same `#activities` anchor).
+- Per the user's choices: the nav item 发起活动 became 算盘 — a disabled placeholder button (灰字, `aria-disabled`, title 筹备中) with no destination, dialog, or second-level page yet; the redundant `.header-create` pill was deleted; nav「AI 活动」was removed in favor of keeping the hero「探索活动」button; hero-bottom「了解更多」was removed as a third `#activities` duplicate.
+- Header now reads: Logo ｜ 算盘（筹备中）｜ 中/EN · 登录. Homepage 发起活动 labels dropped from 5 to 2 (hero + board head); board entries are the skip-link and hero 探索活动.
+- Dead CSS removed with the controls: `.header-create` (base/≤1400/≤760), `.scroll-explore` (all bands, keeping the `.hero-feature+ .hero-feature:before` half of the shared divider rule), and the now-unused `.nav-active` rule. `.hero-bottom` desktop grid lost the `auto` column that only existed for 了解更多; `.header-actions` base gap shrank 66→28px; new `.site-header nav .nav-pending` styles the placeholder. `.primary-action` CSS kept — create/detail pages still use it.
+- Browser-verified on the production build at 1440 / 1024 / 768 / 390: nav contains exactly one disabled 算盘 button; clicking it changes nothing (path stays `/`, no dialog); 探索活动 still jumps to `#activities`; hero and board 发起活动 still href `/create`; 了解更多 absent; language + session controls intact; no horizontal overflow at any width. Homepage HTML shows 发起活动 ×2 and no `header-create` / nav AI 活动 / 了解更多 strings.
+- ESLint passed with zero errors or warnings, `tsc --noEmit` passed, both build targets succeeded.
+- Not touched in this pass (user deferred): hero-bottom 算力与数据/模型与开源 opening the same compute dialog, 真实需求 linking to `/create`, footer brand + arrow both targeting `#top`, the dead-end 中/EN dialog.
+
+final result: passed
+
 ## Mobile hero background shows the full image — 2026-09-18
 
 - The hero background was `center/cover` on every viewport. On phones that scaled the 1672×941 artwork up to fill an ~850 px-tall hero, so only a narrow vertical slice of it was visible. The ≤760 px rule now sets `background-size: contain` with `background-position: center`: the image shrinks to fit the hero width and the whole picture stays visible, uncropped. Desktop keeps `cover` unchanged.

@@ -40,10 +40,9 @@ export default function Home() {
       <header className="site-header">
         <a href="#top" className="wordmark" aria-label="杭客松首页"><Image className="wordmark-image" src="/brand/hangkathon-logo.png" alt="杭客松 Hangkathon" width={1400} height={468} priority draggable={false} /></a>
         <nav aria-label="主导航">
-          <a className="nav-active" href="#activities">AI 活动</a>
-          <Link href="/create">发起活动</Link>
+          <button type="button" className="nav-pending" disabled aria-disabled="true" title="筹备中">算盘</button>
         </nav>
-        <div className="header-actions"><Link className="header-create" href="/create">发起活动 <ArrowUpRight size={18} /></Link><button className="language-control" onClick={() => setPanel("language")} aria-label="语言，当前为中文"><strong>中</strong><span>/ EN</span></button><SessionMenu /></div>
+        <div className="header-actions"><button className="language-control" onClick={() => setPanel("language")} aria-label="语言，当前为中文"><strong>中</strong><span>/ EN</span></button><SessionMenu /></div>
       </header>
 
       <section className="hero" aria-labelledby="hero-title">
@@ -62,7 +61,6 @@ export default function Home() {
           <button className="hero-feature" onClick={() => setPanel("compute")}><Box /><span><strong>模型与开源</strong><small>连接全球开源生态</small></span></button>
           <Link className="hero-feature" href="/create"><NotebookText /><span><strong>真实需求</strong><small>面向产业的实际问题</small></span></Link>
           <a className="hero-feature" href="#about"><UsersRound /><span><strong>共创社区</strong><small>开发者 · 企业 · 创造者</small></span></a>
-          <a className="scroll-explore" href="#activities"><span><ArrowRight size={22} /></span><strong>了解更多</strong></a>
         </div>
       </section>
 
