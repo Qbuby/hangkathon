@@ -1,5 +1,16 @@
 # 杭客松首页升级 — Design QA
 
+## Activity board replaces the activity list — 2026-09-18
+
+- The homepage list became a filterable board: 类别 / 奖金 / 形式 / 费用 as filters and 最新发布 / 奖金最高 / 即将截止 as sorts. The header navigation lost 数算 and now reads AI 活动 / 发起活动 / 关于我们.
+- The three demo activities were rewritten as full `Activity` records in `lib/demo-activities.ts`, identical in shape to user-created ones, so filtering, sorting and card rendering run one code path for both. The first is 中秋诗会 · 用 AI 写杭州 — 全民用 AI 创作与中秋、杭州相关的诗词歌赋.
+- Filtering and sorting were exercised in the browser rather than assumed: 有奖金 → 2, 无奖金 → 1, 线下 → 1, 收费 → 1, 内容创作 → 1, 奖金最高 → ¥50,000 first, 即将截止 → earliest deadline first, 清除筛选 → back to 3 with the reset control disappearing.
+- The board's filters need data to filter on, so the creation flow gained the matching fields: 活动类别 (radio, five options) on the basics step and 奖金总额 on the awards step. A created 社区共创 activity with ¥8,000 was verified end to end — stored correctly, appeared on the board, and was the only card returned by the 社区共创 filter.
+- Responsive: 3 columns at 1440, 2 at 1050, 1 at 768 and 390, with no horizontal overflow at any of them.
+- ESLint passed with zero errors or warnings, `tsc --noEmit` passed, and the Vercel build succeeded with `/` and `/create` static.
+
+final result: passed
+
 ## The identifier field renamed again — 2026-09-18
 
 - `活动地址` still read as "type a URL here", so the field is now `活动代号` with the help text 给这场活动起一个代号，站内用它来指代这场活动。 It is an in-platform identifier, not a destination.

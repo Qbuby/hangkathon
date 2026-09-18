@@ -14,6 +14,20 @@ export type JoinPolicy = "anyone" | "link" | "email";
 export type Criterion = { name: string; weight: number };
 export type Award = { name: string; slots: number; reward: string };
 
+export type Category = "creation" | "tooling" | "city" | "research" | "community";
+
+export const CATEGORIES: { value: Category; label: string }[] = [
+  { value: "creation", label: "内容创作" },
+  { value: "tooling", label: "工具与效率" },
+  { value: "city", label: "城市与生活" },
+  { value: "research", label: "技术探索" },
+  { value: "community", label: "社区共创" },
+];
+
+export function categoryLabel(value: Category | string) {
+  return CATEGORIES.find((item) => item.value === value)?.label ?? "其他";
+}
+
 export type Activity = {
   id: string;
   slug: string;
@@ -25,6 +39,8 @@ export type Activity = {
   venue: string;
   pricing: ActivityPricing;
   fee: string;
+  category: Category;
+  prizePool: number;
   startsAt: string;
   endsAt: string;
   maxTeamSize: number;
@@ -109,6 +125,7 @@ export const STEPS: Step[] = [
       { name: "title", label: "活动名称", type: "text", required: true, placeholder: "例如：AI 创造者杭客松 · 夏季场", help: "写清楚这一场要解决什么，比写得多更管用。" },
       { name: "slug", label: "活动代号", type: "text", required: true, placeholder: "ai-creators-autumn", help: "给这场活动起一个代号，站内用它来指代这场活动。只能用字母、数字和连字符，中文标题需要自己起一个。" },
       { name: "subtitle", label: "一句话说明", type: "text", required: true, placeholder: "用一个周末，把想法做成能跑的原型" },
+      { name: "category", label: "活动类别", type: "radio", required: true, options: CATEGORIES.map((c) => ({ value: c.value, label: c.label })), help: "活动看板会按类别筛选，选一个最贴近的。" },
       { name: "overview", label: "详细介绍", type: "textarea", placeholder: "背景、面向谁、期待什么样的作品……" },
       { name: "host", label: "主办方", type: "text", required: true, placeholder: "个人、团队或机构名称" },
     ],
@@ -180,6 +197,7 @@ export const STEPS: Step[] = [
     summary: "是否设奖，以及奖项怎么分配",
     fields: [
       { name: "awardsEnabled", label: "设置奖项", type: "switch", help: "关闭时这场活动不评名次，只做共创与交流。" },
+      { name: "prizePool", label: "奖金总额", type: "number", min: 0, max: 1000000, half: true, showIf: hasAwards, help: "以人民币元计。没有奖金填 0，只设荣誉也可以。" },
       { name: "awards", label: "奖项设置", type: "awards", showIf: hasAwards },
     ],
   },
@@ -225,6 +243,8 @@ export function initialDraft(host = ""): Draft {
     venue: "",
     pricing: "free",
     fee: "",
+    category: "creation",
+    prizePool: 0,
     startsAt: "",
     endsAt: "",
     maxTeamSize: 4,
@@ -325,6 +345,8 @@ export function toActivity(values: Draft): Activity {
     venue: values.format === "offline" ? String(values.venue ?? "").trim() : "",
     pricing: values.pricing === "paid" ? "paid" : "free",
     fee: values.pricing === "paid" ? String(values.fee ?? "").trim() : "",
+    category: (values.category as Category) ?? "creation",
+    prizePool: values.awardsEnabled ? Number(values.prizePool) || 0 : 0,
     startsAt: String(values.startsAt ?? ""),
     endsAt: String(values.endsAt ?? ""),
     maxTeamSize: Number(values.maxTeamSize) || 1,
@@ -369,6 +391,8 @@ function normalize(raw: unknown): Activity | null {
     venue: text(value.venue),
     pricing: value.pricing === "paid" ? "paid" : "free",
     fee: text(value.fee),
+    category: (value.category as Category) ?? "creation",
+    prizePool: Number(value.prizePool) || 0,
     startsAt: text(value.startsAt),
     endsAt: text(value.endsAt),
     maxTeamSize: Number(value.maxTeamSize) || 1,
