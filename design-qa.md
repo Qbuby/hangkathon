@@ -1,5 +1,14 @@
 # 杭客松首页升级 — Design QA
 
+## 关于我们 shortened to a sentence or two — 2026-09-18
+
+- The homepage about section was too long. It now keeps only the eyebrow, the heading 关于我们, and two sentences: what 杭客松 connects (AI 创造者 / 真实需求 / 城市场景) and the question the platform keeps asking. The three principle cards, the three evaluating forces, the blockquote and the demo note were removed; `about.css` shrank to match.
+- The `#about` anchor still works: the 共创社区 hero card sets `location.hash` to `#about`, and the old long copy no longer appears anywhere in the page text.
+- Verified in the production build at 1440 px and 390 px: no horizontal overflow, section height 249 px on mobile with the 44/40 px padding from the ≤760 px media query.
+- ESLint passed with zero errors or warnings, `tsc --noEmit` passed, and both build targets succeeded (Vercel `next build` and the Vinext/Cloudflare build).
+
+final result: passed
+
 ## About section moves to the page — 2026-09-18
 
 - 关于我们 left the navigation and became a section at the bottom of the homepage, so the nav is now AI 活动 / 发起活动 only. The content is drawn from `杭客松世界观与结构定义 1.0` rather than invented: the one-line definition of 杭客松, three principles (身份不是入口 / AI 不是产品，是人的新能力 / 比赛负责点火，不负责判决), the three evaluating forces (全民 / 行家 / 场景方), and the recurring core question.
