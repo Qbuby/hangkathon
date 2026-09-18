@@ -100,7 +100,6 @@ export default function ActivityBoard({
         </div>
         <div className="board-head-actions">
           <span className="demo-label">{localCount > 0 ? "含本机创建 · 未同步到服务器" : "演示数据 · 非真实活动"}</span>
-          <Link className="board-create" href="/create">发起活动 <ArrowUpRight size={17} /></Link>
         </div>
       </div>
 

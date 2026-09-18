@@ -1,5 +1,13 @@
 # 杭客松首页升级 — Design QA
 
+## Nav 首页 entry + board create button removed — 2026-09-18
+
+- The user asked for two changes: add a「首页」item to the top nav (only「算盘」felt too sparse), and remove the 发起活动 button at the top-right of the activity board.
+- `app/page.tsx`: nav now has `<a className="nav-home" href="#top">首页</a>` before the disabled 算盘 placeholder. `app/activity-board.tsx`: the `.board-create` Link to `/create` was deleted; 发起活动 now appears only in the hero (and on /create itself). Dead CSS removed: `.board-create` base+hover rules in `app/board.css`; `app/board.css` `.board-head-actions` still holds the demo label alone. New `.site-header nav .nav-home{color:#fff}` in `app/globals.css`.
+- Homepage HTML smoke test on the production build: 发起活动 count = 1 (hero only), `board-create` absent, `nav-home` + 算盘 present.
+- Browser-verified at 1440 and 390: nav reads 首页 ｜ 算盘; clicking 首页 returns scroll to top (`scrollY` 0); board head shows only the demo label; no horizontal overflow at mobile width.
+- ESLint 0/0, `tsc --noEmit` clean after a `VERCEL=1 npm run build` regenerated stale `.next/types`, both build targets succeeded.
+
 ## Header dedup: 算盘 placeholder, duplicate board entries removed — 2026-09-18
 
 - The user pointed out two duplicate clusters on the homepage: the header carried 发起活动 twice (nav link + right pill, both to `/create`), and the activity board had four entry points (nav AI 活动, hero 探索活动, hero-bottom 了解更多, skip-link — three of them the same `#activities` anchor).

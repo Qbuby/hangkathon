@@ -5,8 +5,6 @@
 .board-head h2{font-size:34px;font-weight:500;margin:12px 0 0;letter-spacing:1px}
 .board-sub{font-size:14px;color:#a9c2d9;margin:10px 0 0}
 .board-head-actions{display:flex;align-items:center;gap:16px;flex:none}
-.board-create{display:flex;align-items:center;gap:9px;height:44px;padding:0 20px;border:1px solid #e2edff;border-radius:40px;color:#f2f7ff;font-size:15px;letter-spacing:1px;white-space:nowrap}
-.board-create:hover{background:#c7e6ff12}
 
 .board-filters{border-top:1px solid #b4d8ff28;border-bottom:1px solid #b4d8ff28;padding:18px 0;margin-bottom:34px;display:flex;flex-direction:column;gap:13px}
 .board-filter-row{display:flex;align-items:center;gap:18px}
