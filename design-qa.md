@@ -1,5 +1,14 @@
 # 杭客松首页升级 — Design QA
 
+## Mobile hero background shows the full image — 2026-09-18
+
+- The hero background was `center/cover` on every viewport. On phones that scaled the 1672×941 artwork up to fill an ~850 px-tall hero, so only a narrow vertical slice of it was visible. The ≤760 px rule now sets `background-size: contain` with `background-position: center`: the image shrinks to fit the hero width and the whole picture stays visible, uncropped. Desktop keeps `cover` unchanged.
+- Verified from computed styles in the production build at 390×844 and 375×812: `background-size: contain`, painted image 375×211 / 360×203, both fully inside the hero box, original aspect ratio preserved. At 1440×900 the rule does not apply — still `cover`.
+- A 16:9 image inside a tall phone hero necessarily leaves solid `#0b2748` bands above and below the artwork; that is the honest trade-off of not cropping. The bands match the image's deep-blue base.
+- ESLint passed with zero errors or warnings, the Vercel build succeeded.
+
+final result: passed
+
 ## Activity detail pages behind the board cards — 2026-09-18
 
 - Clicking an activity card on the board now goes to `/activities/[slug]`, a second-level page for that activity. The three demo pages (`midautumn-poetry` / `shop-ai-assistant` / `city-memory-map`) are prerendered with `generateStaticParams`; activities created on this device resolve from localStorage after mount, so the same route serves both sources.
