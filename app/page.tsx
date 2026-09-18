@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { loadActivities, type Activity } from "@/lib/activity";
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
+import AboutSection from "./about-section";
 import ActivityBoard from "./activity-board";
 import BridgeScene from "./scene";
 import SessionMenu from "./session-menu";
@@ -15,7 +16,6 @@ import SessionMenu from "./session-menu";
 const info = {
   compute: { label: "DATA & COMPUTE", title: "数算：算力与数据，在这里汇聚。", text: "数算入口将汇集可用的算力资源、数据集与开源模型，让一个想法不必卡在资源这一步。", note: "数算区为占位内容，目前没有接入任何算力或数据服务。" },
   language: { label: "LANGUAGE", title: "英文版本正在筹备。", text: "当前首页提供中文体验。", note: "此入口为语言切换演示，尚未开放英文内容。" },
-  about: { label: "ABOUT HANGKESONG", title: "在杭州，连接想法与行动。", text: "杭客松连接 AI 创造者、企业真实需求和城市里的活动。我们希望让人们找到队友，围绕具体问题，一起把想法做出来。", note: "此网站为首页 Demo，活动内容均为演示数据。" },
 };
 type Panel = keyof typeof info | null;
 
@@ -42,7 +42,6 @@ export default function Home() {
         <nav aria-label="主导航">
           <a className="nav-active" href="#activities">AI 活动</a>
           <Link href="/create">发起活动</Link>
-          <button onClick={() => setPanel("about")}>关于我们</button>
         </nav>
         <div className="header-actions"><Link className="header-create" href="/create">发起活动 <ArrowUpRight size={18} /></Link><button className="language-control" onClick={() => setPanel("language")} aria-label="语言，当前为中文"><strong>中</strong><span>/ EN</span></button><SessionMenu /></div>
       </header>
@@ -60,14 +59,16 @@ export default function Home() {
         </div>
         <div className="hero-bottom">
           <button className="hero-feature" onClick={() => setPanel("compute")}><Cpu /><span><strong>算力与数据</strong><small>探索 AI 计算资源</small></span></button>
-          <button className="hero-feature" onClick={() => setPanel("about")}><Box /><span><strong>模型与开源</strong><small>连接全球开源生态</small></span></button>
+          <button className="hero-feature" onClick={() => setPanel("compute")}><Box /><span><strong>模型与开源</strong><small>连接全球开源生态</small></span></button>
           <Link className="hero-feature" href="/create"><NotebookText /><span><strong>真实需求</strong><small>面向产业的实际问题</small></span></Link>
-          <button className="hero-feature" onClick={() => setPanel("about")}><UsersRound /><span><strong>共创社区</strong><small>开发者 · 企业 · 创造者</small></span></button>
+          <a className="hero-feature" href="#about"><UsersRound /><span><strong>共创社区</strong><small>开发者 · 企业 · 创造者</small></span></a>
           <a className="scroll-explore" href="#activities"><span><ArrowRight size={22} /></span><strong>了解更多</strong></a>
         </div>
       </section>
 
       <ActivityBoard activities={boardActivities} localCount={created.length} />
+
+      <AboutSection />
 
       <footer className="site-footer"><a href="#top" className="footer-brand">杭客松<span>.</span></a><p>世界 AI 上杭州</p><span>首页体验 DEMO</span><a href="#top" aria-label="回到顶部"><ArrowUpRight size={18} /></a></footer>
 

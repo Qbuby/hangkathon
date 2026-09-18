@@ -1,5 +1,15 @@
 # 杭客松首页升级 — Design QA
 
+## About section moves to the page — 2026-09-18
+
+- 关于我们 left the navigation and became a section at the bottom of the homepage, so the nav is now AI 活动 / 发起活动 only. The content is drawn from `杭客松世界观与结构定义 1.0` rather than invented: the one-line definition of 杭客松, three principles (身份不是入口 / AI 不是产品，是人的新能力 / 比赛负责点火，不负责判决), the three evaluating forces (全民 / 行家 / 场景方), and the recurring core question.
+- Dropping to two nav items broke the mobile header: the row used `justify-content: space-between`, which pushed the two links to opposite edges with a large gap between them. It now uses `flex-start` with a 34 px gap. Verified at 390 px.
+- Layout re-checked at 1440 / 1024 / 768 / 390 px: no logo/nav/CTA/session overlap and no horizontal overflow at any width.
+- The 共创社区 hero card previously opened a dialog; it now anchors to `#about`. Clicking it sets `location.hash` to `#about` and lands the section 36 px below the viewport top, inside the `scroll-padding-top: 36px` the page already sets.
+- ESLint passed with zero errors or warnings, `tsc --noEmit` passed, and the Vercel build succeeded.
+
+final result: passed
+
 ## Activity board replaces the activity list — 2026-09-18
 
 - The homepage list became a filterable board: 类别 / 奖金 / 形式 / 费用 as filters and 最新发布 / 奖金最高 / 即将截止 as sorts. The header navigation lost 数算 and now reads AI 活动 / 发起活动 / 关于我们.

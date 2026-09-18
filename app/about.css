@@ -1,0 +1,45 @@
+/* 首页「关于我们」区块 —— 独立于 globals.css。 */
+
+.about{padding:88px 6% 76px;background:#06182a;position:relative;z-index:5;border-top:1px solid #b4d8ff1a}
+.about-head{max-width:940px;margin-bottom:48px}
+.about-head h2{font-size:34px;font-weight:500;margin:12px 0 0;letter-spacing:1px}
+.about-lead{font-size:15.5px;line-height:2.1;color:#b6cde2;margin:20px 0 0}
+
+.about-principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;margin-bottom:56px}
+.about-card{border:1px solid #b4d8ff26;border-radius:14px;background:#0a2136;padding:30px;display:flex;flex-direction:column;gap:15px}
+.about-card-icon{width:46px;height:46px;border-radius:12px;border:1px solid #8deaff3d;background:#8deaff12;color:#8deaff;display:flex;align-items:center;justify-content:center;flex:none}
+.about-card h3{font-size:18px;font-weight:600;line-height:1.6;margin:0;letter-spacing:.5px;color:#eaf3ff}
+.about-card p{font-size:13.5px;line-height:2;color:#a5bfd6;margin:0}
+
+.about-forces{border-top:1px solid #b4d8ff1f;padding-top:40px;margin-bottom:52px}
+.about-forces-head{display:flex;align-items:baseline;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.about-forces-head h3{font-size:21px;font-weight:550;margin:0;letter-spacing:1px}
+.about-forces-head p{font-size:13px;color:#8fa8c0;margin:0}
+.about-forces-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+.about-force{display:flex;flex-direction:column;gap:9px;padding-left:20px;border-left:2px solid #54d7ff4d}
+.about-force strong{font-size:17px;font-weight:600;color:#eaf3ff;letter-spacing:1px}
+.about-force span{font-size:12px;letter-spacing:1.5px;color:#8deaff}
+.about-force p{font-size:13px;line-height:1.9;color:#a5bfd6;margin:0}
+
+.about-question{margin:0 0 40px;padding:34px 36px;border:1px solid #b4d8ff26;border-radius:14px;background:linear-gradient(135deg,#0b2438 0%,#0a1e30 100%)}
+.about-question p{font-size:clamp(19px,2.2vw,26px);line-height:1.75;font-weight:550;color:#eaf3ff;margin:0 0 14px;letter-spacing:.5px}
+.about-question cite{font-style:normal;font-size:12.5px;letter-spacing:1.5px;color:#8fa8c0}
+
+.about-note{font-size:12px;line-height:1.9;color:#8aa4bc;margin:0}
+
+@media(max-width:1050px){
+  .about{padding:68px 6% 58px}
+  .about-head h2{font-size:28px}
+  .about-lead{font-size:14.5px;line-height:2}
+}
+@media(max-width:760px){
+  .about{padding:52px 6% 46px}
+  .about-head h2{font-size:24px}
+  .about-lead{font-size:13.5px;line-height:1.95}
+  .about-principles{grid-template-columns:1fr;gap:16px;margin-bottom:40px}
+  .about-card{padding:24px}
+  .about-forces{padding-top:32px;margin-bottom:38px}
+  .about-forces-head{flex-direction:column;gap:10px}
+  .about-question{padding:26px 22px}
+  .about-question p{font-size:18px}
+}
