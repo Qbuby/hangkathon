@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { signIn, signOut } from "next-auth/react";
-import { LogOut, UserRound, X } from "lucide-react";
+import { ArrowRight, LogOut, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 
@@ -111,6 +112,9 @@ export default function SessionMenu() {
                 <span>当前状态</span>
                 <p>已通过第三方账号登录。账号信息仅用于显示登录状态，不会写入数据库或用于其他用途。</p>
               </div>
+              <Button asChild variant="ghost" className="session-profile">
+                <Link href="/profile">查看个人主页 <ArrowRight size={16} /></Link>
+              </Button>
               <Button className="dialog-done" onClick={() => signOut({ callbackUrl: "/" })}>
                 退出登录 <LogOut size={16} />
               </Button>

@@ -1,5 +1,14 @@
 # 杭客松首页升级 — Design QA
 
+## 核心机制落地：奖金分发 · 阵营贡献 · 算力榜 · 数字杭州市民 — 2026-09-19
+
+- Mechanism defined in full at `docs/prize-mechanism.md`: join → faction lock (13 Hangzhou districts) → daily ¥100 compute voucher (+¥5 per invite, cap ¥200) → 24h quality review (优100/良60/合格30/未通过0, max 3 valid submissions/day) → faction contribution = sum of member points → prize split two-layer proportional (faction share × personal share; named awards become honorary titles) → settlement bonuses (organizer 10%, top10% +200, top30% +100, champion faction +150, runner-up +80, finisher +50) → 数字杭州市民 medal ★1–★5 at 0/500/2,000/6,000/15,000 platform points, never downgrades.
+- New `lib/factions.ts` (13 districts with shared colors) and `lib/contribution.ts` (MECHANISM constants, demo contribution data for the three demo activities, factionShares/platformTotals/honorLevel, join records in localStorage `hangkathon.joins.v1`). `app/donut.tsx` is a hand-rolled SVG donut — no chart library added.
+- Activity detail page gained a 阵营贡献 section (donut + per-faction points/share/estimated prize; no-prize activities show no money column) and a working join flow: 报名参加 opens a dialog with a 13-district radiogroup + lock warning; after confirming, the sidebar shows 已报名 + faction badge + voucher rules and the join button disappears entirely — faction cannot be re-picked even after reload (verified: 0 join buttons remain, localStorage holds the record).
+- `/leaderboard` (nav 算力榜 is now a real Link): platform total 15,090 · 3 activities · 23 citizens · 9 factions, faction donut + share bars, citizen ranking with No.1–3 highlights. `/profile`: signed-out login card (providers marked 未配置 locally), signed-in 数字杭州市民 medal card starting at ★1/0 points + demo citizen comparison + 我的报名 local records (shown in both login states — join records are device data, not account data). Session dialog signed-in state gained a 查看个人主页 link.
+- Verified in browser (production build): leaderboard donut programmatically exact (9 segments, shares match list, center 15,090); detail donut 4,700 with 西湖区 ¥9,702 = 30,000 × 32.3%; join flow on desktop and 390px mobile (dialog 2-column, 340px wide); after joining two activities /profile listed both with faction colors; no horizontal overflow on /, /leaderboard, /activities/[slug], /profile at 390. Visual pass on the faction section via image analysis (donut complete, list aligned, no issues). Test join records cleaned from localStorage afterwards.
+- ESLint 0/0 (one react-hooks/immutability fix in donut.tsx: accumulate offsets without reassigning render-scope variables), `tsc --noEmit` clean, both build targets succeeded; /leaderboard and /profile prerendered static.
+
 ## Nav placeholder renamed 算盘 → 算力榜 — 2026-09-19
 
 - One-line change in `app/page.tsx`: the disabled nav placeholder button now reads「算力榜」(still 灰字, `aria-disabled`, title 筹备中, no destination). No CSS or behavioral change — same `.nav-pending` class.

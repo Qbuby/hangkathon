@@ -57,6 +57,31 @@
 .detail-notfound-card p:not(.eyebrow){font-size:13.5px;line-height:1.9;color:#a9c2d9;margin:0}
 .detail-notfound-card .eyebrow{margin:0}
 
+/* 阵营贡献区块 */
+.faction-panel{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:center}
+.donut{display:block}
+.donut-value{font-size:24px;font-weight:600;fill:#eaf3ff}
+.donut-label{font-size:11px;letter-spacing:1.5px;fill:#8aa4bc}
+.faction-list{display:flex;flex-direction:column;min-width:0}
+.faction-row{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto auto;gap:14px;align-items:center;padding:11px 0;border-bottom:1px solid #b4d8ff18;font-size:13.5px}
+.faction-row:last-child{border-bottom:0}
+.faction-dot{width:10px;height:10px;border-radius:50%}
+.faction-row strong{font-weight:550;color:#dce9f8}
+.faction-points{color:#c3d6ea;font-variant-numeric:tabular-nums;justify-self:end}
+.faction-share{color:#8fd8c4;font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+.faction-prize{color:#8aa4bc;font-size:12px;font-variant-numeric:tabular-nums;justify-self:end}
+
+/* 报名与阵营徽标 */
+.join-badge{display:flex;align-items:center;gap:9px;align-self:flex-start;border:1px solid;border-radius:20px;padding:7px 15px;font-size:13.5px;font-weight:550}
+.join-badge-dot{width:9px;height:9px;border-radius:50%}
+.join-rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:1.7;color:#c3d6ea}
+.join-dialog .join-factions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 6px}
+.join-faction{height:42px;border:1px solid #b4d8ff30;border-radius:9px;background:transparent;color:#cfe0f2;font-size:13.5px;letter-spacing:.5px}
+.join-faction:hover{border-color:#54d7ff80;color:#fff}
+.join-faction.is-selected{background:#54d7ff14;font-weight:550}
+.join-lock-note{font-size:12px;line-height:1.7;color:#ffb46b;margin:0 0 6px}
+.join-dialog .dialog-done{width:100%}
+
 @media(max-width:1050px){
   .detail-body{grid-template-columns:1fr;gap:32px;padding:32px 6% 56px}
   .detail-side{position:static;order:-1}
@@ -75,4 +100,7 @@
   .detail-facts dl div{flex-direction:column;gap:4px}
   .detail-facts dd{text-align:left}
   .detail-notfound{padding:56px 6%}
+  .faction-panel{grid-template-columns:1fr;gap:22px;justify-items:center}
+  .faction-list{width:100%}
+  .join-dialog .join-factions{grid-template-columns:repeat(2,1fr)}
 }

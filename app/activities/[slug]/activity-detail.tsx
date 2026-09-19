@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CalendarDays, Coins, MapPin, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Coins, MapPin, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   categoryLabel,
   findActivityBySlug,
@@ -17,17 +18,33 @@ import {
   type Activity,
 } from "@/lib/activity";
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
+import { FACTIONS, factionById } from "@/lib/factions";
+import Donut from "../../donut";
+import {
+  MECHANISM,
+  factionShares,
+  getContribution,
+  loadJoin,
+  saveJoin,
+  type JoinRecord,
+} from "@/lib/contribution";
 import "./detail.css";
 
 export default function ActivityDetail({ slug, initial }: { slug: string; initial: Activity | null }) {
   const [activity, setActivity] = useState<Activity | null>(initial);
   const [resolved, setResolved] = useState(false);
+  const [joinRecord, setJoinRecord] = useState<JoinRecord | null>(null);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [pickedFaction, setPickedFaction] = useState<string | null>(null);
 
   // 本机创建的活动只存在 localStorage 里，挂载后再查一次。
   // setState 放进回调，与 scene.tsx 一样避开 set-state-in-effect。
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setActivity(findActivityBySlug(slug, DEMO_ACTIVITIES));
+      const found = findActivityBySlug(slug, DEMO_ACTIVITIES);
+      setActivity(found);
+      setJoinRecord(found ? loadJoin(found.id) : null);
+      setPickedFaction(null);
       setResolved(true);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -58,6 +75,17 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
 
   const isDemo = DEMO_ACTIVITIES.some((item) => item.id === activity.id);
   const submissions = submissionLabels(activity.submissionTypes);
+  const hasPrize = activity.awardsEnabled && activity.prizePool > 0;
+  const shares = factionShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
+  const contributionTotal = shares.reduce((sum, row) => sum + row.points, 0);
+  const joinFaction = joinRecord ? factionById(joinRecord.factionId) : undefined;
+
+  function confirmJoin() {
+    if (!activity || !pickedFaction) return;
+    setJoinRecord(saveJoin(activity.id, pickedFaction));
+    setPickedFaction(null);
+    setJoinOpen(false);
+  }
 
   return (
     <main className="detail-page">
@@ -128,8 +156,51 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                     </div>
                   ))}
                 </div>
-                <p className="detail-placeholder">奖金总额：{prizeText(activity)}</p>
+                <p className="detail-placeholder">奖金总额：{prizeText(activity)}。奖项名目为荣誉头衔，现金按下方阵营贡献占比两层分发。</p>
               </>
+            )}
+          </section>
+
+          <section className="detail-section" aria-labelledby="detail-factions">
+            <p className="detail-eyebrow">FACTIONS</p>
+            <h2 id="detail-factions">阵营贡献</h2>
+            {shares.length > 0 ? (
+              <>
+                <div className="faction-panel">
+                  <Donut
+                    slices={shares.map((row) => ({
+                      id: row.faction.id,
+                      label: row.faction.name,
+                      value: row.points,
+                      color: row.faction.color,
+                    }))}
+                    centerLabel="总贡献值"
+                    centerValue={contributionTotal.toLocaleString("zh-CN")}
+                  />
+                  <div className="faction-list">
+                    {shares.map((row) => (
+                      <div className="faction-row" key={row.faction.id}>
+                        <span className="faction-dot" style={{ background: row.faction.color }} />
+                        <strong>{row.faction.name}</strong>
+                        <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
+                        <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
+                        {hasPrize && (
+                          <span className="faction-prize">奖金 ¥{row.prize.toLocaleString("zh-CN")}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="detail-placeholder">
+                  {hasPrize
+                    ? "奖金按两层比例分发：阵营奖金 = 奖池 × 阵营占比，阵营内再按个人贡献占比分给成员；贡献数据为演示数据。"
+                    : "这场活动不设奖金，阵营贡献只累计荣誉；贡献数据为演示数据。"}
+                </p>
+              </>
+            ) : (
+              <p className="detail-placeholder">
+                还没有阵营贡献数据。报名开始后，各阵营的贡献值将在这里实时汇总（阵营贡献 = 阵营成员个人贡献之和）。
+              </p>
             )}
           </section>
 
@@ -159,17 +230,65 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             </dl>
           </div>
 
-          <div className="detail-join">
-            <p className="detail-join-title">想参加这场活动？</p>
-            <Button className="primary-action" disabled>报名参加</Button>
-            <p className="detail-join-note">
-              {isDemo
-                ? "此活动为虚构的演示数据，不代表已举办或已开放报名，报名功能也尚未开放。"
-                : "报名功能尚未开放。这场活动目前只保存在这台设备的浏览器里，换设备或清理数据后会消失。"}
-            </p>
-          </div>
+          {joinRecord && joinFaction ? (
+            <div className="detail-join">
+              <p className="detail-join-title">已报名</p>
+              <div className="join-badge" style={{ borderColor: `${joinFaction.color}66`, color: joinFaction.color }}>
+                <span className="join-badge-dot" style={{ background: joinFaction.color }} />
+                {joinFaction.name}阵营
+              </div>
+              <ul className="join-rules">
+                <li>正式阶段每天发 ¥{MECHANISM.voucher.base} 算力券，当日有效</li>
+                <li>每邀请 1 位新用户，日面额 +¥{MECHANISM.voucher.perInvite}，封顶 ¥{MECHANISM.voucher.dailyCap}</li>
+                <li>产出物 {MECHANISM.review.hours} 小时内审核，按质量计入个人与阵营贡献值</li>
+                <li>阵营已锁定，本活动中不可更改</li>
+              </ul>
+              <p className="detail-join-note">演示环境：报名记录保存在这台设备的浏览器里，贡献值不会真实累计。</p>
+            </div>
+          ) : (
+            <div className="detail-join">
+              <p className="detail-join-title">想参加这场活动？</p>
+              <Button className="primary-action" onClick={() => setJoinOpen(true)}>报名参加</Button>
+              <p className="detail-join-note">
+                报名后进入阵营选择阶段，代表一个杭州区县出战（本活动中锁定不可更改），正式阶段每天领取算力券。
+                {isDemo ? "此活动为虚构的演示数据。" : "活动目前只保存在这台设备的浏览器里。"}
+              </p>
+            </div>
+          )}
         </aside>
       </div>
+
+      <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
+        <DialogContent className="detail-dialog join-dialog" showCloseButton={false}>
+          <DialogClose asChild>
+            <Button variant="ghost" className="dialog-close" onClick={() => setJoinOpen(false)}><X size={18} /></Button>
+          </DialogClose>
+          <p className="eyebrow">JOIN</p>
+          <DialogTitle className="dialog-title">选择你的阵营</DialogTitle>
+          <DialogDescription className="dialog-description">
+            报名后进入阵营选择阶段：选择一个杭州区县，与同阵营市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
+          </DialogDescription>
+          <div className="join-factions" role="radiogroup" aria-label="选择阵营">
+            {FACTIONS.map((faction) => (
+              <button
+                key={faction.id}
+                type="button"
+                role="radio"
+                aria-checked={pickedFaction === faction.id}
+                className={`join-faction${pickedFaction === faction.id ? " is-selected" : ""}`}
+                style={pickedFaction === faction.id ? { borderColor: faction.color, color: faction.color } : undefined}
+                onClick={() => setPickedFaction(faction.id)}
+              >
+                {faction.name}
+              </button>
+            ))}
+          </div>
+          <p className="join-lock-note">阵营在本活动中锁定，确认后无法更改。</p>
+          <Button className="dialog-done" disabled={!pickedFaction} onClick={confirmJoin}>
+            确认报名
+          </Button>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
