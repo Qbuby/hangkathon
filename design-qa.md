@@ -1,6 +1,12 @@
 # 杭客松首页升级 — Design QA
 
-## 核心机制落地：奖金分发 · 阵营贡献 · 算力榜 · 数字杭州市民 — 2026-09-19
+## Leaderboard shows usernames + your entry — 2026-09-19
+
+- The user directed that the 市民贡献榜 should display 用户名 (usernames), not the fictional Hangzhou poetic nicknames. All 31 demo member records in `lib/contribution.ts` were renamed to username-style handles (osmanthus_lane, binjiang_ferry, code_osmanthus, …), consistent per citizen across activities, so aggregation and the top-10 ranking stay unchanged.
+- New client `app/leaderboard/your-entry.tsx`: below the table, a signed-in visitor sees their real username in a dashed 「你」 row (平台贡献值 0 · 未进入前十) fed by `/api/session`; hidden when signed out. Verified locally: 10 handle rows, No.1 osmanthus_lane, YourEntry absent without session, no horizontal overflow.
+- Previous entry's 桂花巷-style names remain in history below; live data now uses handles.
+
+## 核心机制落地 — 2026-09-19
 
 - Mechanism defined in full at `docs/prize-mechanism.md`: join → faction lock (13 Hangzhou districts) → daily ¥100 compute voucher (+¥5 per invite, cap ¥200) → 24h quality review (优100/良60/合格30/未通过0, max 3 valid submissions/day) → faction contribution = sum of member points → prize split two-layer proportional (faction share × personal share; named awards become honorary titles) → settlement bonuses (organizer 10%, top10% +200, top30% +100, champion faction +150, runner-up +80, finisher +50) → 数字杭州市民 medal ★1–★5 at 0/500/2,000/6,000/15,000 platform points, never downgrades.
 - New `lib/factions.ts` (13 districts with shared colors) and `lib/contribution.ts` (MECHANISM constants, demo contribution data for the three demo activities, factionShares/platformTotals/honorLevel, join records in localStorage `hangkathon.joins.v1`). `app/donut.tsx` is a hand-rolled SVG donut — no chart library added.

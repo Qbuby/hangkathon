@@ -30,6 +30,13 @@
 .lb-note{padding:34px 6% 64px}
 .lb-note p:not(.detail-eyebrow){font-size:13px;line-height:2;color:#a9c2d9;margin:0;max-width:860px}
 
+.lb-you{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:14px;align-items:center;margin-top:12px;border:1px dashed #54d7ff55;border-radius:12px;background:#0b2337;padding:14px 20px;font-size:13.5px}
+.lb-you-tag{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:1px solid #54d7ff66;color:#8deaff;font-size:13px;font-weight:600}
+.lb-you-main{display:flex;flex-direction:column;gap:5px;min-width:0}
+.lb-you-main strong{font-weight:550;color:#eaf3ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-you-main span{font-size:12px;color:#8aa4bc}
+.lb-you-state{font-size:11px;letter-spacing:1px;color:#8aa4bc;border:1px solid #b4d8ff30;border-radius:4px;padding:5px 9px;white-space:nowrap}
+
 @media(max-width:1050px){
   .lb-faction-row{grid-template-columns:12px minmax(0,1fr) auto auto;grid-template-areas:"dot name points share" "bar bar bar bar"}
   .lb-faction-row .faction-dot{grid-area:dot}

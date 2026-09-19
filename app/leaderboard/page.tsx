@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import Donut from "../donut";
+import YourEntry from "./your-entry";
 import { MECHANISM, platformTotals } from "@/lib/contribution";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
@@ -89,6 +90,7 @@ export default function LeaderboardPage() {
             </div>
           ))}
         </div>
+        <YourEntry />
         <p className="detail-placeholder">榜单为跨活动累计的演示数据，仅展示前十名；正式数据待平台接入后端后开放。</p>
       </section>
 
