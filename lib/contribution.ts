@@ -189,8 +189,8 @@ export function platformTotals() {
   };
 }
 
-/** 本机报名记录：按活动锁定阵营（key = activity.id）。 */
-export type JoinRecord = { factionId: string; joinedAt: string };
+/** 本机报名记录：按活动锁定阵营（key = activity.id）。leader = 担任该阵营区长；invitedBy = 邀请人用户名。 */
+export type JoinRecord = { factionId: string; joinedAt: string; leader?: boolean; invitedBy?: string };
 
 const JOINS_KEY = "hangkathon.joins.v1";
 
@@ -209,7 +209,13 @@ export function loadJoins(): Record<string, JoinRecord> {
         factionById((value as JoinRecord).factionId) &&
         typeof (value as JoinRecord).joinedAt === "string"
       ) {
-        joins[activityId] = { factionId: (value as JoinRecord).factionId, joinedAt: (value as JoinRecord).joinedAt };
+        const record = value as JoinRecord;
+        joins[activityId] = {
+          factionId: record.factionId,
+          joinedAt: record.joinedAt,
+          ...(typeof record.leader === "boolean" ? { leader: record.leader } : {}),
+          ...(typeof record.invitedBy === "string" && record.invitedBy ? { invitedBy: record.invitedBy } : {}),
+        };
       }
     }
     return joins;
@@ -222,10 +228,84 @@ export function loadJoin(activityId: string): JoinRecord | null {
   return loadJoins()[activityId] ?? null;
 }
 
-export function saveJoin(activityId: string, factionId: string): JoinRecord {
-  const record: JoinRecord = { factionId, joinedAt: new Date().toISOString() };
+export function saveJoin(
+  activityId: string,
+  factionId: string,
+  extra?: { leader?: boolean; invitedBy?: string },
+): JoinRecord {
+  const record: JoinRecord = {
+    factionId,
+    joinedAt: new Date().toISOString(),
+    ...(extra?.leader ? { leader: true } : {}),
+    ...(extra?.invitedBy ? { invitedBy: extra.invitedBy } : {}),
+  };
   if (typeof window !== "undefined") {
     window.localStorage.setItem(JOINS_KEY, JSON.stringify({ ...loadJoins(), [activityId]: record }));
+  }
+  return record;
+}
+
+/** 每位通过邀请链接成功加入的市民，奖励给区长的平台贡献值。 */
+export const LEADER_INVITE_BONUS = 50;
+
+export type LeaderRecord = { name: string; since: string };
+
+const LEADERS_KEY = "hangkathon.leaders.v1";
+
+/** 演示活动里已由演示市民担任区长的阵营：加入这些阵营时不再出现「担任区长」选项。 */
+export const DEMO_LEADERS: Record<string, Record<string, string>> = {
+  demo_midautumn_poetry: { xihu: "lakeside_verses" },
+  demo_shop_assistant: { gongshu: "shopkeeper_hz" },
+  demo_city_memory: { xihu: "broken_bridge" },
+};
+
+function loadAllLeaders(): Record<string, Record<string, LeaderRecord>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(LEADERS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const all: Record<string, Record<string, LeaderRecord>> = {};
+    for (const [activityId, factions] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!factions || typeof factions !== "object") continue;
+      const records: Record<string, LeaderRecord> = {};
+      for (const [factionId, value] of Object.entries(factions as Record<string, unknown>)) {
+        if (
+          value &&
+          typeof value === "object" &&
+          factionById(factionId) &&
+          typeof (value as LeaderRecord).name === "string"
+        ) {
+          records[factionId] = { name: (value as LeaderRecord).name, since: (value as LeaderRecord).since ?? "" };
+        }
+      }
+      all[activityId] = records;
+    }
+    return all;
+  } catch {
+    return {};
+  }
+}
+
+/** 某活动的区长名册：演示种子 + 本机记录（本机优先）。 */
+export function getLeaders(activityId: string): Record<string, LeaderRecord> {
+  const leaders: Record<string, LeaderRecord> = {};
+  for (const [factionId, name] of Object.entries(DEMO_LEADERS[activityId] ?? {})) {
+    if (factionById(factionId)) leaders[factionId] = { name, since: "" };
+  }
+  Object.assign(leaders, loadAllLeaders()[activityId] ?? {});
+  return leaders;
+}
+
+/** 第一个加入某阵营的用户认领区长；同一阵营只记录一次。 */
+export function saveLeader(activityId: string, factionId: string, name: string): LeaderRecord {
+  const record: LeaderRecord = { name, since: new Date().toISOString() };
+  if (typeof window !== "undefined") {
+    const all = loadAllLeaders();
+    window.localStorage.setItem(LEADERS_KEY, JSON.stringify({
+      ...all,
+      [activityId]: { ...(all[activityId] ?? {}), [factionId]: record },
+    }));
   }
   return record;
 }

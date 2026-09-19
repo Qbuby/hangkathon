@@ -71,7 +71,10 @@ export default function ProfilePage() {
           {joinedRows.map((row) => (
             <Link key={row.activity.id} className="profile-join-row" href={`/activities/${row.activity.slug}`}>
               <span className="join-badge-dot" style={{ background: row.faction.color }} />
-              <strong>{row.activity.title}</strong>
+              <strong>
+                {row.activity.title}
+                {row.record.leader && <em className="profile-join-leader">区长</em>}
+              </strong>
               <span className="profile-join-faction" style={{ color: row.faction.color }}>{row.faction.name}</span>
               <span className="profile-join-date">{new Date(row.record.joinedAt).toLocaleDateString("zh-CN")}</span>
               <ArrowRight size={15} />

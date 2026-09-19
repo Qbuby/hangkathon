@@ -30,6 +30,7 @@
 .profile-join-faction{letter-spacing:.5px}
 .profile-join-date{font-size:12px;color:#8aa4bc;font-variant-numeric:tabular-nums}
 .profile-join-row svg{color:#8aa4bc}
+.profile-join-leader{font-style:normal;margin-left:8px;border:1px solid #e8d16a66;color:#e8d16a;border-radius:4px;padding:2px 7px;font-size:10.5px;letter-spacing:1px;vertical-align:1px}
 .profile-link{color:#8deaff}
 .profile-link:hover{color:#fff}
 

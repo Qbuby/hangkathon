@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { ArrowLeft, ArrowRight, CalendarDays, Coins, MapPin, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -21,14 +22,38 @@ import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
 import { FACTIONS, factionById } from "@/lib/factions";
 import Donut from "../../donut";
 import {
+  LEADER_INVITE_BONUS,
   MECHANISM,
   factionShares,
   getContribution,
+  getLeaders,
   loadJoin,
   saveJoin,
+  saveLeader,
   type JoinRecord,
 } from "@/lib/contribution";
 import "./detail.css";
+
+type AccountState = {
+  configured: boolean;
+  providers: { id: string; name: string; configured: boolean }[];
+  user: { name: string | null; email: string | null } | null;
+};
+
+type Invite = { factionId: string; by: string } | "refused" | null;
+
+/** 剪贴板 API 不可用（无用户手势/权限）时的兜底复制。 */
+function legacyCopy(text: string) {
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  const ok = document.execCommand("copy");
+  document.body.removeChild(area);
+  return ok;
+}
 
 export default function ActivityDetail({ slug, initial }: { slug: string; initial: Activity | null }) {
   const [activity, setActivity] = useState<Activity | null>(initial);
@@ -36,8 +61,14 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [joinRecord, setJoinRecord] = useState<JoinRecord | null>(null);
   const [joinOpen, setJoinOpen] = useState(false);
   const [pickedFaction, setPickedFaction] = useState<string | null>(null);
+  const [wantsLeader, setWantsLeader] = useState(false);
+  const [invite, setInvite] = useState<Invite>(null);
+  const [inviteNeedsLogin, setInviteNeedsLogin] = useState(false);
+  const [account, setAccount] = useState<AccountState | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
 
-  // 本机创建的活动只存在 localStorage 里，挂载后再查一次。
+  // 本机创建的活动只存在 localStorage 里，挂载后再查一次；
+  // 邀请链接 ?invite=<阵营>&by=<用户名> 也在此时解析。
   // setState 放进回调，与 scene.tsx 一样避开 set-state-in-effect。
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -45,10 +76,32 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       setActivity(found);
       setJoinRecord(found ? loadJoin(found.id) : null);
       setPickedFaction(null);
+      setWantsLeader(false);
+      const params = new URLSearchParams(window.location.search);
+      const inviteFaction = params.get("invite");
+      const by = params.get("by");
+      setInvite(inviteFaction && by && factionById(inviteFaction) ? { factionId: inviteFaction, by } : null);
       setResolved(true);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [slug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/session");
+        const data = (await response.json()) as AccountState;
+        if (!cancelled) setAccount(data);
+      } catch {
+        /* 未登录时保持 null，不影响自由报名 */
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!activity) {
     return (
@@ -79,12 +132,53 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const shares = factionShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
   const contributionTotal = shares.reduce((sum, row) => sum + row.points, 0);
   const joinFaction = joinRecord ? factionById(joinRecord.factionId) : undefined;
+  const leaders = getLeaders(activity.id);
+  const accountName = account?.user?.name ?? account?.user?.email ?? "本机市民";
 
   function confirmJoin() {
     if (!activity || !pickedFaction) return;
-    setJoinRecord(saveJoin(activity.id, pickedFaction));
+    const claimLeader = wantsLeader && !leaders[pickedFaction];
+    setJoinRecord(saveJoin(activity.id, pickedFaction, claimLeader ? { leader: true } : undefined));
+    if (claimLeader) saveLeader(activity.id, pickedFaction, accountName);
     setPickedFaction(null);
+    setWantsLeader(false);
     setJoinOpen(false);
+  }
+
+  /** 被邀请者接受邀请：需先登录，接受后只能加入区长所在阵营。 */
+  async function acceptInvite() {
+    if (!activity || !invite || invite === "refused") return;
+    if (!account?.user) {
+      try {
+        const response = await fetch("/api/session");
+        const data = (await response.json()) as AccountState;
+        setAccount(data);
+        if (!data.user) {
+          setInviteNeedsLogin(true);
+          return;
+        }
+      } catch {
+        setInviteNeedsLogin(true);
+        return;
+      }
+    }
+    setJoinRecord(saveJoin(activity.id, invite.factionId, { invitedBy: invite.by }));
+    setInvite(null);
+    setInviteNeedsLogin(false);
+  }
+
+  function copyInviteLink(link: string) {
+    const done = () => {
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 2000);
+    };
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(link).then(done, () => {
+        if (legacyCopy(link)) done();
+      });
+    } else if (legacyCopy(link)) {
+      done();
+    }
   }
 
   return (
@@ -106,6 +200,49 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
         {activity.subtitle && <p className="detail-sub">{activity.subtitle}</p>}
         <p className="detail-host">主办方 · {activity.host || "未填写"}</p>
       </section>
+
+      {invite && invite !== "refused" && !joinRecord && (() => {
+        const faction = factionById(invite.factionId);
+        if (!faction) return null;
+        return (
+          <div className="invite-banner" role="region" aria-label="阵营邀请">
+            <p className="invite-banner-title">
+              <strong>{invite.by}</strong> 邀请你加入 <strong style={{ color: faction.color }}>{faction.name}</strong> 阵营
+            </p>
+            <p className="invite-banner-sub">
+              接受后将直接加入该阵营（本活动中锁定），区长 {invite.by} 将获得 +{LEADER_INVITE_BONUS} 平台贡献值邀请奖励。
+            </p>
+            {inviteNeedsLogin ? (
+              <div className="invite-login">
+                <p>请先登录后再接受邀请：</p>
+                <div className="provider-list">
+                  {(account?.providers ?? []).map((provider) => (
+                    <button
+                      key={provider.id}
+                      type="button"
+                      className="provider-button"
+                      disabled={!account?.configured || !provider.configured}
+                      onClick={() => void signIn(provider.id, { callbackUrl: window.location.href })}
+                    >
+                      <span>使用 {provider.name} 登录</span>
+                      {!provider.configured && <span className="provider-state">未配置</span>}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="invite-refuse invite-refuse-quiet" onClick={() => { setInvite("refused"); setInviteNeedsLogin(false); }}>拒绝邀请</button>
+                {!account?.configured && (
+                  <p className="invite-banner-sub">本环境未配置登录；线上 hangkathon.net 已可通过 GitHub / Google 登录。</p>
+                )}
+              </div>
+            ) : (
+              <div className="invite-banner-actions">
+                <button type="button" className="invite-accept" onClick={() => void acceptInvite()}>加入{faction.name}</button>
+                <button type="button" className="invite-refuse" onClick={() => { setInvite("refused"); setInviteNeedsLogin(false); }}>拒绝</button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="detail-body">
         <div className="detail-main">
@@ -236,7 +373,29 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <div className="join-badge" style={{ borderColor: `${joinFaction.color}66`, color: joinFaction.color }}>
                 <span className="join-badge-dot" style={{ background: joinFaction.color }} />
                 {joinFaction.name}阵营
+                {joinRecord.leader && <span className="join-leader-chip">区长</span>}
               </div>
+              {joinRecord.invitedBy && (
+                <p className="join-invitedby">由 {joinRecord.invitedBy} 的邀请链接加入</p>
+              )}
+              {joinRecord.leader && (
+                <div className="leader-invite">
+                  <p className="leader-invite-title">区长邀请链接 · 活动期间任一阶段可邀请</p>
+                  {typeof window !== "undefined" && (
+                    <div className="leader-invite-row">
+                      <code>{
+                        `${window.location.origin}/activities/${activity.slug}?invite=${joinRecord.factionId}&by=${encodeURIComponent(leaders[joinRecord.factionId]?.name ?? accountName)}`
+                      }</code>
+                      <button type="button" onClick={() => copyInviteLink(
+                        `${window.location.origin}/activities/${activity.slug}?invite=${joinRecord.factionId}&by=${encodeURIComponent(leaders[joinRecord.factionId]?.name ?? accountName)}`,
+                      )}>{inviteCopied ? "已复制" : "复制"}</button>
+                    </div>
+                  )}
+                  <p className="leader-invite-note">
+                    打开链接的市民只能加入本阵营或拒绝（需登录）；每位成功加入为你 +{LEADER_INVITE_BONUS} 平台贡献值。
+                  </p>
+                </div>
+              )}
               <ul className="join-rules">
                 <li>正式阶段每天发 ¥{MECHANISM.voucher.base} 算力券，当日有效</li>
                 <li>每邀请 1 位新用户，日面额 +¥{MECHANISM.voucher.perInvite}，封顶 ¥{MECHANISM.voucher.dailyCap}</li>
@@ -284,6 +443,24 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             ))}
           </div>
           <p className="join-lock-note">阵营在本活动中锁定，确认后无法更改。</p>
+          {pickedFaction && leaders[pickedFaction] ? (
+            <p className="join-leader-note">现任区长 · {leaders[pickedFaction].name}（该阵营区长已有人担任）</p>
+          ) : pickedFaction ? (
+            <label className="join-leader-choice">
+              <input
+                type="checkbox"
+                checked={wantsLeader}
+                onChange={(event) => setWantsLeader(event.target.checked)}
+              />
+              <span>
+                担任{factionById(pickedFaction)?.name}区长
+                <small>
+                  你是第一个加入该阵营的人，可选择担任区长。区长可分享邀请链接（活动期间任一阶段有效），
+                  每位通过链接加入的市民为你 +{LEADER_INVITE_BONUS} 平台贡献值。
+                </small>
+              </span>
+            </label>
+          ) : null}
           <Button className="dialog-done" disabled={!pickedFaction} onClick={confirmJoin}>
             确认报名
           </Button>
