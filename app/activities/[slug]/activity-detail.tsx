@@ -210,7 +210,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <strong>{invite.by}</strong> 邀请你加入 <strong style={{ color: faction.color }}>{faction.name}</strong> 阵营
             </p>
             <p className="invite-banner-sub">
-              接受后将直接加入该阵营（本活动中锁定），区长 {invite.by} 将获得 +{LEADER_INVITE_BONUS} 平台贡献值邀请奖励。
+              接受后将直接加入该阵营，阵营在本活动中锁定、不可更改；也可以拒绝邀请，之后仍可自由报名。
             </p>
             {inviteNeedsLogin ? (
               <div className="invite-login">
