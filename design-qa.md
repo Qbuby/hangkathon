@@ -1,5 +1,10 @@
 # 杭客松首页升级 — Design QA
 
+## Nav placeholder renamed 算盘 → 算力榜 — 2026-09-19
+
+- One-line change in `app/page.tsx`: the disabled nav placeholder button now reads「算力榜」(still 灰字, `aria-disabled`, title 筹备中, no destination). No CSS or behavioral change — same `.nav-pending` class.
+- README updated to describe the current nav. Older entries below keep the 算盘 wording as history.
+
 ## Nav 首页 entry + board create button removed — 2026-09-18
 
 - The user asked for two changes: add a「首页」item to the top nav (only「算盘」felt too sparse), and remove the 发起活动 button at the top-right of the activity board.
