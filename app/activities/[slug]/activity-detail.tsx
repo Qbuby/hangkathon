@@ -28,6 +28,7 @@ import {
   getContribution,
   getLeaders,
   loadJoin,
+  noteInviteLeader,
   saveJoin,
   saveLeader,
   type JoinRecord,
@@ -80,7 +81,14 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       const params = new URLSearchParams(window.location.search);
       const inviteFaction = params.get("invite");
       const by = params.get("by");
-      setInvite(inviteFaction && by && factionById(inviteFaction) ? { factionId: inviteFaction, by } : null);
+      if (inviteFaction && by && factionById(inviteFaction) && found) {
+        // 链接由区长面板生成，是区长身份的凭证：即使随后拒绝邀请也记入本机名册，
+        // 让自由报名时正确显示「现任区长」而不是再次开放担任选项。
+        noteInviteLeader(found.id, inviteFaction, by);
+        setInvite({ factionId: inviteFaction, by });
+      } else {
+        setInvite(null);
+      }
       setResolved(true);
     }, 0);
     return () => window.clearTimeout(timer);

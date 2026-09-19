@@ -287,14 +287,59 @@ function loadAllLeaders(): Record<string, Record<string, LeaderRecord>> {
   }
 }
 
-/** 某活动的区长名册：演示种子 + 本机记录（本机优先）。 */
+/** 某活动的区长名册：演示种子 + 邀请链接携带（拒绝邀请也保留）+ 本机认领（本机优先）。 */
 export function getLeaders(activityId: string): Record<string, LeaderRecord> {
   const leaders: Record<string, LeaderRecord> = {};
   for (const [factionId, name] of Object.entries(DEMO_LEADERS[activityId] ?? {})) {
     if (factionById(factionId)) leaders[factionId] = { name, since: "" };
   }
+  for (const [factionId, name] of Object.entries(loadKnownLeaders()[activityId] ?? {})) {
+    if (factionById(factionId)) leaders[factionId] = { name, since: "" };
+  }
   Object.assign(leaders, loadAllLeaders()[activityId] ?? {});
   return leaders;
+}
+
+/**
+ * 邀请链接是区长身份的权威凭证（由区长面板生成）。打开过链接的浏览器据此把
+ * 「该阵营已有区长」记入本机名册——没有后端时，这是受邀方得知现任区长的唯一途径。
+ */
+export function noteInviteLeader(activityId: string, factionId: string, name: string): void {
+  if (typeof window === "undefined" || !factionById(factionId) || !name) return;
+  try {
+    const known = loadKnownLeaders();
+    const current = known[activityId] ?? {};
+    if (current[factionId] === name) return;
+    window.localStorage.setItem(KNOWN_LEADERS_KEY, JSON.stringify({
+      ...known,
+      [activityId]: { ...current, [factionId]: name },
+    }));
+  } catch {
+    /* 存储失败时退化为不知道该区长，仅影响演示提示 */
+  }
+}
+
+const KNOWN_LEADERS_KEY = "hangkathon.knownleaders.v1";
+
+function loadKnownLeaders(): Record<string, Record<string, string>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(KNOWN_LEADERS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const known: Record<string, Record<string, string>> = {};
+    for (const [activityId, factions] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!factions || typeof factions !== "object") continue;
+      const names: Record<string, string> = {};
+      for (const [factionId, name] of Object.entries(factions as Record<string, unknown>)) {
+        if (factionById(factionId) && typeof name === "string" && name) names[factionId] = name;
+      }
+      known[activityId] = names;
+    }
+    return known;
+  } catch {
+    return {};
+  }
 }
 
 /** 第一个加入某阵营的用户认领区长；同一阵营只记录一次。 */

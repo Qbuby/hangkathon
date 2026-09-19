@@ -1,5 +1,12 @@
 # 杭客松首页升级 — Design QA
 
+## 邀请链接携带区长身份，受邀方不会再看到「担任区长」选项 — 2026-09-19
+
+- User report: account A claimed 西湖区 leadership in shop-ai-assistant, invited account B; B refused then free-signed-up and the dialog still offered 担任西湖区区长. Root cause: leader records live in localStorage per browser with no backend — B's browser (a second browser/incognito; same-browser would have shown A's 已报名 join instead) simply had no record of A's claim, so 西湖区 looked leaderless.
+- Fix within the no-backend constraint: the invite link itself is authoritative evidence of leadership (minted from the leader's panel). On opening `?invite={faction}&by={name}`, the page calls `noteInviteLeader()` which writes a `hangkathon.knownleaders.v1` roster entry for that activity+faction — kept even if the invite is refused. `getLeaders()` now merges three sources in priority order: DEMO_LEADERS seeds → invite-derived known leaders → local claims. First implementation passed a raw string instead of a LeaderRecord into the merge, rendering 「现任区长 · （…）」 with an empty name — caught in self-test and fixed by mapping entries to `{name, since:""}`.
+- Verified end-to-end simulating B's fresh browser: cleared joins/leaders/knownleaders → opened `?invite=xihu&by=my_account_A` (roster written at load) → refused → free join dialog on 西湖区 shows 「现任区长 · my_account_A（该阵营区长区长已有人担任）」 with the claim checkbox hidden, while 上城区 (genuinely leaderless) still offers the claim. Regression: seeded 西湖区 note and the full claim flow (checkbox → confirm → chip + invite link) unchanged. Test records cleaned.
+- Remaining honest limitation, documented in README: without a backend, leadership is only visible to browsers that have seen the claim (local) or an invite link (known-roster). True cross-device leader state needs the server-side store planned with the database.
+
 ## 区长机制：首位加入者可当区长 + 邀请链接 — 2026-09-19
 
 - Spec from the user: the first user to join a faction may optionally claim 区长 (faction leader); the leader shares an invite link valid at any stage during the activity; an invitee can only join the leader's faction or refuse, and accepting requires login; each successful invited join pays the leader a contribution bonus. Implemented as: `JoinRecord` gains `leader?`/`invitedBy?`; new leaders store `hangkathon.leaders.v1` with `getLeaders()/saveLeader()` and `DEMO_LEADERS` seeds (midautumn 西湖区=lakeside_verses, shop 拱墅区=shopkeeper_hz, city-memory 西湖区=broken_bridge) so both the 现任区长 (no checkbox) and 担任区长 (checkbox) states are demonstrable; `LEADER_INVITE_BONUS = 50`.
