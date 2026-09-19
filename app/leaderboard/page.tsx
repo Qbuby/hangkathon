@@ -75,7 +75,7 @@ export default function LeaderboardPage() {
             <span>活动</span>
             <span>贡献值</span>
           </div>
-          {totals.users.map((row, index) => (
+          {totals.users.slice(0, 10).map((row, index) => (
             <div className="lb-row" key={row.name}>
               <span className="lb-rank" style={index < 3 ? { color: RANK_COLORS[index] } : undefined}>
                 {index < 3 ? `No.${index + 1}` : index + 1}
@@ -89,7 +89,7 @@ export default function LeaderboardPage() {
             </div>
           ))}
         </div>
-        <p className="detail-placeholder">榜单为跨活动累计的演示数据，正式数据待平台接入后端后开放。</p>
+        <p className="detail-placeholder">榜单为跨活动累计的演示数据，仅展示前十名；正式数据待平台接入后端后开放。</p>
       </section>
 
       <section className="lb-note">
