@@ -19,7 +19,7 @@ import {
   type Activity,
 } from "@/lib/activity";
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
-import { FACTIONS, factionById } from "@/lib/factions";
+import { FACTIONS, FACTION_GROUPS, factionById } from "@/lib/factions";
 import Donut from "../../donut";
 import {
   LEADER_INVITE_BONUS,
@@ -436,18 +436,25 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             报名后进入阵营选择阶段：选择一个杭州区县，与同阵营市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
           </DialogDescription>
           <div className="join-factions" role="radiogroup" aria-label="选择阵营">
-            {FACTIONS.map((faction) => (
-              <button
-                key={faction.id}
-                type="button"
-                role="radio"
-                aria-checked={pickedFaction === faction.id}
-                className={`join-faction${pickedFaction === faction.id ? " is-selected" : ""}`}
-                style={pickedFaction === faction.id ? { borderColor: faction.color, color: faction.color } : undefined}
-                onClick={() => setPickedFaction(faction.id)}
-              >
-                {faction.name}
-              </button>
+            {FACTION_GROUPS.map((group) => (
+              <div className="join-faction-group" key={group.type}>
+                <span className="join-faction-group-label">{group.label}</span>
+                <div className="join-faction-grid">
+                  {FACTIONS.filter((faction) => faction.type === group.type).map((faction) => (
+                    <button
+                      key={faction.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={pickedFaction === faction.id}
+                      className={`join-faction${pickedFaction === faction.id ? " is-selected" : ""}`}
+                      style={pickedFaction === faction.id ? { borderColor: faction.color, color: faction.color } : undefined}
+                      onClick={() => setPickedFaction(faction.id)}
+                    >
+                      {faction.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
           <p className="join-lock-note">阵营在本活动中锁定，确认后无法更改。</p>

@@ -75,8 +75,10 @@
 .join-badge{display:flex;align-items:center;gap:9px;align-self:flex-start;border:1px solid;border-radius:20px;padding:7px 15px;font-size:13.5px;font-weight:550}
 .join-badge-dot{width:9px;height:9px;border-radius:50%}
 .join-rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:1.7;color:#c3d6ea}
-.join-dialog .join-factions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 6px}
-.join-faction{height:42px;border:1px solid #b4d8ff30;border-radius:9px;background:transparent;color:#cfe0f2;font-size:13.5px;letter-spacing:.5px}
+.join-dialog .join-factions{display:flex;flex-direction:column;gap:12px;margin:4px 0 6px}
+.join-faction-group-label{display:block;font-size:10.5px;letter-spacing:2px;color:#8aa4bc;margin:0 0 7px}
+.join-faction-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.join-faction{height:40px;border:1px solid #b4d8ff30;border-radius:9px;background:transparent;color:#cfe0f2;font-size:13px;letter-spacing:.3px}
 .join-faction:hover{border-color:#54d7ff80;color:#fff}
 .join-faction.is-selected{background:#54d7ff14;font-weight:550}
 .join-lock-note{font-size:12px;line-height:1.7;color:#ffb46b;margin:0 0 6px}
@@ -134,7 +136,7 @@
   .detail-notfound{padding:56px 6%}
   .faction-panel{grid-template-columns:1fr;gap:22px;justify-items:center}
   .faction-list{width:100%}
-  .join-dialog .join-factions{grid-template-columns:repeat(2,1fr)}
+  .join-faction-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .invite-banner{margin:18px 6% 0;padding:18px 20px}
   .invite-banner-actions{flex-direction:column}
   .invite-accept,.invite-refuse{width:100%}

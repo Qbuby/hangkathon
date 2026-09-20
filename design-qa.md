@@ -1,5 +1,11 @@
 # 杭客松首页升级 — Design QA
 
+## 阵营分组：十区 / 两县 / 一市 — 2026-09-20
+
+- The user confirmed the faction scope: all 13 county-level divisions of Hangzhou (十区两县一市). The list already matched exactly; this pass makes the structure visible. `lib/factions.ts` gained `FactionType` ("district" | "county" | "city") and `FACTION_GROUPS` labels; the join dialog now renders three labeled groups — 十区 · 市辖区 (10), 两县 (2), 一市 · 县级市 (1) — desktop 5-column grids per group, mobile 2-column. Faction ids/colors unchanged, so joins, leaders, demo data and invite links are unaffected.
+- Wording synced: `docs/prize-mechanism.md` 阵营选择 step and README summary now say 十区两县一市 instead of 13 个区县.
+- Verified: dialog shows the three labels with counts 10/2/1 and 13 radios; picking 桐庐县 enables 确认报名; mobile 390 dialog has no overflow; no join data left in storage after testing. ESLint 0/0, tsc clean, both builds passed.
+
 ## 邀请链接携带区长身份，受邀方不会再看到「担任区长」选项 — 2026-09-19
 
 - User report: account A claimed 西湖区 leadership in shop-ai-assistant, invited account B; B refused then free-signed-up and the dialog still offered 担任西湖区区长. Root cause: leader records live in localStorage per browser with no backend — B's browser (a second browser/incognito; same-browser would have shown A's 已报名 join instead) simply had no record of A's claim, so 西湖区 looked leaderless.
