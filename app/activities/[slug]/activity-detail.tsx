@@ -19,7 +19,7 @@ import {
   type Activity,
 } from "@/lib/activity";
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
-import { FACTIONS, FACTION_GROUPS, factionById } from "@/lib/factions";
+import { FACTIONS, factionById } from "@/lib/factions";
 import Donut from "../../donut";
 import {
   LEADER_INVITE_BONUS,
@@ -323,26 +323,17 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                     centerValue={contributionTotal.toLocaleString("zh-CN")}
                   />
                   <div className="faction-list">
-                    {FACTION_GROUPS.map((group) => {
-                      const groupRows = shares.filter((row) => row.faction.type === group.type);
-                      if (groupRows.length === 0) return null;
-                      return (
-                        <div className="faction-group" key={group.type}>
-                          <span className="faction-group-label">{group.label}</span>
-                          {groupRows.map((row) => (
-                            <div className="faction-row" key={row.faction.id}>
-                              <span className="faction-dot" style={{ background: row.faction.color }} />
-                              <strong>{row.faction.name}</strong>
-                              <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
-                              <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
-                              {hasPrize && (
-                                <span className="faction-prize">奖金 ¥{row.prize.toLocaleString("zh-CN")}</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
+                    {shares.map((row) => (
+                      <div className="faction-row" key={row.faction.id}>
+                        <span className="faction-dot" style={{ background: row.faction.color }} />
+                        <strong>{row.faction.name}</strong>
+                        <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
+                        <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
+                        {hasPrize && (
+                          <span className="faction-prize">奖金 ¥{row.prize.toLocaleString("zh-CN")}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
                 <p className="detail-placeholder">
@@ -426,7 +417,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <p className="detail-join-title">想参加这场活动？</p>
               <Button className="primary-action" onClick={() => setJoinOpen(true)}>报名参加</Button>
               <p className="detail-join-note">
-                报名后进入阵营选择阶段，从杭州十区两县一市中选一个阵营出战（本活动中锁定不可更改），正式阶段每天领取算力券。
+                报名后进入阵营选择阶段，从杭州 13 个县级行政区中选一个阵营出战（本活动中锁定不可更改），正式阶段每天领取算力券。
                 {isDemo ? "此活动为虚构的演示数据。" : "活动目前只保存在这台设备的浏览器里。"}
               </p>
             </div>
@@ -442,28 +433,21 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           <p className="eyebrow">JOIN</p>
           <DialogTitle className="dialog-title">选择你的阵营</DialogTitle>
           <DialogDescription className="dialog-description">
-            报名后进入阵营选择阶段：从杭州十区两县一市中选择一个阵营，与同阵营市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
+            报名后进入阵营选择阶段：从杭州 13 个县级行政区中选择一个阵营，与同阵营市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
           </DialogDescription>
           <div className="join-factions" role="radiogroup" aria-label="选择阵营">
-            {FACTION_GROUPS.map((group) => (
-              <div className="join-faction-group" key={group.type}>
-                <span className="faction-group-label">{group.label}</span>
-                <div className="join-faction-grid">
-                  {FACTIONS.filter((faction) => faction.type === group.type).map((faction) => (
-                    <button
-                      key={faction.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={pickedFaction === faction.id}
-                      className={`join-faction${pickedFaction === faction.id ? " is-selected" : ""}`}
-                      style={pickedFaction === faction.id ? { borderColor: faction.color, color: faction.color } : undefined}
-                      onClick={() => setPickedFaction(faction.id)}
-                    >
-                      {faction.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {FACTIONS.map((faction) => (
+              <button
+                key={faction.id}
+                type="button"
+                role="radio"
+                aria-checked={pickedFaction === faction.id}
+                className={`join-faction${pickedFaction === faction.id ? " is-selected" : ""}`}
+                style={pickedFaction === faction.id ? { borderColor: faction.color, color: faction.color } : undefined}
+                onClick={() => setPickedFaction(faction.id)}
+              >
+                {faction.name}
+              </button>
             ))}
           </div>
           <p className="join-lock-note">阵营在本活动中锁定，确认后无法更改。</p>

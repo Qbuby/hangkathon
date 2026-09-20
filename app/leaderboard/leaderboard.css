@@ -11,8 +11,8 @@
 .lb-section{padding:36px 6% 8px}
 .lb-section h2{font-size:20px;font-weight:550;letter-spacing:1px;margin:0 0 18px}
 
-.lb-faction-list{gap:14px}
-.lb-faction-row{grid-template-columns:12px minmax(0,1fr) auto auto minmax(90px,160px);padding:9px 0}
+.lb-faction-list{gap:2px}
+.lb-faction-row{grid-template-columns:12px minmax(0,1fr) auto auto minmax(90px,160px);padding:10px 0}
 .lb-faction-row.is-zero{opacity:.5}
 .lb-faction-row.is-zero .faction-share{color:#8aa4bc}
 .lb-faction-bar{margin-left:10px}

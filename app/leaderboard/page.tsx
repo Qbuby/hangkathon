@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import Donut from "../donut";
 import YourEntry from "./your-entry";
 import { MECHANISM, platformTotals } from "@/lib/contribution";
-import { FACTIONS, FACTION_GROUPS } from "@/lib/factions";
+import { FACTIONS } from "@/lib/factions";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
 
@@ -16,16 +16,13 @@ export default function LeaderboardPage() {
   const totals = platformTotals();
   const maxFactionPoints = totals.factions[0]?.points ?? 0;
 
-  // 全部 13 个阵营按「十区两县一市」分组展示；组内按贡献降序，暂无贡献的排后置灰。
-  const groupedFactions = FACTION_GROUPS.map((group) => ({
-    label: group.label,
-    rows: FACTIONS.filter((faction) => faction.type === group.type)
-      .map((faction) => {
-        const row = totals.factions.find((item) => item.faction.id === faction.id);
-        return row ?? { faction, points: 0, share: 0, prize: 0 };
-      })
-      .sort((a, b) => b.points - a.points),
-  }));
+  // 全部 13 个阵营一视同仁，按贡献降序；暂无贡献的排后置灰。
+  const allFactions = FACTIONS
+    .map((faction) => {
+      const row = totals.factions.find((item) => item.faction.id === faction.id);
+      return row ?? { faction, points: 0, share: 0, prize: 0 };
+    })
+    .sort((a, b) => b.points - a.points);
 
   return (
     <main className="detail-page lb-page">
@@ -45,7 +42,7 @@ export default function LeaderboardPage() {
             <div className="lb-stat"><strong>{totals.total.toLocaleString("zh-CN")}</strong><span>平台总贡献值</span></div>
             <div className="lb-stat"><strong>{totals.activityCount} 场</strong><span>参与活动</span></div>
             <div className="lb-stat"><strong>{totals.citizenCount} 位</strong><span>数字杭州市民</span></div>
-            <div className="lb-stat"><strong>{FACTIONS.length} 个</strong><span>阵营（十区两县一市）</span></div>
+            <div className="lb-stat"><strong>{FACTIONS.length} 个</strong><span>阵营</span></div>
           </div>
       </section>
 
@@ -64,18 +61,13 @@ export default function LeaderboardPage() {
             centerValue={totals.total.toLocaleString("zh-CN")}
           />
           <div className="faction-list lb-faction-list">
-            {groupedFactions.map((group) => (
-              <div className="faction-group" key={group.label}>
-                <span className="faction-group-label">{group.label}</span>
-                {group.rows.map((row) => (
-                  <div className={`faction-row lb-faction-row${row.points === 0 ? " is-zero" : ""}`} key={row.faction.id}>
-                    <span className="faction-dot" style={{ background: row.faction.color }} />
-                    <strong>{row.faction.name}</strong>
-                    <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
-                    <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
-                    <div className="detail-bar lb-faction-bar"><i style={{ width: `${maxFactionPoints ? (row.points / maxFactionPoints) * 100 : 0}%`, background: row.faction.color }} /></div>
-                  </div>
-                ))}
+            {allFactions.map((row) => (
+              <div className={`faction-row lb-faction-row${row.points === 0 ? " is-zero" : ""}`} key={row.faction.id}>
+                <span className="faction-dot" style={{ background: row.faction.color }} />
+                <strong>{row.faction.name}</strong>
+                <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
+                <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
+                <div className="detail-bar lb-faction-bar"><i style={{ width: `${maxFactionPoints ? (row.points / maxFactionPoints) * 100 : 0}%`, background: row.faction.color }} /></div>
               </div>
             ))}
           </div>

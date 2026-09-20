@@ -1,5 +1,10 @@
 # 杭客松首页升级 — Design QA
 
+## 移除「十区/两县/一市」分组标签，阵营一视同仁 — 2026-09-20
+
+- The user ruled that the 十区/两县/一市 classification is common knowledge needing no special callout, and all factions must be treated equally. All group labels were removed worldwide: the join dialog is back to a flat 13-button grid (3 columns desktop / 2 mobile); the leaderboard faction list is a flat 13 rows sorted purely by points (zero-contribution factions dimmed at the bottom); the detail page faction list is flat data-only. Copy switched from 十区两县一市 phrasing to 「杭州 13 个县级行政区」; the stats tile now reads 阵营 13 个. `FACTION_GROUPS`, `FactionType`, and the group CSS (`.faction-group`, `.faction-group-label`, `.join-faction-grid`) were deleted; `docs/prize-mechanism.md` and README list the 13 divisions flat with 「一视同仁」 stated.
+- Verified: leaderboard shows 13 flat rows (拱墅 3,740 first → 建德 0 last, 4 zero rows dimmed) with zero group labels; join dialog has 13 radios, no labels, neutral description; detail list flat; grep confirms no 十区/两县/一市 string anywhere in app/, lib/, docs, README; no overflow at 390. ESLint 0/0, tsc clean, both builds passed.
+
 ## 全局统一：阵营列表一律按十区/两县/一市分组 — 2026-09-20
 
 - The user pointed out the 算力榜 faction list was still flat while the join dialog was grouped; asked for global consistency. Now every faction listing follows the same structure with a shared `.faction-group` / `.faction-group-label` style (detail.css, renamed from the dialog-scoped label class).
