@@ -29,8 +29,6 @@
 .lb-acts{color:#8aa4bc;font-variant-numeric:tabular-nums}
 .lb-points{color:#8fd8c4;font-weight:600;font-variant-numeric:tabular-nums;justify-self:end}
 
-.lb-note{padding:34px 6% 64px}
-.lb-note p:not(.detail-eyebrow){font-size:13px;line-height:2;color:#a9c2d9;margin:0;max-width:860px}
 
 .lb-you{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:14px;align-items:center;margin-top:12px;border:1px dashed #54d7ff55;border-radius:12px;background:#0b2337;padding:14px 20px;font-size:13.5px}
 .lb-you-tag{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:1px solid #54d7ff66;color:#8deaff;font-size:13px;font-weight:600}
@@ -58,5 +56,4 @@
   .lb-table{padding:6px 16px}
   .lb-row{grid-template-columns:48px minmax(0,1fr) 86px;font-size:12.5px}
   .lb-stat{padding:16px}
-  .lb-note{padding:28px 6% 48px}
 }

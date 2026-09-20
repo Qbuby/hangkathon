@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import Donut from "../donut";
 import YourEntry from "./your-entry";
-import { MECHANISM, platformTotals } from "@/lib/contribution";
+import { platformTotals } from "@/lib/contribution";
 import { FACTIONS } from "@/lib/factions";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
@@ -101,16 +101,6 @@ export default function LeaderboardPage() {
         </div>
         <YourEntry />
         <p className="detail-placeholder">榜单为跨活动累计的演示数据，仅展示前十名；正式数据待平台接入后端后开放。</p>
-      </section>
-
-      <section className="lb-note">
-        <p className="detail-eyebrow">MECHANISM</p>
-        <p>
-          正式阶段每人每天 ¥{MECHANISM.voucher.base} 算力券（当日有效，每邀请一位新用户 +¥{MECHANISM.voucher.perInvite}，封顶 ¥{MECHANISM.voucher.dailyCap}）；
-          产出物 {MECHANISM.review.hours} 小时内按质量审核计入贡献值（{MECHANISM.review.grades.map((grade) => `${grade.label} ${grade.points}`).join(" / ")}）；
-          有奖金的活动按「阵营占比 × 个人占比」两层比例分发奖池；
-          完赛后按表现折算平台贡献值，升级「数字杭州市民」勋章（★1–★5）。
-        </p>
       </section>
     </main>
   );
