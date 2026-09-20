@@ -1,5 +1,10 @@
 # 杭客松首页升级 — Design QA
 
+## 创建表单与展示同步移除组队概念 — 2026-09-20
+
+- The user noted the create form still asked for team settings, which the faction-competition mechanism made obsolete. Removed `maxTeamSize`/`openTeam` from the `Activity` type, the schedule step (now「活动时间」, two date fields only), `initialDraft`, `toActivity`, and `normalize` (old localStorage records with those fields are silently dropped on read). Demo activities stripped; 看板卡片 and 详情页 关键信息 lost their 队伍/组队 rows (facts now 时间/地点/奖金/费用/报名/活动代号); the create preview card lost its 队伍 row; the online-format hint reworded away from 组队. Unused `Users` icon imports removed. README's create-flow section updated.
+- Verified: create form shows 6 steps with step 3 = 活动时间 (2 date inputs, no 单队最多人数/自由组队 anywhere on the page); board cards and detail facts carry no team wording; ESLint 0/0, tsc clean, both builds passed.
+
 ## 移除「十区/两县/一市」分组标签，阵营一视同仁 — 2026-09-20
 
 - The user ruled that the 十区/两县/一市 classification is common knowledge needing no special callout, and all factions must be treated equally. All group labels were removed worldwide: the join dialog is back to a flat 13-button grid (3 columns desktop / 2 mobile); the leaderboard faction list is a flat 13 rows sorted purely by points (zero-contribution factions dimmed at the bottom); the detail page faction list is flat data-only. Copy switched from 十区两县一市 phrasing to 「杭州 13 个县级行政区」; the stats tile now reads 阵营 13 个. `FACTION_GROUPS`, `FactionType`, and the group CSS (`.faction-group`, `.faction-group-label`, `.join-faction-grid`) were deleted; `docs/prize-mechanism.md` and README list the 13 divisions flat with 「一视同仁」 stated.

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CalendarDays, Coins, MapPin, Users } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Coins, MapPin } from "lucide-react";
 import { CATEGORIES, categoryLabel, formatLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
 import "./board.css";
 
@@ -184,7 +184,6 @@ export default function ActivityBoard({
                   <dt><MapPin size={14} />地点</dt>
                   <dd>{activity.format === "offline" ? activity.venue : "线上"}</dd>
                 </div>
-                <div><dt><Users size={14} />队伍</dt><dd>每队最多 {activity.maxTeamSize} 人</dd></div>
               </dl>
 
               <p className="board-card-host">主办方 · {activity.host}</p>

@@ -200,7 +200,6 @@ export default function CreateActivityPage() {
             <dl className="create-card-meta">
               <div><dt>主办方</dt><dd>{String(values.host || "—")}</dd></div>
               <div><dt>时间</dt><dd>{values.startsAt ? `${values.startsAt} → ${values.endsAt || "待定"}` : "—"}</dd></div>
-              <div><dt>队伍</dt><dd>每队最多 {String(values.maxTeamSize || "—")} 人</dd></div>
               <div><dt>评审</dt><dd>{criteria.filter((c) => c.name).length} 个维度</dd></div>
               <div><dt>奖项</dt><dd>{values.awardsEnabled ? `${awards.filter((a) => a.name).length} 项` : "不设奖"}</dd></div>
               <div><dt>活动代号</dt><dd>{String(values.slug || "…")}</dd></div>

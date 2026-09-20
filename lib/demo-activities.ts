@@ -21,8 +21,6 @@ export const DEMO_ACTIVITIES: Activity[] = [
     prizePool: 30000,
     startsAt: "2026-09-20",
     endsAt: "2026-10-06",
-    maxTeamSize: 3,
-    openTeam: true,
     submissionTypes: ["writeup", "demo", "video"],
     judging: "both",
     criteria: [
@@ -57,8 +55,6 @@ export const DEMO_ACTIVITIES: Activity[] = [
     prizePool: 50000,
     startsAt: "2026-10-24",
     endsAt: "2026-10-26",
-    maxTeamSize: 5,
-    openTeam: true,
     submissionTypes: ["files", "demo", "live"],
     judging: "judges",
     criteria: [
@@ -92,8 +88,6 @@ export const DEMO_ACTIVITIES: Activity[] = [
     prizePool: 0,
     startsAt: "2026-11-07",
     endsAt: "2026-11-21",
-    maxTeamSize: 4,
-    openTeam: false,
     submissionTypes: ["writeup", "demo", "video"],
     judging: "public",
     criteria: [

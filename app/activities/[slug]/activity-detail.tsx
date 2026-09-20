@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { ArrowLeft, ArrowRight, CalendarDays, Coins, MapPin, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Coins, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -366,10 +366,8 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             <dl>
               <div><dt><CalendarDays size={14} />时间</dt><dd>{activity.startsAt && activity.endsAt ? `${activity.startsAt} 至 ${activity.endsAt}` : "待定"}</dd></div>
               <div><dt><MapPin size={14} />地点</dt><dd>{activity.format === "offline" ? activity.venue || "待定" : "线上"}</dd></div>
-              <div><dt><Users size={14} />队伍</dt><dd>每队最多 {activity.maxTeamSize} 人</dd></div>
               <div><dt><Coins size={14} />奖金</dt><dd>{prizeText(activity)}</dd></div>
               <div><dt>费用</dt><dd>{activity.pricing === "paid" ? activity.fee || "收费" : "免费"}</dd></div>
-              <div><dt>组队</dt><dd>{activity.openTeam ? "可自由组队" : "需自行成队"}</dd></div>
               <div><dt>报名</dt><dd>{joinPolicyLabel(activity)}</dd></div>
               <div><dt>活动代号</dt><dd>{activity.slug}</dd></div>
             </dl>

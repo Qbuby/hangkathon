@@ -43,8 +43,6 @@ export type Activity = {
   prizePool: number;
   startsAt: string;
   endsAt: string;
-  maxTeamSize: number;
-  openTeam: boolean;
   submissionTypes: string[];
   judging: Judging;
   criteria: Criterion[];
@@ -141,7 +139,7 @@ export const STEPS: Step[] = [
         type: "radio",
         required: true,
         options: [
-          { value: "online", label: "线上", hint: "不限地点，在杭客松上组队与提交" },
+          { value: "online", label: "线上", hint: "不限地点，报名与提交都在杭客松上" },
           { value: "offline", label: "线下", hint: "需要到场参与" },
         ],
         help: "活动在杭客松平台内进行，不需要跳转到其他网站。",
@@ -162,13 +160,11 @@ export const STEPS: Step[] = [
   },
   {
     id: "schedule",
-    title: "时间与队伍",
-    summary: "起止时间、队伍规模与组队方式",
+    title: "活动时间",
+    summary: "设定活动的起止日期",
     fields: [
       { name: "startsAt", label: "开始日期", type: "date", required: true, half: true },
       { name: "endsAt", label: "截止日期", type: "date", required: true, half: true },
-      { name: "maxTeamSize", label: "单队最多人数", type: "number", required: true, min: 1, max: 20, half: true },
-      { name: "openTeam", label: "允许自由组队", type: "switch", help: "打开后，参与者可以互相邀请加入队伍。" },
     ],
   },
   {
@@ -247,8 +243,6 @@ export function initialDraft(host = ""): Draft {
     prizePool: 0,
     startsAt: "",
     endsAt: "",
-    maxTeamSize: 4,
-    openTeam: true,
     submissionTypes: ["writeup", "demo"],
     judging: "judges",
     criteria: EMPTY_CRITERIA.map((c) => ({ ...c })),
@@ -349,8 +343,6 @@ export function toActivity(values: Draft): Activity {
     prizePool: values.awardsEnabled ? Number(values.prizePool) || 0 : 0,
     startsAt: String(values.startsAt ?? ""),
     endsAt: String(values.endsAt ?? ""),
-    maxTeamSize: Number(values.maxTeamSize) || 1,
-    openTeam: values.openTeam === true,
     submissionTypes: Array.isArray(values.submissionTypes) ? (values.submissionTypes as string[]) : [],
     judging: (values.judging as Judging) ?? "judges",
     criteria: ((values.criteria as Criterion[]) ?? []).filter((c) => c.name.trim()).map((c) => ({ name: c.name.trim(), weight: Number(c.weight) || 0 })),
@@ -395,8 +387,6 @@ function normalize(raw: unknown): Activity | null {
     prizePool: Number(value.prizePool) || 0,
     startsAt: text(value.startsAt),
     endsAt: text(value.endsAt),
-    maxTeamSize: Number(value.maxTeamSize) || 1,
-    openTeam: value.openTeam !== false,
     submissionTypes: list<string>(value.submissionTypes),
     judging: (value.judging as Judging) ?? "judges",
     criteria: list<Criterion>(value.criteria).filter((c) => c && typeof c.name === "string"),
