@@ -1,0 +1,3 @@
+/* 活动看板二级页 —— 复用 detail.css 的骨架（detail-top / detail-back）。 */
+.activities-page{min-height:100svh}
+.activities-wrap{padding:40px 6% 80px}

@@ -58,10 +58,7 @@
 .detail-notfound-card .eyebrow{margin:0}
 
 /* 阵营贡献区块 */
-.faction-panel{display:grid;grid-template-columns:minmax(320px,400px) minmax(0,1fr);gap:24px;align-items:center}
-.donut{display:block;max-width:100%;height:auto}
-.donut-value{font-size:24px;font-weight:600;fill:#eaf3ff}
-.donut-label{font-size:11px;letter-spacing:1.5px;fill:#8aa4bc}
+.faction-panel{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr);gap:32px;align-items:center;justify-items:center}
 .faction-list{display:flex;flex-direction:column;min-width:0}
 .faction-row{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto auto;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid #b4d8ff18;font-size:13.5px}
 .faction-row:last-child{border-bottom:0}
@@ -142,11 +139,10 @@
   .leader-invite-row{flex-direction:column}
   .leader-invite-row button{height:36px}
 }
-.donut-ring{transition:opacity .15s,stroke-width .15s;cursor:pointer}
-.donut-ring.is-dim{opacity:.35}
-.donut-ring.is-active{stroke-width:26}
 .faction-row.is-dim{opacity:.4}
 .faction-row.is-active{background:#b4d8ff14}
-.donut-mark-text{font-size:12px;font-weight:600;letter-spacing:.5px;pointer-events:none}
-.donut-mark{transition:opacity .15s}
-.donut-mark.is-dim{opacity:.3}
+.donut-wrap{position:relative;display:block}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:2px}
+.donut-center-value{font-size:24px;font-weight:600;color:#eaf3ff;line-height:1}
+.donut-center-label{font-size:11px;letter-spacing:1.5px;color:#8aa4bc}
+.donut-wrap svg{display:block;width:100%!important;height:100%!important}
