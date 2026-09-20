@@ -36,6 +36,24 @@ export default function Donut({ slices, size = 176, thickness = 22, centerLabel,
   const activeSlice = visible.find((slice) => slice.id === active);
   const activeShare = activeSlice && total > 0 ? (activeSlice.value / total) * 100 : 0;
 
+  // 扇区中点的角度：用于把占比数字标在环带自己的位置上（12 点方向起始，顺时针）。
+  const midAngles = visible.map((slice, index) => {
+    const before = visible.slice(0, index).reduce((sum, item) => sum + item.value, 0);
+    const middle = (before + slice.value / 2) / Math.max(total, 1);
+    return middle * 2 * Math.PI - Math.PI / 2;
+  });
+  const labels = visible.map((slice, index) => {
+    const share = total > 0 ? (slice.value / total) * 100 : 0;
+    const mid = midAngles[index];
+    const labelRadius = radius + 1;
+    return {
+      id: slice.id,
+      share,
+      x: size / 2 + Math.cos(mid) * labelRadius,
+      y: size / 2 + Math.sin(mid) * labelRadius,
+    };
+  });
+
   const activate = (id: string | null) => {
     setActive(id);
     onActive?.(id);
@@ -69,6 +87,18 @@ export default function Donut({ slices, size = 176, thickness = 22, centerLabel,
           />
         ))}
       </g>
+      {labels.map((item) => (
+        <text
+          key={item.id}
+          className="donut-share"
+          x={item.x}
+          y={item.y}
+          textAnchor="middle"
+          dominantBaseline="central"
+        >
+          {item.share >= 5 ? `${Math.round(item.share)}%` : ""}
+        </text>
+      ))}
       {activeSlice ? (
         <>
           <text className="donut-value" x="50%" y="47%" textAnchor="middle">{activeShare.toFixed(1)}%</text>
