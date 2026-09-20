@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import FactionPanel from "../faction-panel";
+import SiteHeader from "../site-header";
 import YourEntry from "./your-entry";
 import { platformTotals } from "@/lib/contribution";
 import { FACTIONS } from "@/lib/factions";
@@ -25,11 +24,7 @@ export default function LeaderboardPage() {
 
   return (
     <main className="detail-page lb-page">
-      <header className="detail-top">
-        <Link className="detail-back" href="/"><ArrowLeft size={17} /> 返回首页</Link>
-        <span className="detail-top-title">算力榜</span>
-        <span className="detail-top-note">平台演示数据</span>
-      </header>
+      <SiteHeader />
 
       <section className="lb-hero">
         <p className="eyebrow">COMPUTE LEADERBOARD</p>

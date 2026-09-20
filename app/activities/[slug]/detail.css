@@ -146,3 +146,5 @@
 .donut-center-value{font-size:24px;font-weight:600;color:#eaf3ff;line-height:1}
 .donut-center-label{font-size:11px;letter-spacing:1.5px;color:#8aa4bc}
 .donut-wrap svg{display:block;width:100%!important;height:100%!important}
+.detail-top-tags{display:flex;justify-content:flex-end;padding:0 6%;margin:-56px 0 18px;position:relative;pointer-events:none}
+.detail-top-tags .detail-top-note{pointer-events:auto}

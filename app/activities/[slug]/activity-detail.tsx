@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { ArrowLeft, ArrowRight, CalendarDays, Coins, MapPin, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Coins, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -21,6 +21,7 @@ import {
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
 import { FACTIONS, factionById } from "@/lib/factions";
 import FactionPanel from "../../faction-panel";
+import SiteHeader from "../../site-header";
 import {
   LEADER_INVITE_BONUS,
   MECHANISM,
@@ -114,10 +115,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   if (!activity) {
     return (
       <main className="detail-page">
-        <header className="detail-top">
-          <Link className="detail-back" href="/#activities"><ArrowLeft size={17} /> 返回活动看板</Link>
-          <span className="detail-top-title">活动详情</span>
-        </header>
+        <SiteHeader />
         <div className="detail-notfound">
           <div className="detail-notfound-card">
             <p className="eyebrow">NOT FOUND</p>
@@ -191,11 +189,8 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
 
   return (
     <main className="detail-page">
-      <header className="detail-top">
-        <Link className="detail-back" href="/#activities"><ArrowLeft size={17} /> 返回活动看板</Link>
-        <span className="detail-top-title">活动详情</span>
-        <span className="detail-top-note">{isDemo ? "演示数据 · 非真实活动" : "本机创建 · 未同步到服务器"}</span>
-      </header>
+      <SiteHeader />
+      <div className="detail-top-tags"><span className="detail-top-note">{isDemo ? "演示数据 · 非真实活动" : "本机创建 · 未同步到服务器"}</span></div>
 
       <section className="detail-hero">
         <div className="detail-tags">

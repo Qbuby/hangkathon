@@ -1,17 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowUpRight, ArrowRight, X, Cpu, Box, NotebookText, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import BridgeScene from "./scene";
-import SessionMenu from "./session-menu";
+import SiteHeader from "./site-header";
 
 const info = {
   compute: { label: "DATA & COMPUTE", title: "数算：算力与数据，在这里汇聚。", text: "数算入口将汇集可用的算力资源、数据集与开源模型，让一个想法不必卡在资源这一步。", note: "数算区为占位内容，目前没有接入任何算力或数据服务。" },
-  language: { label: "LANGUAGE", title: "英文版本正在筹备。", text: "当前首页提供中文体验。", note: "此入口为语言切换演示，尚未开放英文内容。" },
 };
 type Panel = keyof typeof info | null;
 
@@ -22,14 +20,7 @@ export default function Home() {
   return (
     <main id="top">
       <Link className="skip-link" href="/activities">跳转到活动看板</Link>
-      <header className="site-header">
-        <a href="#top" className="wordmark" aria-label="杭客松首页"><Image className="wordmark-image" src="/brand/hangkathon-logo.png" alt="杭客松 Hangkathon" width={1400} height={468} priority draggable={false} /></a>
-        <nav aria-label="主导航">
-          <Link href="/activities">活动</Link>
-          <Link href="/leaderboard">算力榜</Link>
-        </nav>
-        <div className="header-actions"><button className="language-control" onClick={() => setPanel("language")} aria-label="语言，当前为中文"><strong>中</strong><span>/ EN</span></button><SessionMenu /></div>
-      </header>
+      <SiteHeader />
 
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
