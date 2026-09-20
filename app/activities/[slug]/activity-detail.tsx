@@ -323,17 +323,26 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                     centerValue={contributionTotal.toLocaleString("zh-CN")}
                   />
                   <div className="faction-list">
-                    {shares.map((row) => (
-                      <div className="faction-row" key={row.faction.id}>
-                        <span className="faction-dot" style={{ background: row.faction.color }} />
-                        <strong>{row.faction.name}</strong>
-                        <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
-                        <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
-                        {hasPrize && (
-                          <span className="faction-prize">奖金 ¥{row.prize.toLocaleString("zh-CN")}</span>
-                        )}
-                      </div>
-                    ))}
+                    {FACTION_GROUPS.map((group) => {
+                      const groupRows = shares.filter((row) => row.faction.type === group.type);
+                      if (groupRows.length === 0) return null;
+                      return (
+                        <div className="faction-group" key={group.type}>
+                          <span className="faction-group-label">{group.label}</span>
+                          {groupRows.map((row) => (
+                            <div className="faction-row" key={row.faction.id}>
+                              <span className="faction-dot" style={{ background: row.faction.color }} />
+                              <strong>{row.faction.name}</strong>
+                              <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
+                              <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
+                              {hasPrize && (
+                                <span className="faction-prize">奖金 ¥{row.prize.toLocaleString("zh-CN")}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
                 <p className="detail-placeholder">
@@ -438,7 +447,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           <div className="join-factions" role="radiogroup" aria-label="选择阵营">
             {FACTION_GROUPS.map((group) => (
               <div className="join-faction-group" key={group.type}>
-                <span className="join-faction-group-label">{group.label}</span>
+                <span className="faction-group-label">{group.label}</span>
                 <div className="join-faction-grid">
                   {FACTIONS.filter((faction) => faction.type === group.type).map((faction) => (
                     <button

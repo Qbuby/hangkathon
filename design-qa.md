@@ -1,5 +1,12 @@
 # 杭客松首页升级 — Design QA
 
+## 全局统一：阵营列表一律按十区/两县/一市分组 — 2026-09-20
+
+- The user pointed out the 算力榜 faction list was still flat while the join dialog was grouped; asked for global consistency. Now every faction listing follows the same structure with a shared `.faction-group` / `.faction-group-label` style (detail.css, renamed from the dialog-scoped label class).
+- `/leaderboard` 阵营贡献 shows **all 13 factions** in three groups (十区 10 / 两县 2 / 一市 1), sorted by points within each group; factions with no contribution render 0 · 0.0% with a dimmed `.is-zero` row and an empty bar. The stats tile changed from 上榜阵营 9 个 to 阵营 13 个（十区两县一市）. The donut still plots only non-zero slices.
+- Activity detail 阵营贡献 list: same grouping, showing only factions with data for that activity (group labels appear only when the group has rows) — keeps per-activity lists compact.
+- Verified: leaderboard groups render 10/2/1 with zeros dimmed and ordered last within groups (钱塘/临安/淳安/建德 at 0); midautumn detail shows one group (十区 · 市辖区) with its 5 data rows; no horizontal overflow at 390 on either page; ESLint 0/0, tsc clean, both builds passed.
+
 ## 阵营分组：十区 / 两县 / 一市 — 2026-09-20
 
 - The user confirmed the faction scope: all 13 county-level divisions of Hangzhou (十区两县一市). The list already matched exactly; this pass makes the structure visible. `lib/factions.ts` gained `FactionType` ("district" | "county" | "city") and `FACTION_GROUPS` labels; the join dialog now renders three labeled groups — 十区 · 市辖区 (10), 两县 (2), 一市 · 县级市 (1) — desktop 5-column grids per group, mobile 2-column. Faction ids/colors unchanged, so joins, leaders, demo data and invite links are unaffected.
