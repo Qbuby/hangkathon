@@ -32,11 +32,11 @@ export const MECHANISM = {
 
 /** 「数字杭州市民」勋章：平台唯一，按平台贡献值定星级，只升不降。 */
 export const HONOR_LEVELS = [
-  { stars: 1, min: 0, title: "初来市民" },
-  { stars: 2, min: 500, title: "常驻市民" },
-  { stars: 3, min: 2000, title: "活跃市民" },
-  { stars: 4, min: 6000, title: "共建市民" },
-  { stars: 5, min: 15000, title: "荣誉市民" },
+  { stars: 1, min: 0, title: "初来数字市民" },
+  { stars: 2, min: 500, title: "常驻数字市民" },
+  { stars: 3, min: 2000, title: "活跃数字市民" },
+  { stars: 4, min: 6000, title: "共建数字市民" },
+  { stars: 5, min: 15000, title: "荣誉数字市民" },
 ] as const;
 
 export function honorLevel(points: number) {
@@ -56,7 +56,7 @@ export type FactionPoints = { factionId: string; points: number };
 export type MemberPoints = { name: string; factionId: string; points: number };
 export type ActivityContribution = { factions: FactionPoints[]; members: MemberPoints[] };
 
-/** 三场演示活动的阵营与个人贡献演示数据（虚构市民与分值）。 */
+/** 三场演示活动的阵营与个人贡献演示数据（虚构数字市民与分值）。 */
 export const CONTRIBUTIONS: Record<string, ActivityContribution> = {
   demo_midautumn_poetry: {
     factions: [
@@ -172,7 +172,7 @@ export function platformTotals() {
   );
   const users: CitizenRow[] = [...citizens.entries()]
     .map(([name, row]) => {
-      // 跨活动换过阵营的市民，徽标展示其贡献最多的阵营
+      // 跨活动换过阵营的数字市民，徽标展示其贡献最多的阵营
       const top = [...row.factions.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
       const faction = factionById(top);
       return faction ? { name, faction, points: row.points, activities: row.activities } : null;
@@ -189,7 +189,7 @@ export function platformTotals() {
   };
 }
 
-/** 本机报名记录：按活动锁定阵营（key = activity.id）。leader = 担任该阵营区长；invitedBy = 邀请人用户名。 */
+/** 本机报名记录：按活动锁定阵营（key = activity.id）。leader = 担任该阵营数字区长；invitedBy = 邀请人用户名。 */
 export type JoinRecord = { factionId: string; joinedAt: string; leader?: boolean; invitedBy?: string };
 
 const JOINS_KEY = "hangkathon.joins.v1";
@@ -245,14 +245,14 @@ export function saveJoin(
   return record;
 }
 
-/** 每位通过邀请链接成功加入的市民，奖励给区长的平台贡献值。 */
+/** 每位通过邀请链接成功加入的数字市民，奖励给数字区长的平台贡献值。 */
 export const LEADER_INVITE_BONUS = 50;
 
 export type LeaderRecord = { name: string; since: string };
 
 const LEADERS_KEY = "hangkathon.leaders.v1";
 
-/** 演示活动里已由演示市民担任区长的阵营：加入这些阵营时不再出现「担任区长」选项。 */
+/** 演示活动里已由演示数字市民担任数字区长的阵营：加入这些阵营时不再出现「担任数字区长」选项。 */
 export const DEMO_LEADERS: Record<string, Record<string, string>> = {
   demo_midautumn_poetry: { xihu: "lakeside_verses" },
   demo_shop_assistant: { gongshu: "shopkeeper_hz" },
@@ -287,7 +287,7 @@ function loadAllLeaders(): Record<string, Record<string, LeaderRecord>> {
   }
 }
 
-/** 某活动的区长名册：演示种子 + 邀请链接携带（拒绝邀请也保留）+ 本机认领（本机优先）。 */
+/** 某活动的数字区长名册：演示种子 + 邀请链接携带（拒绝邀请也保留）+ 本机认领（本机优先）。 */
 export function getLeaders(activityId: string): Record<string, LeaderRecord> {
   const leaders: Record<string, LeaderRecord> = {};
   for (const [factionId, name] of Object.entries(DEMO_LEADERS[activityId] ?? {})) {
@@ -301,8 +301,8 @@ export function getLeaders(activityId: string): Record<string, LeaderRecord> {
 }
 
 /**
- * 邀请链接是区长身份的权威凭证（由区长面板生成）。打开过链接的浏览器据此把
- * 「该阵营已有区长」记入本机名册——没有后端时，这是受邀方得知现任区长的唯一途径。
+ * 邀请链接是数字区长身份的权威凭证（由数字区长面板生成）。打开过链接的浏览器据此把
+ * 「该阵营已有数字区长」记入本机名册——没有后端时，这是受邀方得知现任数字区长的唯一途径。
  */
 export function noteInviteLeader(activityId: string, factionId: string, name: string): void {
   if (typeof window === "undefined" || !factionById(factionId) || !name) return;
@@ -315,7 +315,7 @@ export function noteInviteLeader(activityId: string, factionId: string, name: st
       [activityId]: { ...current, [factionId]: name },
     }));
   } catch {
-    /* 存储失败时退化为不知道该区长，仅影响演示提示 */
+    /* 存储失败时退化为不知道该数字区长，仅影响演示提示 */
   }
 }
 
@@ -342,7 +342,7 @@ function loadKnownLeaders(): Record<string, Record<string, string>> {
   }
 }
 
-/** 第一个加入某阵营的用户认领区长；同一阵营只记录一次。 */
+/** 第一个加入某阵营的用户认领数字区长；同一阵营只记录一次。 */
 export function saveLeader(activityId: string, factionId: string, name: string): LeaderRecord {
   const record: LeaderRecord = { name, since: new Date().toISOString() };
   if (typeof window !== "undefined") {

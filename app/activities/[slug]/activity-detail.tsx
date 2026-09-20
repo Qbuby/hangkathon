@@ -82,8 +82,8 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       const inviteFaction = params.get("invite");
       const by = params.get("by");
       if (inviteFaction && by && factionById(inviteFaction) && found) {
-        // 链接由区长面板生成，是区长身份的凭证：即使随后拒绝邀请也记入本机名册，
-        // 让自由报名时正确显示「现任区长」而不是再次开放担任选项。
+        // 链接由数字区长面板生成，是数字区长身份的凭证：即使随后拒绝邀请也记入本机名册，
+        // 让自由报名时正确显示「现任数字区长」而不是再次开放担任选项。
         noteInviteLeader(found.id, inviteFaction, by);
         setInvite({ factionId: inviteFaction, by });
       } else {
@@ -141,7 +141,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const contributionTotal = shares.reduce((sum, row) => sum + row.points, 0);
   const joinFaction = joinRecord ? factionById(joinRecord.factionId) : undefined;
   const leaders = getLeaders(activity.id);
-  const accountName = account?.user?.name ?? account?.user?.email ?? "本机市民";
+  const accountName = account?.user?.name ?? account?.user?.email ?? "本机数字市民";
 
   function confirmJoin() {
     if (!activity || !pickedFaction) return;
@@ -153,7 +153,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
     setJoinOpen(false);
   }
 
-  /** 被邀请者接受邀请：需先登录，接受后只能加入区长所在阵营。 */
+  /** 被邀请者接受邀请：需先登录，接受后只能加入数字区长所在阵营。 */
   async function acceptInvite() {
     if (!activity || !invite || invite === "refused") return;
     if (!account?.user) {
@@ -379,14 +379,14 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <div className="join-badge" style={{ borderColor: `${joinFaction.color}66`, color: joinFaction.color }}>
                 <span className="join-badge-dot" style={{ background: joinFaction.color }} />
                 {joinFaction.name}阵营
-                {joinRecord.leader && <span className="join-leader-chip">区长</span>}
+                {joinRecord.leader && <span className="join-leader-chip">数字区长</span>}
               </div>
               {joinRecord.invitedBy && (
                 <p className="join-invitedby">由 {joinRecord.invitedBy} 的邀请链接加入</p>
               )}
               {joinRecord.leader && (
                 <div className="leader-invite">
-                  <p className="leader-invite-title">区长邀请链接 · 活动期间任一阶段可邀请</p>
+                  <p className="leader-invite-title">数字区长邀请链接 · 活动期间任一阶段可邀请</p>
                   {typeof window !== "undefined" && (
                     <div className="leader-invite-row">
                       <code>{
@@ -398,7 +398,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                     </div>
                   )}
                   <p className="leader-invite-note">
-                    打开链接的市民只能加入本阵营或拒绝（需登录）；每位成功加入为你 +{LEADER_INVITE_BONUS} 平台贡献值。
+                    打开链接的数字市民只能加入本阵营或拒绝（需登录）；每位成功加入为你 +{LEADER_INVITE_BONUS} 平台贡献值。
                   </p>
                 </div>
               )}
@@ -431,7 +431,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           <p className="eyebrow">JOIN</p>
           <DialogTitle className="dialog-title">选择你的阵营</DialogTitle>
           <DialogDescription className="dialog-description">
-            报名后进入阵营选择阶段：从杭州 13 个县级行政区中选择一个阵营，与同阵营市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
+            报名后进入阵营选择阶段：从杭州 13 个县级行政区中选择一个阵营，与同阵营数字市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
           </DialogDescription>
           <div className="join-factions" role="radiogroup" aria-label="选择阵营">
             {FACTIONS.map((faction) => (
@@ -450,7 +450,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           </div>
           <p className="join-lock-note">阵营在本活动中锁定，确认后无法更改。</p>
           {pickedFaction && leaders[pickedFaction] ? (
-            <p className="join-leader-note">现任区长 · {leaders[pickedFaction].name}（该阵营区长已有人担任）</p>
+            <p className="join-leader-note">现任数字区长 · {leaders[pickedFaction].name}（该阵营数字区长已有人担任）</p>
           ) : pickedFaction ? (
             <label className="join-leader-choice">
               <input
@@ -459,10 +459,10 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 onChange={(event) => setWantsLeader(event.target.checked)}
               />
               <span>
-                担任{factionById(pickedFaction)?.name}区长
+                担任{factionById(pickedFaction)?.name}数字区长
                 <small>
-                  你是第一个加入该阵营的人，可选择担任区长。区长可分享邀请链接（活动期间任一阶段有效），
-                  每位通过链接加入的市民为你 +{LEADER_INVITE_BONUS} 平台贡献值。
+                  你是第一个加入该阵营的人，可选择担任数字区长。数字区长可分享邀请链接（活动期间任一阶段有效），
+                  每位通过链接加入的数字市民为你 +{LEADER_INVITE_BONUS} 平台贡献值。
                 </small>
               </span>
             </label>

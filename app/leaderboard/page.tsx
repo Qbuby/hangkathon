@@ -36,7 +36,7 @@ export default function LeaderboardPage() {
         <p className="eyebrow">COMPUTE LEADERBOARD</p>
         <h1>算力榜</h1>
         <p className="lb-hero-sub">
-          全平台所有活动的阵营贡献与市民贡献总览。阵营贡献 = 阵营成员的个人贡献值之和。
+          全平台所有活动的阵营贡献与数字市民贡献总览。阵营贡献 = 阵营成员的个人贡献值之和。
         </p>
           <div className="lb-stats">
             <div className="lb-stat"><strong>{totals.total.toLocaleString("zh-CN")}</strong><span>平台总贡献值</span></div>
@@ -76,11 +76,11 @@ export default function LeaderboardPage() {
 
       <section className="lb-section" aria-labelledby="lb-citizens">
         <p className="detail-eyebrow">CITIZENS</p>
-        <h2 id="lb-citizens">市民贡献榜</h2>
+        <h2 id="lb-citizens">数字市民贡献榜</h2>
         <div className="lb-table">
           <div className="lb-row lb-table-head">
             <span>排名</span>
-            <span>市民</span>
+            <span>数字市民</span>
             <span>阵营</span>
             <span>活动</span>
             <span>贡献值</span>

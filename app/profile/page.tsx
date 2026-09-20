@@ -73,7 +73,7 @@ export default function ProfilePage() {
               <span className="join-badge-dot" style={{ background: row.faction.color }} />
               <strong>
                 {row.activity.title}
-                {row.record.leader && <em className="profile-join-leader">区长</em>}
+                {row.record.leader && <em className="profile-join-leader">数字区长</em>}
               </strong>
               <span className="profile-join-faction" style={{ color: row.faction.color }}>{row.faction.name}</span>
               <span className="profile-join-date">{new Date(row.record.joinedAt).toLocaleDateString("zh-CN")}</span>
@@ -139,7 +139,7 @@ export default function ProfilePage() {
           {demoTop && demoTopLevel && (
             <section className="medal-demo" aria-labelledby="medal-demo-title">
               <p className="detail-eyebrow">DEMO</p>
-              <h2 id="medal-demo-title">演示市民对照</h2>
+              <h2 id="medal-demo-title">数字市民对照</h2>
               <div className="medal-demo-row">
                 <strong>{demoTop.name}</strong>
                 <span className="medal-demo-faction">
@@ -149,7 +149,7 @@ export default function ProfilePage() {
                 <span className="medal-demo-level">★{demoTopLevel.stars} {demoTopLevel.title}</span>
               </div>
               <p className="detail-placeholder">
-                演示数据：这位市民跨两场活动累计到 2 星。你的勋章将从你参加的第一场活动开始累计。
+                演示数据：这位数字市民跨两场活动累计到 2 星。你的勋章将从你参加的第一场活动开始累计。
               </p>
             </section>
           )}
