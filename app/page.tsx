@@ -40,7 +40,6 @@ export default function Home() {
       <header className="site-header">
         <a href="#top" className="wordmark" aria-label="杭客松首页"><Image className="wordmark-image" src="/brand/hangkathon-logo.png" alt="杭客松 Hangkathon" width={1400} height={468} priority draggable={false} /></a>
         <nav aria-label="主导航">
-          <a href="#top" className="nav-home">首页</a>
           <Link href="/leaderboard">算力榜</Link>
         </nav>
         <div className="header-actions"><button className="language-control" onClick={() => setPanel("language")} aria-label="语言，当前为中文"><strong>中</strong><span>/ EN</span></button><SessionMenu /></div>

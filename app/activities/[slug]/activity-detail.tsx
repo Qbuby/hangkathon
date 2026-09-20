@@ -20,7 +20,7 @@ import {
 } from "@/lib/activity";
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
 import { FACTIONS, factionById } from "@/lib/factions";
-import Donut from "../../donut";
+import FactionPanel from "../../faction-panel";
 import {
   LEADER_INVITE_BONUS,
   MECHANISM,
@@ -311,31 +311,24 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             <h2 id="detail-factions">阵营贡献</h2>
             {shares.length > 0 ? (
               <>
-                <div className="faction-panel">
-                  <Donut
-                    slices={shares.map((row) => ({
-                      id: row.faction.id,
-                      label: row.faction.name,
-                      value: row.points,
-                      color: row.faction.color,
-                    }))}
-                    centerLabel="总贡献值"
-                    centerValue={contributionTotal.toLocaleString("zh-CN")}
-                  />
-                  <div className="faction-list">
-                    {shares.map((row) => (
-                      <div className="faction-row" key={row.faction.id}>
-                        <span className="faction-dot" style={{ background: row.faction.color }} />
-                        <strong>{row.faction.name}</strong>
-                        <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
-                        <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
-                        {hasPrize && (
-                          <span className="faction-prize">奖金 ¥{row.prize.toLocaleString("zh-CN")}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <FactionPanel
+                  slices={shares.map((row) => ({
+                    id: row.faction.id,
+                    label: row.faction.name,
+                    value: row.points,
+                    color: row.faction.color,
+                  }))}
+                  rows={shares.map((row) => ({
+                    id: row.faction.id,
+                    name: row.faction.name,
+                    color: row.faction.color,
+                    points: row.points,
+                    share: row.share,
+                    prize: row.prize,
+                  }))}
+                  centerValue={contributionTotal.toLocaleString("zh-CN")}
+                  hasPrize={hasPrize}
+                />
                 <p className="detail-placeholder">
                   {hasPrize
                     ? "奖金按两层比例分发：阵营奖金 = 奖池 × 阵营占比，阵营内再按个人贡献占比分给成员；贡献数据为演示数据。"

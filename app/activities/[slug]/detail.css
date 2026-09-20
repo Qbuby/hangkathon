@@ -133,6 +133,7 @@
   .detail-facts dd{text-align:left}
   .detail-notfound{padding:56px 6%}
   .faction-panel{grid-template-columns:1fr;gap:22px;justify-items:center}
+  .faction-row.is-active{background:transparent}
   .faction-list{width:100%}
   .join-dialog .join-factions{grid-template-columns:repeat(2,minmax(0,1fr))}
   .invite-banner{margin:18px 6% 0;padding:18px 20px}
@@ -141,3 +142,8 @@
   .leader-invite-row{flex-direction:column}
   .leader-invite-row button{height:36px}
 }
+.donut-ring{transition:opacity .15s,stroke-width .15s;cursor:pointer}
+.donut-ring.is-dim{opacity:.35}
+.donut-ring.is-active{stroke-width:26}
+.faction-row.is-dim{opacity:.4}
+.faction-row.is-active{background:#b4d8ff14}

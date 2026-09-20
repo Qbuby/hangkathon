@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import Donut from "../donut";
+import FactionPanel from "../faction-panel";
 import YourEntry from "./your-entry";
 import { platformTotals } from "@/lib/contribution";
 import { FACTIONS } from "@/lib/factions";
@@ -14,7 +14,6 @@ const RANK_COLORS = ["#e8d16a", "#c3d6ea", "#ffb46b"];
 
 export default function LeaderboardPage() {
   const totals = platformTotals();
-  const maxFactionPoints = totals.factions[0]?.points ?? 0;
 
   // 全部 13 个阵营一视同仁，按贡献降序；暂无贡献的排后置灰。
   const allFactions = FACTIONS
@@ -49,28 +48,23 @@ export default function LeaderboardPage() {
       <section className="lb-section" aria-labelledby="lb-factions">
         <p className="detail-eyebrow">FACTIONS</p>
         <h2 id="lb-factions">阵营贡献</h2>
-        <div className="faction-panel">
-          <Donut
-            slices={totals.factions.map((row) => ({
+        <div className="lb-faction-panel">
+          <FactionPanel
+            slices={allFactions.map((row) => ({
               id: row.faction.id,
               label: row.faction.name,
               value: row.points,
               color: row.faction.color,
             }))}
-            centerLabel="总贡献值"
+            rows={allFactions.map((row) => ({
+              id: row.faction.id,
+              name: row.faction.name,
+              color: row.faction.color,
+              points: row.points,
+              share: row.share,
+            }))}
             centerValue={totals.total.toLocaleString("zh-CN")}
           />
-          <div className="faction-list lb-faction-list">
-            {allFactions.map((row) => (
-              <div className={`faction-row lb-faction-row${row.points === 0 ? " is-zero" : ""}`} key={row.faction.id}>
-                <span className="faction-dot" style={{ background: row.faction.color }} />
-                <strong>{row.faction.name}</strong>
-                <span className="faction-points">{row.points.toLocaleString("zh-CN")}</span>
-                <span className="faction-share">{(row.share * 100).toFixed(1)}%</span>
-                <div className="detail-bar lb-faction-bar"><i style={{ width: `${maxFactionPoints ? (row.points / maxFactionPoints) * 100 : 0}%`, background: row.faction.color }} /></div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
