@@ -24,7 +24,7 @@ export default function SiteHeader() {
   const navItems = [
     { href: "/", label: "首页" },
     { href: "/activities", label: "活动" },
-    { href: "/leaderboard", label: "算力榜" },
+    { href: "/leaderboard", label: "荣誉榜" },
   ];
 
   return (

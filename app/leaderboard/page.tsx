@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import FactionPanel from "../faction-panel";
 import SiteHeader from "../site-header";
 import YourEntry from "./your-entry";
@@ -7,7 +8,7 @@ import { FACTIONS } from "@/lib/factions";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
 
-export const metadata: Metadata = { title: "算力榜 · 杭客松" };
+export const metadata: Metadata = { title: "荣誉榜 · 杭客松" };
 
 const RANK_COLORS = ["#e8d16a", "#c3d6ea", "#ffb46b"];
 
@@ -27,14 +28,16 @@ export default function LeaderboardPage() {
       <SiteHeader />
 
       <section className="lb-hero">
-        <p className="eyebrow">COMPUTE LEADERBOARD</p>
-        <h1>算力榜</h1>
+        <p className="eyebrow">HONOR LEADERBOARD</p>
+        <h1>荣誉榜</h1>
         <p className="lb-hero-sub">
-          全平台所有活动的阵营贡献与数字市民贡献总览。阵营贡献 = 阵营成员的个人贡献值之和。
+          杭客松的荣誉从这里结算：参加<Link href="/activities">活动</Link>的数字市民按产出贡献值，
+          为自己的阵营和「数字杭州市民」勋章累计荣誉。阵营贡献 = 阵营成员的个人贡献值之和；
+          个人贡献跨活动累计，只升不降。
         </p>
           <div className="lb-stats">
             <div className="lb-stat"><strong>{totals.total.toLocaleString("zh-CN")}</strong><span>平台总贡献值</span></div>
-            <div className="lb-stat"><strong>{totals.activityCount} 场</strong><span>参与活动</span></div>
+            <div className="lb-stat"><strong>{totals.activityCount} 场</strong><span>活动已产生荣誉</span></div>
             <div className="lb-stat"><strong>{totals.citizenCount} 位</strong><span>数字杭州市民</span></div>
             <div className="lb-stat"><strong>{FACTIONS.length} 个</strong><span>阵营</span></div>
           </div>
@@ -42,7 +45,7 @@ export default function LeaderboardPage() {
 
       <section className="lb-section" aria-labelledby="lb-factions">
         <p className="detail-eyebrow">FACTIONS</p>
-        <h2 id="lb-factions">阵营贡献</h2>
+        <h2 id="lb-factions">阵营荣誉</h2>
         <div className="lb-faction-panel">
           <FactionPanel
             slices={allFactions.map((row) => ({
@@ -65,7 +68,7 @@ export default function LeaderboardPage() {
 
       <section className="lb-section" aria-labelledby="lb-citizens">
         <p className="detail-eyebrow">CITIZENS</p>
-        <h2 id="lb-citizens">数字市民贡献榜</h2>
+        <h2 id="lb-citizens">数字市民荣誉榜</h2>
         <div className="lb-table">
           <div className="lb-row lb-table-head">
             <span>排名</span>

@@ -96,7 +96,10 @@ export default function ActivityBoard({
         <div>
           <p className="eyebrow">ACTIVITY BOARD</p>
           <h2 id="board-title">活动看板</h2>
-          <p className="board-sub">按类别、奖金、形式和费用筛选，找到你想参加的那一场。</p>
+          <p className="board-sub">
+            每一场活动都是一个阵营竞争的赛场：报名加入一个区、提交产出赢贡献值，荣誉在<Link href="/leaderboard">荣誉榜</Link>结算。
+            按类别、奖金、形式和费用筛选，找到你想参加的那一场。
+          </p>
         </div>
         <div className="board-head-actions">
           <span className="demo-label">{localCount > 0 ? "含本机创建 · 未同步到服务器" : "演示数据 · 非真实活动"}</span>
