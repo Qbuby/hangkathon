@@ -148,3 +148,8 @@
 .donut-wrap svg{display:block;width:100%!important;height:100%!important}
 .detail-top-tags{display:flex;justify-content:flex-end;padding:0 6%;margin:0 0 -30px;position:relative;pointer-events:none}
 .detail-top-tags .detail-top-note{pointer-events:auto}
+.donut-fallback{position:absolute;inset:7%;border-radius:50%;pointer-events:none;transition:opacity .6s;-webkit-mask:radial-gradient(circle,transparent 52%,#000 53%,#000 96%,transparent 97%);mask:radial-gradient(circle,transparent 52%,#000 53%,#000 96%,transparent 97%)}
+.donut-canvas{display:block}
+.donut-spot{position:absolute;transform:translate(-50%,-50%);font-size:12px;font-weight:600;letter-spacing:.5px;white-space:nowrap;cursor:pointer;padding:2px 4px;transition:opacity .15s;text-shadow:0 1px 6px #0a1c2ecc}
+.donut-spot.is-dim{opacity:.3}
+.donut-spot.is-active{opacity:1;text-shadow:0 0 12px currentColor}
