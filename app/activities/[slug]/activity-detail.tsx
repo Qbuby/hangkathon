@@ -426,7 +426,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <p className="detail-join-title">想参加这场活动？</p>
               <Button className="primary-action" onClick={() => setJoinOpen(true)}>报名参加</Button>
               <p className="detail-join-note">
-                报名后进入阵营选择阶段，代表一个杭州区县出战（本活动中锁定不可更改），正式阶段每天领取算力券。
+                报名后进入阵营选择阶段，从杭州十区两县一市中选一个阵营出战（本活动中锁定不可更改），正式阶段每天领取算力券。
                 {isDemo ? "此活动为虚构的演示数据。" : "活动目前只保存在这台设备的浏览器里。"}
               </p>
             </div>
@@ -442,7 +442,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           <p className="eyebrow">JOIN</p>
           <DialogTitle className="dialog-title">选择你的阵营</DialogTitle>
           <DialogDescription className="dialog-description">
-            报名后进入阵营选择阶段：选择一个杭州区县，与同阵营市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
+            报名后进入阵营选择阶段：从杭州十区两县一市中选择一个阵营，与同阵营市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
           </DialogDescription>
           <div className="join-factions" role="radiogroup" aria-label="选择阵营">
             {FACTION_GROUPS.map((group) => (
