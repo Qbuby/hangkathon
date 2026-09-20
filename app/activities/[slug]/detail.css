@@ -7,7 +7,7 @@
 .detail-top-title{font-size:17px;letter-spacing:2px;color:#eaf3ff}
 .detail-top-note{margin-left:auto;font-size:11px;color:#a4c5df;border:1px solid #b2d9ff30;border-radius:4px;padding:6px 10px}
 
-.detail-hero{padding:44px 6% 34px;border-bottom:1px solid #b4d8ff22}
+.detail-hero{padding:132px 6% 34px;border-bottom:1px solid #b4d8ff22}
 .detail-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
 .detail-tags span{font-size:11px;letter-spacing:1px;color:#a9d8f0;border:1px solid #a9d8f040;border-radius:4px;padding:3px 9px}
 .detail-tags .is-category{color:#8fd8c4;border-color:#8fd8c455}
@@ -51,7 +51,7 @@
 .detail-join .primary-action{width:100%;justify-content:center}
 .detail-join-note{font-size:12px;line-height:1.85;color:#8aa4bc;margin:0}
 
-.detail-notfound{padding:90px 6%;display:flex;justify-content:center}
+.detail-notfound{padding:150px 6%;display:flex;justify-content:center}
 .detail-notfound-card{max-width:520px;width:100%;border:1px dashed #b4d8ff33;border-radius:14px;padding:48px 34px;text-align:center;display:flex;flex-direction:column;gap:16px;align-items:center}
 .detail-notfound-card h1{font-size:26px;font-weight:550;letter-spacing:1px;margin:0}
 .detail-notfound-card p:not(.eyebrow){font-size:13.5px;line-height:1.9;color:#a9c2d9;margin:0}
@@ -119,7 +119,7 @@
   .detail-top{padding:18px 6%;gap:12px}
   .detail-top-title{font-size:15px}
   .detail-top-note{font-size:10px;padding:5px 7px}
-  .detail-hero{padding:32px 6% 26px}
+  .detail-hero{padding:116px 6% 26px}
   .detail-hero h1{font-size:24px}
   .detail-sub{font-size:13.5px}
   .detail-body{padding:26px 6% 44px}
@@ -146,5 +146,5 @@
 .donut-center-value{font-size:24px;font-weight:600;color:#eaf3ff;line-height:1}
 .donut-center-label{font-size:11px;letter-spacing:1.5px;color:#8aa4bc}
 .donut-wrap svg{display:block;width:100%!important;height:100%!important}
-.detail-top-tags{display:flex;justify-content:flex-end;padding:0 6%;margin:-56px 0 18px;position:relative;pointer-events:none}
+.detail-top-tags{display:flex;justify-content:flex-end;padding:0 6%;margin:0 0 -30px;position:relative;pointer-events:none}
 .detail-top-tags .detail-top-note{pointer-events:auto}

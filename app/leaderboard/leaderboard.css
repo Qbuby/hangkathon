@@ -1,6 +1,6 @@
 /* 算力榜 —— 复用 detail.css 的二级页骨架（detail-page / detail-top / detail-eyebrow / detail-bar）。 */
 
-.lb-hero{padding:46px 6% 34px;border-bottom:1px solid #b4d8ff22}
+.lb-hero{padding:132px 6% 34px;border-bottom:1px solid #b4d8ff22}
 .lb-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:550;letter-spacing:1px;margin:0}
 .lb-hero-sub{font-size:14px;line-height:1.9;color:#b6cde2;margin:14px 0 0;max-width:640px}
 .lb-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:28px}
@@ -51,7 +51,7 @@
   .lb-table-head span:nth-child(3),.lb-table-head span:nth-child(4){display:none}
 }
 @media(max-width:760px){
-  .lb-hero{padding:32px 6% 26px}
+  .lb-hero{padding:116px 6% 26px}
   .lb-section{padding:28px 6% 6px}
   .lb-table{padding:6px 16px}
   .lb-row{grid-template-columns:48px minmax(0,1fr) 86px;font-size:12.5px}

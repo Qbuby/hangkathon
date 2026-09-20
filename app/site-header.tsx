@@ -22,6 +22,7 @@ export default function SiteHeader() {
   const content = panel ? info[panel] : null;
 
   const navItems = [
+    { href: "/", label: "首页" },
     { href: "/activities", label: "活动" },
     { href: "/leaderboard", label: "算力榜" },
   ];
