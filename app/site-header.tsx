@@ -16,8 +16,9 @@ type Panel = keyof typeof info | null;
 /**
  * 全站统一顶栏：logo + 主导航 + 语言切换 + 账号菜单。
  * 首页与所有二级页共用，当前页面的导航项高亮。
+ * transparent：首页传入，顶栏保持透明叠在 hero 场景上；二级页使用实底背景。
  */
-export default function SiteHeader() {
+export default function SiteHeader({ transparent = false }: { transparent?: boolean }) {
   const [panel, setPanel] = useState<Panel>(null);
   const content = panel ? info[panel] : null;
 
@@ -28,7 +29,7 @@ export default function SiteHeader() {
   ];
 
   return (
-    <header className="site-header">
+    <header className={transparent ? "site-header is-transparent" : "site-header"}>
       <Link href="/" className="wordmark" aria-label="杭客松首页"><Image className="wordmark-image" src="/brand/hangkathon-logo.png" alt="杭客松 Hangkathon" width={1400} height={468} priority draggable={false} /></Link>
       <nav aria-label="主导航">
         {navItems.map((item) => (

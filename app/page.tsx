@@ -20,7 +20,7 @@ export default function Home() {
   return (
     <main id="top">
       <Link className="skip-link" href="/activities">跳转到活动看板</Link>
-      <SiteHeader />
+      <SiteHeader transparent />
 
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
