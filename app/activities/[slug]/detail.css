@@ -14,6 +14,7 @@
 .detail-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:550;letter-spacing:1px;line-height:1.45;margin:0}
 .detail-sub{font-size:15px;line-height:1.9;color:#b6cde2;margin:14px 0 0}
 .detail-host{font-size:12.5px;letter-spacing:.5px;color:#8aa4bc;margin:16px 0 0}
+.detail-contact{font-size:12.5px;letter-spacing:.5px;color:#8aa4bc;margin:8px 0 0}
 
 .detail-body{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:44px;padding:40px 6% 70px;align-items:start}
 .detail-main{display:flex;flex-direction:column;gap:36px;min-width:0}

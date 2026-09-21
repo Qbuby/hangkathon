@@ -202,6 +202,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
         <h1>{activity.title}</h1>
         {activity.subtitle && <p className="detail-sub">{activity.subtitle}</p>}
         <p className="detail-host">主办方 · {activity.host || "未填写"}</p>
+        {activity.contact && <p className="detail-contact">联系方式 · {activity.contact}</p>}
       </section>
 
       {invite && invite !== "refused" && !joinRecord && (() => {

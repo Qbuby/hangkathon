@@ -13,6 +13,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
     overview:
       "中秋是杭州最像诗的时候。这一场不设技术门槛：你可以用任何 AI 工具，写一首词、一首绝句、一段赋，或者为它们配上画面与声音。评审看重的是作品里有没有杭州、有没有你自己的中秋。",
     host: "杭客松筹备组",
+    contact: "hangkathon@example.com",
     format: "online",
     venue: "",
     pricing: "free",
@@ -47,6 +48,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
     overview:
       "杭州有大量一个人经营的小店。这一场把真实店主请到现场，把他们的日常麻烦摊开：进货、记账、回消息、写菜单。两天时间，做出一个店主明天就能用的东西。",
     host: "杭客松 × 本地商户联合",
+    contact: "shop-ai@example.com",
     format: "offline",
     venue: "杭州市拱墅区 · 运河边共创空间",
     pricing: "free",
@@ -80,6 +82,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
     overview:
       "老巷子、旧厂房、拆掉的天桥。这一场收集关于杭州地点的记忆碎片，用 AI 把它们重新组织成一张能走进去的地图。作品可以是交互页面、影像，也可以是声音装置。",
     host: "城市记忆计划",
+    contact: "city-memory@example.com",
     format: "online",
     pricing: "paid",
     fee: "每人 99 元，用于场地与作品展出",
