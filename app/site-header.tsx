@@ -29,7 +29,10 @@ export default function SiteHeader({ transparent = false }: { transparent?: bool
   ];
 
   return (
-    <header className={transparent ? "site-header is-transparent" : "site-header"}>
+    <header
+      className={transparent ? "site-header is-transparent" : "site-header"}
+      style={transparent ? { background: "transparent", backdropFilter: "none", borderBottomColor: "transparent", mixBlendMode: "lighten" } : undefined}
+    >
       <Link href="/" className="wordmark" aria-label="杭客松首页"><Image className="wordmark-image" src="/brand/hangkathon-logo.png" alt="杭客松 Hangkathon" width={1400} height={468} priority draggable={false} /></Link>
       <nav aria-label="主导航">
         {navItems.map((item) => (
