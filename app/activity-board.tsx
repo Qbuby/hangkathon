@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CalendarDays, Coins, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { CATEGORIES, categoryLabel, formatLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
 import "./board.css";
 
@@ -102,6 +103,7 @@ export default function ActivityBoard({
           </p>
         </div>
         <div className="board-head-actions">
+          <Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>
           <span className="demo-label">{localCount > 0 ? "含本机创建 · 未同步到服务器" : "演示数据 · 非真实活动"}</span>
         </div>
       </div>
