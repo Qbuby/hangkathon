@@ -146,10 +146,11 @@
   .leader-invite-row button{height:36px}
 }
 .faction-row.is-active{background:#b4d8ff14;box-shadow:inset 3px 0 #dce9f8}
-.donut-wrap{position:relative;flex:0 0 580px;margin:0;min-width:0;width:580px;max-width:100%}
+.faction-chart{flex:0 0 580px;width:580px;max-width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+.donut-wrap{position:relative;flex:0 0 auto;margin:0;min-width:0;width:100%}
 .donut-ring{position:absolute;inset:0;display:block;width:100%;height:100%}
-.donut-segment{cursor:pointer;pointer-events:stroke}
-.donut-segment:focus-visible{outline:none;stroke-width:20;filter:drop-shadow(0 0 2px #fff)}
+.donut-segment{cursor:pointer;pointer-events:fill;transition:opacity .15s}
+.donut-segment:focus-visible{outline:none;stroke:#eaf6ff;stroke-width:2;filter:drop-shadow(0 0 3px #fff)}
 .donut-leader{pointer-events:none}
 .donut-label{position:absolute;min-height:44px;padding:2px 0;border:0;border-radius:4px;background:transparent;color:#dce9f8;font:inherit;font-size:13px;line-height:20px;text-align:center;cursor:pointer}
 .donut-label-name{display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
@@ -157,15 +158,15 @@
 .donut-label-share{display:block;font-variant-numeric:tabular-nums;color:#c3d6ea}
 .donut-label.is-active{background:#b4d8ff20;box-shadow:inset 0 0 0 1px #b4d8ff66;color:#fff}
 .donut-label:focus-visible{outline:2px solid #fff;outline-offset:1px}
-.donut-total{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#c3d6ea;font-size:13px;text-align:center;pointer-events:none}
+.donut-total{position:static;transform:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:#c3d6ea;font-size:13px;text-align:center;pointer-events:none}
 .donut-total strong{max-width:100%;overflow-wrap:anywhere;color:#f4f8ff;font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
 @container(max-width:863px){
-  .donut-wrap{flex-basis:auto}
+  .faction-chart{flex-basis:auto;width:100%}
   .faction-list{flex-basis:100%}
 }
 @container(max-width:399px){
   .donut-total{font-size:12px;gap:4px}
-  .donut-total strong{font-size:18px}
+  .donut-total strong{font-size:20px}
 }
 @container(max-width:360px){
   .faction-row,.faction-list-header{grid-template-columns:10px minmax(0,1fr) minmax(0,.7fr) 46px;gap:8px;padding-inline:4px}

@@ -20,7 +20,10 @@ test("exact shares, including a tiny fraction, no minimum-angle exaggeration", (
 test("twelve o'clock start, clockwise points and full-circle SVG", () => {
   assert.deepEqual(orbitPoint(0, 148), { x: 0, y: -148 });
   assert.ok(Math.abs(orbitPoint(Math.PI / 2, 148).x - 148) < 1e-9);
-  assert.equal((segmentPath(0, TAU, 148).match(/ A /g) ?? []).length, 2);
+  const fullCircle = segmentPath(0, TAU, 148);
+  assert.ok(fullCircle.startsWith("M 160 160 L "));
+  assert.ok(fullCircle.endsWith("Z"));
+  assert.equal((fullCircle.match(/ A /g) ?? []).length, 2);
   assert.equal(contributionSegments(slices([0, 0])).length, 0);
   assert.equal(contributionSegments(slices([42]))[0].share, 1);
 });

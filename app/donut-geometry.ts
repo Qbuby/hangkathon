@@ -60,10 +60,10 @@ export function orbitPoint(angle: number, radius: number) {
   return { x: Math.sin(angle) * radius, y: -Math.cos(angle) * radius };
 }
 
-/** Two arcs also handle a single 100% faction without SVG's coincident-endpoint ambiguity. */
+/** 闭合扇形（实心饼图）：圆心起笔到弧起点，保留双 A 弧兼容单阵营 100% 的 SVG 歧义，Z 闭合。 */
 export function segmentPath(start: number, end: number, radius: number, center = 160) {
   const a = orbitPoint(start, radius);
   const b = orbitPoint((start + end) / 2, radius);
   const c = orbitPoint(end, radius);
-  return `M ${center + a.x} ${center + a.y} A ${radius} ${radius} 0 0 1 ${center + b.x} ${center + b.y} A ${radius} ${radius} 0 0 1 ${center + c.x} ${center + c.y}`;
+  return `M ${center} ${center} L ${center + a.x} ${center + a.y} A ${radius} ${radius} 0 0 1 ${center + b.x} ${center + b.y} A ${radius} ${radius} 0 0 1 ${center + c.x} ${center + c.y} Z`;
 }

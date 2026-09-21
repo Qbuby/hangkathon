@@ -7,7 +7,7 @@ import type { DonutSlice } from "./donut";
 type FactionRow = { id: string; name: string; color: string; points: number; share: number; prize?: number };
 
 /**
- * 环形图 + 阵营列表的组合：悬停扇区或列表行时互相高亮，
+ * 饼图 + 阵营列表的组合：悬停扇区或列表行时互相高亮，
  * 父组件统一交互状态；明细保留完整名称、占比、贡献值及零值阵营。
  */
 export default function FactionPanel({ slices, rows, centerValue, hasPrize }: {
@@ -20,7 +20,14 @@ export default function FactionPanel({ slices, rows, centerValue, hasPrize }: {
 
   return (
     <div className="faction-panel">
-      <Donut slices={slices} centerLabel="总贡献值" centerValue={centerValue} active={active} onActive={setActive} />
+      <div className="faction-chart">
+        <figcaption className="donut-total">
+          <strong>{centerValue}</strong>
+          <span>总贡献值</span>
+          {!slices.some((slice) => Number.isFinite(slice.value) && slice.value > 0) && <span>暂无贡献</span>}
+        </figcaption>
+        <Donut slices={slices} active={active} onActive={setActive} />
+      </div>
       <div className="faction-list">
         <div className="faction-list-header" aria-hidden="true">
           <span className="faction-name-heading">分区</span>

@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import ActivityBoard from "../activity-board";
 import SiteHeader from "../site-header";
+import { Button } from "@/components/ui/button";
 import { loadActivities, type Activity } from "@/lib/activity";
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
 import "./activities.css";
@@ -22,6 +25,9 @@ export default function ActivitiesPage() {
     <main className="activities-page">
       <SiteHeader />
       <div className="activities-wrap">
+        <div className="activities-topbar">
+          <Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>
+        </div>
         <ActivityBoard activities={[...created, ...DEMO_ACTIVITIES]} localCount={created.length} />
       </div>
     </main>
