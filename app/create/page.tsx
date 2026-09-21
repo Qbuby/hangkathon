@@ -18,6 +18,7 @@ import {
   type Draft,
 } from "@/lib/activity";
 import FieldControl from "./fields";
+import SiteHeader from "../site-header";
 import "./create.css";
 
 export default function CreateActivityPage() {
@@ -121,11 +122,8 @@ export default function CreateActivityPage() {
 
   return (
     <main className="create-page">
+      <SiteHeader />
       <header className="create-top">
-        <Link className="create-back" href="/">
-          <ArrowLeft size={17} /> 返回首页
-        </Link>
-        <span className="create-top-title">发起活动</span>
         <span className="create-top-step">
           第 {stepIndex + 1} / {STEPS.length} 步
         </span>

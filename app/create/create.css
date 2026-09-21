@@ -1,11 +1,8 @@
 /* 发起活动流程 —— 独立于首页 globals.css，避免继续膨胀。 */
 
 .create-page{min-height:100svh;background:linear-gradient(180deg,#071a30 0%,#0a2137 45%,#081c30 100%)}
-.create-top{display:flex;align-items:center;gap:20px;padding:22px 6%;border-bottom:1px solid #b4d8ff22}
-.create-back{display:flex;align-items:center;gap:9px;font-size:14px;color:#bcd6ee}
-.create-back:hover{color:#fff}
-.create-top-title{font-size:17px;letter-spacing:2px;color:#eaf3ff}
-.create-top-step{margin-left:auto;font-size:12px;letter-spacing:1px;color:#8fa8c0}
+.create-top{display:flex;align-items:center;justify-content:flex-end;padding:132px 6% 18px;border-bottom:1px solid #b4d8ff22}
+.create-top-step{font-size:12px;letter-spacing:1px;color:#8fa8c0}
 
 .create-body{display:grid;grid-template-columns:262px minmax(0,1fr) 300px;gap:44px;padding:40px 6% 70px;align-items:start}
 
@@ -101,6 +98,7 @@ textarea.cf-input{resize:vertical;line-height:1.8}
   .create-preview{display:none}
 }
 @media(max-width:900px){
+  .create-top{padding-top:116px}
   .create-body{grid-template-columns:1fr;gap:26px;padding:26px 6% 56px}
   .create-steps{position:static;flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:6px}
   .create-step{flex:none;padding:10px 13px}
