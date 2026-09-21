@@ -1,4 +1,4 @@
-/* 荣誉榜 —— 复用 detail.css 的二级页骨架（detail-page / detail-top / detail-eyebrow / detail-bar）。 */
+/* 排行榜 —— 复用 detail.css 的二级页骨架（detail-page / detail-top / detail-eyebrow / detail-bar）。 */
 
 .lb-hero{padding:132px 6% 34px;border-bottom:1px solid #b4d8ff22}
 .lb-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:550;letter-spacing:1px;margin:0}

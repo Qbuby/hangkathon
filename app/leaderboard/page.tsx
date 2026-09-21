@@ -8,7 +8,7 @@ import { FACTIONS } from "@/lib/factions";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
 
-export const metadata: Metadata = { title: "荣誉榜 · 杭客松" };
+export const metadata: Metadata = { title: "排行榜 · 杭客松" };
 
 const RANK_COLORS = ["#e8d16a", "#c3d6ea", "#ffb46b"];
 
@@ -28,8 +28,8 @@ export default function LeaderboardPage() {
       <SiteHeader />
 
       <section className="lb-hero">
-        <p className="eyebrow">HONOR LEADERBOARD</p>
-        <h1>荣誉榜</h1>
+        <p className="eyebrow">LEADERBOARD</p>
+        <h1>排行榜</h1>
         <p className="lb-hero-sub">
           杭客松的荣誉从这里结算：参加<Link href="/activities">活动</Link>的数字市民按产出贡献值，
           为自己的阵营和「数字杭州市民」勋章累计荣誉。阵营贡献 = 阵营成员的个人贡献值之和；
@@ -68,7 +68,7 @@ export default function LeaderboardPage() {
 
       <section className="lb-section" aria-labelledby="lb-citizens">
         <p className="detail-eyebrow">CITIZENS</p>
-        <h2 id="lb-citizens">数字市民荣誉榜</h2>
+        <h2 id="lb-citizens">数字市民排行榜</h2>
         <div className="lb-table">
           <div className="lb-row lb-table-head">
             <span>排名</span>
