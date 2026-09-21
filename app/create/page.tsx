@@ -123,11 +123,6 @@ export default function CreateActivityPage() {
   return (
     <main className="create-page">
       <SiteHeader />
-      <header className="create-top">
-        <span className="create-top-step">
-          第 {stepIndex + 1} / {STEPS.length} 步
-        </span>
-      </header>
 
       <div className="create-body">
         <nav className="create-steps" aria-label="创建步骤">
@@ -153,8 +148,13 @@ export default function CreateActivityPage() {
 
         <section className="create-form" aria-labelledby="create-step-title">
           <div className="create-form-head">
-            <h2 id="create-step-title">{step.title}</h2>
-            <p>{step.summary}</p>
+            <div>
+              <h2 id="create-step-title">{step.title}</h2>
+              <p>{step.summary}</p>
+            </div>
+            <span className="create-top-step">
+              第 {stepIndex + 1} / {STEPS.length} 步
+            </span>
           </div>
 
           <div className="cf-grid">
