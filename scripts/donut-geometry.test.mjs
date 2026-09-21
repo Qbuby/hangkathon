@@ -8,6 +8,30 @@ const source = readFileSync(new URL("../app/donut-geometry.ts", import.meta.url)
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
 const { contributionLabels, contributionSegments, orbitPoint, segmentPath, TAU } = await import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
 const slices = (values) => values.map((value, id) => ({ id: String(id), value, label: `完整阵营${id}`, color: "#fff" }));
+const parseLeader = (d) => [...d.matchAll(/(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)\s+(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/gi)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+const crossDir = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+const samePoint = (a, b) => Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6;
+// Proper crossing, or collinear overlap extending beyond a shared endpoint.
+// Two leaders merely fanning out from a common point is not an overlap.
+const segsCross = (p1, p2, p3, p4) => {
+  const d1 = crossDir(p3, p4, p1), d2 = crossDir(p3, p4, p2), d3 = crossDir(p1, p2, p3), d4 = crossDir(p1, p2, p4);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+  const col = (a, b, c, d) => {
+    if (crossDir(a, b, c) !== 0) return false;
+    const dot = (c.x - a.x) * (d.x - b.x) + (c.y - a.y) * (d.y - b.y);
+    if (dot > 0) return false; // segments point away from each other
+    const touch = samePoint(a, c) || samePoint(a, d) || samePoint(b, c) || samePoint(b, d);
+    return !touch;
+  };
+  return col(p1, p2, p3, p4) || col(p3, p4, p1, p2);
+};
+const leadersCross = (a, b) => {
+  const pa = parseLeader(a), pb = parseLeader(b);
+  for (let i = 0; i < pa.length - 1; i++) for (let j = 0; j < pb.length - 1; j++) {
+    if (segsCross(pa[i], pa[i + 1], pb[j], pb[j + 1])) return true;
+  }
+  return false;
+};
 
 test("exact shares, including a tiny fraction, no minimum-angle exaggeration", () => {
   const segments = contributionSegments(slices([999999, 1, 0]));
@@ -35,9 +59,19 @@ test("labels retain exact midpoint anchors and fit at desktop and 390/320px view
       const layout = contributionLabels(segments, width);
       assert.equal(layout.labels.length, segments.length);
       for (const label of layout.labels) {
-        const midpoint = orbitPoint((label.start + label.end) / 2, layout.radius);
-        assert.deepEqual(label.anchor, midpoint);
-        assert.ok(label.leader.startsWith(`M ${layout.cx + midpoint.x} ${layout.cy + midpoint.y} L `));
+        const mid = (label.start + label.end) / 2;
+        // Anchor may slide along the arc to dodge same-side neighbours,
+        // but stays on the circle at radius and on its own side.
+        assert.ok(Math.abs(Math.hypot(label.anchor.x, label.anchor.y) - layout.radius) < 1e-6);
+        assert.ok(label.side === "left" ? label.anchor.x <= 1e-6 : label.anchor.x >= -1e-6);
+        // Left side packs downward (mid shrinks toward π), right side grows.
+        if (label.side === "left") assert.ok(label.mid <= mid + 1e-9);
+        else assert.ok(label.mid >= mid - 1e-9);
+        // Orthogonal elbow leader: anchor -> (label edge x, anchor y) -> (label edge x, label y).
+        const elbowX = label.side === "right" ? width - layout.labelWidth - 4 : layout.labelWidth + 4;
+        assert.ok(label.leader.startsWith(`M ${layout.cx + label.anchor.x} ${layout.cy + label.anchor.y} L ${elbowX} ${layout.cy + label.anchor.y} L ${elbowX} ${label.y}`));
+        // Anchor sits within half a label gap of its label so elbow runs stay y-disjoint.
+        assert.ok(Math.abs(label.anchor.y - (label.y - layout.cy)) <= layout.height);
         assert.equal(label.label, segments.find((segment) => segment.id === label.id).label);
         assert.ok(label.x >= 0 && label.x + layout.labelWidth <= width);
         assert.ok(label.y - 22 >= 0 && label.y + 22 <= layout.height);
@@ -53,6 +87,12 @@ test("labels retain exact midpoint anchors and fit at desktop and 390/320px view
             assert.ok(label.anchor.y >= labels[index - 1].anchor.y);
           }
         });
+        for (let i = 0; i < labels.length; i++) {
+          assert.equal(parseLeader(labels[i].leader).length, 3, `three-point elbow leader per label at width ${width}`);
+          for (let j = i + 1; j < labels.length; j++) {
+            assert.equal(leadersCross(labels[i].leader, labels[j].leader), false, `leaders cross at width ${width} ${side} ${i}/${j}`);
+          }
+        }
       }
     }
   }
