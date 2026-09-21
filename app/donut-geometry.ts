@@ -17,70 +17,96 @@ export function contributionSegments(slices: DonutSlice[]) {
 export type ContributionSegment = ReturnType<typeof contributionSegments>[number];
 
 /**
- * Pack each side independently in angular-anchor order; grow vertically rather
- * than hide labels. Anchors are pulled along the arc until each is within half
- * a label gap of its label, then the leader runs as an orthogonal elbow —
- * horizontal at the anchor's y to the label edge, vertical to the label. Both
- * runs are then y-disjoint per side, so same-side leaders cannot cross or
- * overlap. Slivers narrower than the gap collapse onto the same anchor.
+ * Anchors stay at each sector's own midpoint on the rim, so each leader visibly
+ * belongs to its sector. Labels stack per side in anchor order and each leader
+ * is a nested elbow — horizontal off the rim, vertical in its own lane, then
+ * horizontal into its label. Lanes sit beyond the pie's horizontal extent and
+ * step further out the higher the label, so every run stays outside the pie
+ * and same-side leaders can never cross or overlap.
  */
 export function contributionLabels(segments: ContributionSegment[], width: number) {
   const labelWidth = width < 400 ? 64 : 96;
   const radius = Math.min(144, Math.max(24, (width - 2 * labelWidth - 40) / 2));
   const spots = segments.map((segment) => {
     const mid = (segment.start + segment.end) / 2;
-    return { ...segment, mid, side: Math.sin(mid) >= 0 ? "right" as const : "left" as const, anchor: { x: 0, y: 0 }, tie: 0, y: 0 };
+    return {
+      ...segment,
+      mid,
+      side: Math.sin(mid) >= 0 ? "right" as const : "left" as const,
+      anchor: { x: 0, y: 0 },
+      lane: 0,
+      y: 0,
+    };
   });
   const sides = [spots.filter((spot) => spot.side === "left"), spots.filter((spot) => spot.side === "right")];
   const gap = 52;
-  const cap = gap / 2 - 2;
-  const height = Math.max(340, Math.max(...sides.map((side) => side.length), 1) * gap + 16);
-  const cx = width / 2;
-  const cy = height / 2;
   for (const side of sides) {
     // Top-to-bottom screen order: mid ascending on the right (0→π), descending on the left (2π→π).
     side.sort((a, b) => a.side === "right" ? a.mid - b.mid : b.mid - a.mid);
+    // Neighbor anchors keep a little vertical separation so their shelves stay
+    // distinct; sub-pixel slivers would otherwise collapse onto shared heights.
     for (let index = 1; index < side.length; index++) {
-      const k = Math.cos(side[index - 1].mid) - 13 / radius;
-      const edge = Math.acos(Math.min(1, Math.max(-1, k)));
-      side[index].mid = side[index].side === "right" ? Math.max(side[index].mid, edge) : Math.min(side[index].mid, TAU - edge);
+      const prevY = -Math.cos(side[index - 1].mid) * radius;
+      const minAngle = Math.acos(Math.min(1, Math.max(-1, -(prevY + 4) / radius)));
+      side[index].mid = side[index].side === "right"
+        ? Math.max(side[index].mid, minAngle)
+        : Math.min(side[index].mid, TAU - minAngle);
     }
     for (const spot of side) spot.anchor = orbitPoint(spot.mid, radius);
-    side.forEach((spot, index) => {
-      const prev = index ? side[index - 1] : null;
-      spot.tie = prev !== null && Math.hypot(spot.anchor.x - prev.anchor.x, spot.anchor.y - prev.anchor.y) < 2 ? 1 : 0;
-      spot.y = Math.max(30, cy + spot.anchor.y, index ? side[index - 1].y + gap : 30);
-    });
-    if (side.length && side[side.length - 1].y > height - 30) {
-      side[side.length - 1].y = height - 30;
-      for (let index = side.length - 2; index >= 0; index--) {
-        side[index].y = Math.min(side[index].y, side[index + 1].y - gap);
+  }
+  const cx = width / 2;
+  let height = Math.max(340, ...sides.map((side) => {
+    if (!side.length) return 340;
+    // The stack bottom is driven by whichever anchor pushes its tail down furthest.
+    const lowest = Math.max(...side.map((spot, index) => spot.anchor.y + gap * (side.length - 1 - index)));
+    return 2 * (lowest + 30);
+  }));
+  let cy = height / 2;
+  // Nudges and the monotonic stack interact — a gap fix can re-collinear a
+  // shelf and vice versa — so settle each side at a fixpoint (every correction
+  // only pushes down, so it converges), growing the figure if the bottom label
+  // outruns the padding instead of clamping it back into the stack.
+  for (let iteration = 0; iteration < 12; iteration++) {
+    cy = height / 2;
+    for (const side of sides) {
+        for (let pass = 0; pass < 20; pass++) {
+        let changed = false;
+        let prevY = 0;
+        for (let index = 0; index < side.length; index++) {
+          const spot = side[index];
+          spot.lane = index;
+          let y = Math.max(30, cy + spot.anchor.y, index ? prevY + gap : 30);
+          // A label shelf must never run collinear with another label's rim shelf.
+          for (const peer of spots) {
+            if (peer !== spot && Math.abs(cy + peer.anchor.y - y) < 1) y = cy + peer.anchor.y + 1;
+          }
+          if (y !== spot.y) changed = true;
+          spot.y = y;
+          prevY = y;
+        }
+        if (!changed) break;
       }
     }
-    // Pull each anchor along the arc until it sits within `cap` of its label;
-    // both leader runs are then y-disjoint per side and cannot cross. When the
-    // arc cannot reach (label beyond the pole), the anchor stays at the pole
-    // edge with x clamped to the radius.
-    for (const spot of side) {
-      const targetY = spot.y - cy;
-      if (Math.abs(spot.anchor.y - targetY) > cap) {
-        const rawY = spot.anchor.y + (targetY > spot.anchor.y ? 1 : -1) * (Math.abs(targetY - spot.anchor.y) - cap);
-        // Labels can sit beyond the pole; the anchor never leaves the circle.
-        const newY = Math.max(-radius, Math.min(radius, rawY));
-        const xAbs = Math.sqrt(Math.max(0, radius * radius - newY * newY));
-        spot.anchor.x = (spot.side === "left" ? -1 : 1) * xAbs;
-        spot.anchor.y = newY;
-      }
-    }
+    const overflow = Math.max(0, ...sides.map((side) => side.length ? side[side.length - 1].y - (height - 30) : 0));
+    if (!overflow) break;
+    height += overflow;
   }
   return {
     width, height, cx, cy, radius, labelWidth,
     labels: spots.map((spot) => {
       const endX = spot.side === "right" ? width - labelWidth - 4 : labelWidth + 4;
+      const side = sides[spot.side === "left" ? 0 : 1];
+      const outward = spot.side === "right" ? 1 : -1;
+      const baseX = cx + outward * (radius + 8);
+      const room = Math.max(0, Math.abs(baseX - endX) - 6);
+      const step = Math.min(6, room / Math.max(1, side.length - 1));
+      const laneX = baseX + outward * (side.length - 1 - spot.lane) * step;
+      const rimX = cx + spot.anchor.x;
+      const rimY = cy + spot.anchor.y;
       return {
         ...spot,
         x: spot.side === "right" ? width - labelWidth : 0,
-        leader: `M ${cx + spot.anchor.x} ${cy + spot.anchor.y} L ${endX} ${cy + spot.anchor.y} L ${endX} ${spot.y}`,
+        leader: `M ${rimX} ${rimY} L ${laneX} ${rimY} L ${laneX} ${spot.y} L ${endX} ${spot.y}`,
       };
     }),
   };

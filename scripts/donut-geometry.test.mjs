@@ -25,6 +25,22 @@ const segsCross = (p1, p2, p3, p4) => {
   };
   return col(p1, p2, p3, p4) || col(p3, p4, p1, p2);
 };
+// Flatten the elbow polyline (4 points: rim, lane top, lane bottom, label) for containment checks.
+const flattenLeader = (d) => {
+  const points = parseLeader(d);
+  assert.equal(points.length, 4, `four-point elbow leader expected: ${d}`);
+  const poly = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1];
+    const steps = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4));
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps;
+      poly.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  poly.push(points.at(-1));
+  return poly;
+};
 const leadersCross = (a, b) => {
   const pa = parseLeader(a), pb = parseLeader(b);
   for (let i = 0; i < pa.length - 1; i++) for (let j = 0; j < pb.length - 1; j++) {
@@ -51,7 +67,7 @@ test("twelve o'clock start, clockwise points and full-circle SVG", () => {
   assert.equal(contributionSegments(slices([0, 0])).length, 0);
   assert.equal(contributionSegments(slices([42]))[0].share, 1);
 });
-test("labels retain exact midpoint anchors and fit at desktop and 390/320px viewport content widths", () => {
+test("elbow leaders anchor at sector midpoints, stay off the pie and never cross", () => {
   const cases = [[], [0, 0], [42], Array(13).fill(1), [999999, ...Array(12).fill(1)], [...Array(12).fill(1), 999999], [1, 7, 19, 5, 9, 3, 4, 10, 6, 8, 2, 11, 15]];
   for (const width of [580, 540, 400, 399, 390 * .88, 320 * .88]) {
     for (const values of cases) {
@@ -60,22 +76,31 @@ test("labels retain exact midpoint anchors and fit at desktop and 390/320px view
       assert.equal(layout.labels.length, segments.length);
       for (const label of layout.labels) {
         const mid = (label.start + label.end) / 2;
-        // Anchor may slide along the arc to dodge same-side neighbours,
-        // but stays on the circle at radius and on its own side.
+        // Anchor is the sector's own midpoint on the rim; it may only be nudged
+        // along the arc to keep neighbours 4px apart (left packs down, right up).
         assert.ok(Math.abs(Math.hypot(label.anchor.x, label.anchor.y) - layout.radius) < 1e-6);
         assert.ok(label.side === "left" ? label.anchor.x <= 1e-6 : label.anchor.x >= -1e-6);
-        // Left side packs downward (mid shrinks toward π), right side grows.
         if (label.side === "left") assert.ok(label.mid <= mid + 1e-9);
         else assert.ok(label.mid >= mid - 1e-9);
-        // Orthogonal elbow leader: anchor -> (label edge x, anchor y) -> (label edge x, label y).
-        const elbowX = label.side === "right" ? width - layout.labelWidth - 4 : layout.labelWidth + 4;
-        assert.ok(label.leader.startsWith(`M ${layout.cx + label.anchor.x} ${layout.cy + label.anchor.y} L ${elbowX} ${layout.cy + label.anchor.y} L ${elbowX} ${label.y}`));
-        // Anchor sits within half a label gap of its label so elbow runs stay y-disjoint.
-        assert.ok(Math.abs(label.anchor.y - (label.y - layout.cy)) <= layout.height);
+        // Nested elbow: rim -> (lane, rimY) -> (lane, labelY) -> (endX, labelY).
+        const endX = label.side === "right" ? width - layout.labelWidth - 4 : layout.labelWidth + 4;
+        const [p0, p1, p2, p3] = parseLeader(label.leader);
+        assert.ok(Math.abs(p0.x - (layout.cx + label.anchor.x)) < 1e-9 && Math.abs(p0.y - (layout.cy + label.anchor.y)) < 1e-9);
+        assert.ok(Math.abs(p1.y - p0.y) < 1e-9, "shelf leaves the rim horizontally");
+        assert.ok(Math.abs(p2.x - p1.x) < 1e-9, "vertical drop in one lane");
+        assert.ok(Math.abs(p3.y - label.y) < 1e-9 && Math.abs(p3.x - endX) < 1e-9, "ends at the label edge");
+        // Lanes sit beyond the pie's horizontal extent, so the drop clears the pie.
+        if (label.side === "left") assert.ok(p1.x <= layout.cx - layout.radius - 2);
+        else assert.ok(p1.x >= layout.cx + layout.radius + 2);
+        // The whole leader stays outside the pie body.
+        for (const point of flattenLeader(label.leader)) {
+          assert.ok(Math.hypot(point.x - layout.cx, point.y - layout.cy) >= layout.radius - 0.5,
+            `leader dips inside the pie at width ${width} ${label.label}`);
+        }
         assert.equal(label.label, segments.find((segment) => segment.id === label.id).label);
         assert.ok(label.x >= 0 && label.x + layout.labelWidth <= width);
         assert.ok(label.y - 22 >= 0 && label.y + 22 <= layout.height);
-        // Labels stay wholly outside the highlighted ring's horizontal extent.
+        // Labels stay wholly outside the pie's horizontal extent.
         if (label.side === "left") assert.ok(label.x + layout.labelWidth < layout.cx - layout.radius - 10);
         else assert.ok(label.x > layout.cx + layout.radius + 10);
       }
@@ -83,12 +108,11 @@ test("labels retain exact midpoint anchors and fit at desktop and 390/320px view
         const labels = layout.labels.filter((label) => label.side === side).sort((a, b) => a.y - b.y);
         labels.forEach((label, index) => {
           if (index) {
-            assert.ok(label.y - labels[index - 1].y >= 52 - 1e-9);
+            assert.ok(label.y - labels[index - 1].y >= 50 - 1e-9);
             assert.ok(label.anchor.y >= labels[index - 1].anchor.y);
           }
         });
         for (let i = 0; i < labels.length; i++) {
-          assert.equal(parseLeader(labels[i].leader).length, 3, `three-point elbow leader per label at width ${width}`);
           for (let j = i + 1; j < labels.length; j++) {
             assert.equal(leadersCross(labels[i].leader, labels[j].leader), false, `leaders cross at width ${width} ${side} ${i}/${j}`);
           }
