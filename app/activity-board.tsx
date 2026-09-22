@@ -99,7 +99,7 @@ export default function ActivityBoard({
           <p className="eyebrow">ACTIVITY BOARD</p>
           <h2 id="board-title">活动看板</h2>
           <p className="board-sub">
-            每一场活动都是一个阵营竞争的赛场：报名加入一个区、提交产出赢贡献值，荣誉在<Link href="/leaderboard">排行榜</Link>结算。
+            每一场活动都是一个阵营竞争的赛场：报名加入一个区、提交产出赢贡献值，荣誉在排行榜结算。
             按类别、奖金、形式和费用筛选，找到你想参加的那一场。
           </p>
         </div>
