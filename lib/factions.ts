@@ -1,8 +1,10 @@
 /**
- * 杭客松的阵营体系：杭州全部 13 个县级行政区。
+ * 杭客松的阵营体系：杭州全部 13 个县级行政区，外加用户自建的杭州地标阵营。
  * 对用户一视同仁，不按行政类别做任何区分；阵营贡献值按阵营汇总。
  * 颜色在环形图、榜单徽标等处共用。
  */
+import { loadCustomFactions } from "./custom-factions";
+
 export type Faction = { id: string; name: string; color: string };
 
 export const FACTIONS: Faction[] = [
@@ -21,6 +23,11 @@ export const FACTIONS: Faction[] = [
   { id: "jiande", name: "建德市", color: "#9b8cff" },
 ];
 
+/** 官方 13 区 + 本机自建阵营（服务端渲染时自建阵营为空）。 */
+export function listFactions(): Faction[] {
+  return [...FACTIONS, ...loadCustomFactions()];
+}
+
 export function factionById(id: string): Faction | undefined {
-  return FACTIONS.find((faction) => faction.id === id);
+  return FACTIONS.find((faction) => faction.id === id) ?? loadCustomFactions().find((faction) => faction.id === id);
 }

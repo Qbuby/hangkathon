@@ -195,3 +195,16 @@
 .leader-board-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #b4d8ff1f;border-radius:8px;font-size:13px;color:#c3d6ea}
 .leader-board-row strong{color:#eaf6ff;font-weight:550}
 .leader-board-name{margin-left:auto;color:#8fd0ff}
+
+/* 自建阵营：报名弹窗里的创建输入块 */
+.join-custom{margin:14px 0 0;border-top:1px dashed #b4d8ff22;padding-top:14px}
+.join-custom-title{margin:0 0 10px;font-size:12px;line-height:1.7;color:#8aa4bc}
+.join-custom-row{display:flex;gap:10px}
+.join-custom-input{flex:1;min-width:0;height:42px;padding:0 12px;border:1px solid #b4d8ff2e;border-radius:8px;background:#0d2138;color:#eaf6ff;font:inherit;font-size:13.5px;outline:none}
+.join-custom-input::placeholder{color:#5f7d99}
+.join-custom-input:focus{border-color:#5eb1ff}
+.join-custom-input[aria-invalid="true"]{border-color:#ff8f8f}
+.join-custom-create{height:42px;padding:0 16px;border:1px solid #54d7ff66;border-radius:8px;background:#54d7ff14;color:#8deaff;font:inherit;font-size:13px;cursor:pointer;flex:none;transition:border-color .18s,color .18s}
+.join-custom-create:hover:not(:disabled){border-color:#54d7ffaa;color:#eaf6ff}
+.join-custom-create:disabled{opacity:.45;cursor:not-allowed}
+.join-custom-error{margin:8px 0 0;font-size:12.5px;color:#ff9f9f}

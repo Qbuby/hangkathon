@@ -20,6 +20,12 @@ import {
 } from "@/lib/activity";
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
 import { FACTIONS, factionById } from "@/lib/factions";
+import {
+  createCustomFaction,
+  loadCustomFactions,
+  validateCustomFactionName,
+  type CustomFaction,
+} from "@/lib/custom-factions";
 import FactionPanel from "../../faction-panel";
 import SiteHeader from "../../site-header";
 import {
@@ -87,6 +93,9 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitDone, setSubmitDone] = useState(false);
   const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
+  const [customFactions, setCustomFactions] = useState<CustomFaction[]>([]);
+  const [customName, setCustomName] = useState("");
+  const [customError, setCustomError] = useState<string | null>(null);
 
   // 本机创建的活动只存在 localStorage 里，挂载后再查一次；
   // 邀请链接 ?invite=<阵营>&by=<用户名> 也在此时解析。
@@ -101,6 +110,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       setSubmitError(null);
       setSubmitDone(false);
       setInviteEvents(loadInviteEvents());
+      setCustomFactions(loadCustomFactions());
       setPickedFaction(null);
       const params = new URLSearchParams(window.location.search);
       const inviteFaction = params.get("invite");
@@ -168,6 +178,21 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
     setJoinRecord(saveJoin(activity.id, pickedFaction));
     setPickedFaction(null);
     setJoinOpen(false);
+  }
+
+  /** 校验并注册自建阵营：名字需包含杭州地标，通过后直接选中。 */
+  function createCustomAndPick() {
+    const existing = [...FACTIONS.map((faction) => faction.name), ...customFactions.map((faction) => faction.name)];
+    const error = validateCustomFactionName(customName, existing);
+    if (error) {
+      setCustomError(error);
+      return;
+    }
+    const faction = createCustomFaction(customName);
+    setCustomFactions([...customFactions, faction]);
+    setPickedFaction(faction.id);
+    setCustomName("");
+    setCustomError(null);
   }
 
   /** 被邀请者接受邀请：需先登录，接受后只能加入邀请人所在阵营，双方各得贡献值激励。 */
@@ -546,7 +571,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             报名后进入阵营选择阶段：从杭州 13 个县级行政区中选择一个阵营，与同阵营数字市民一起为它出战。阵营贡献值 = 阵营成员个人贡献值之和。
           </DialogDescription>
           <div className="join-factions" role="radiogroup" aria-label="选择阵营">
-            {FACTIONS.map((faction) => (
+            {[...FACTIONS, ...customFactions].map((faction) => (
               <button
                 key={faction.id}
                 type="button"
@@ -559,6 +584,33 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 {faction.name}
               </button>
             ))}
+          </div>
+          <div className="join-custom">
+            <p className="join-custom-title">找不到心仪阵营？自建一个——名称需包含杭州地标（西湖、断桥、钱塘江、良渚……）</p>
+            <div className="join-custom-row">
+              <input
+                type="text"
+                className="join-custom-input"
+                placeholder="例如：西湖侠客"
+                value={customName}
+                aria-label="自建阵营名称"
+                aria-invalid={customError ? true : undefined}
+                onChange={(event) => {
+                  setCustomName(event.target.value);
+                  if (customError) setCustomError(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    createCustomAndPick();
+                  }
+                }}
+              />
+              <button type="button" className="join-custom-create" disabled={!customName.trim()} onClick={createCustomAndPick}>
+                创建并选中
+              </button>
+            </div>
+            {customError && <p className="join-custom-error" role="alert">{customError}</p>}
           </div>
           <p className="join-lock-note">阵营在本活动中锁定，确认后无法更改。</p>
           <p className="join-leader-note">
