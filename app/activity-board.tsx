@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CalendarDays, Coins, MapPin } from "lucide-react";
 import { CATEGORIES, categoryLabel, formatLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
@@ -54,9 +54,11 @@ function Chip({
 export default function ActivityBoard({
   activities,
   localCount = 0,
+  action,
 }: {
   activities: Activity[];
   localCount?: number;
+  action?: ReactNode;
 }) {
   const [category, setCategory] = useState<string>("all");
   const [prize, setPrize] = useState<PrizeFilter>("all");
@@ -102,6 +104,7 @@ export default function ActivityBoard({
           </p>
         </div>
         <div className="board-head-actions">
+          {action}
           <span className="demo-label">{localCount > 0 ? "含本机创建 · 未同步到服务器" : "演示数据 · 非真实活动"}</span>
         </div>
       </div>

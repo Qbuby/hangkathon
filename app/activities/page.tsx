@@ -25,10 +25,11 @@ export default function ActivitiesPage() {
     <main className="activities-page">
       <SiteHeader />
       <div className="activities-wrap">
-        <div className="activities-topbar">
-          <Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>
-        </div>
-        <ActivityBoard activities={[...created, ...DEMO_ACTIVITIES]} localCount={created.length} />
+        <ActivityBoard
+          activities={[...created, ...DEMO_ACTIVITIES]}
+          localCount={created.length}
+          action={<Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>}
+        />
       </div>
     </main>
   );

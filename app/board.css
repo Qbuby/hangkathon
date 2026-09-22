@@ -1,10 +1,11 @@
 /* 活动看板 —— 独立于首页 globals.css。 */
 
 .board{padding:90px 6% 70px;background:#081c30;position:relative;z-index:5}
-.board-head{display:flex;align-items:flex-end;justify-content:space-between;gap:28px;margin-bottom:36px}
+.board-head{display:flex;align-items:stretch;justify-content:space-between;gap:28px;margin-bottom:36px}
 .board-head h2{font-size:34px;font-weight:500;margin:12px 0 0;letter-spacing:1px}
 .board-sub{font-size:14px;color:#a9c2d9;margin:10px 0 0}
-.board-head-actions{display:flex;align-items:center;gap:16px;flex:none}
+/* 右列撑满标题块高度：发起活动按钮与「活动看板」标题行同高（eyebrow 17.6px + h2 上间距 12px − 按钮高出标题的部分 ≈ 19px），演示角标沉底对齐副文案 */
+.board-head-actions{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:16px;flex:none;padding-top:19px}
 
 .board-filters{border-top:1px solid #b4d8ff28;border-bottom:1px solid #b4d8ff28;padding:18px 0;margin-bottom:34px;display:flex;flex-direction:column;gap:13px}
 .board-filter-row{display:flex;align-items:center;gap:18px}
@@ -45,12 +46,13 @@
   .board{padding:70px 6% 56px}
   .board-head{flex-direction:column;align-items:flex-start;gap:20px}
   .board-head h2{font-size:28px}
+  .board-head-actions{flex-direction:row;align-items:center;width:100%;padding-top:0}
   .board-grid{grid-template-columns:1fr}
 }
 @media(max-width:760px){
   .board{padding:52px 6% 44px}
   .board-head h2{font-size:24px}
-  .board-head-actions{width:100%;justify-content:space-between}
+  .board-head-actions{justify-content:space-between}
   .board-filter-row{align-items:flex-start;flex-direction:column;gap:10px}
   .board-filter-label{width:auto}
   .board-chip{height:30px;padding:0 13px;font-size:12px}
