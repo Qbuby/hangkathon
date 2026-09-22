@@ -62,10 +62,11 @@ export default function ProfilePage() {
       const activity: Activity | undefined = [...loadActivities(), ...DEMO_ACTIVITIES].find(
         (item) => item.id === activityId,
       );
-      const faction = factionById(record.factionId);
-      return activity && faction ? { activity, faction, record } : null;
+      // 参与者不再选阵营；行内展示活动所属区（发起方在发布时设定）。
+      const district = activity ? factionById(activity.district) : undefined;
+      return activity ? { activity, district, record } : null;
     })
-    .filter((row): row is { activity: Activity; faction: NonNullable<ReturnType<typeof factionById>>; record: JoinRecord } => row !== null);
+    .filter((row): row is { activity: Activity; district: NonNullable<ReturnType<typeof factionById>> | undefined; record: JoinRecord } => row !== null);
 
   // 报名记录是本机数据，与登录状态无关，两种状态都展示。
   const joinsSection = (
@@ -76,14 +77,14 @@ export default function ProfilePage() {
         <div className="profile-join-list">
           {joinedRows.map((row) => (
             <Link key={row.activity.id} className="profile-join-row" href={`/activities/${row.activity.slug}`}>
-              <span className="join-badge-dot" style={{ background: row.faction.color }} />
+              <span className="join-badge-dot" style={{ background: row.district?.color ?? "#5f7d99" }} />
               <strong>
                 {row.activity.title}
-                {inviteCount(inviteEvents, row.activity.id, row.record.factionId, accountName) > 0 && (
-                  <em className="profile-join-leader">已邀请 {inviteCount(inviteEvents, row.activity.id, row.record.factionId, accountName)} 人</em>
+                {inviteCount(inviteEvents, row.activity.id, row.activity.district, accountName) > 0 && (
+                  <em className="profile-join-leader">已邀请 {inviteCount(inviteEvents, row.activity.id, row.activity.district, accountName)} 人</em>
                 )}
               </strong>
-              <span className="profile-join-faction" style={{ color: row.faction.color }}>{row.faction.name}</span>
+              <span className="profile-join-faction" style={{ color: row.district?.color ?? "#8aa4bc" }}>{row.district?.name ?? "未设区"}</span>
               <span className="profile-join-date">{new Date(row.record.joinedAt).toLocaleDateString("zh-CN")}</span>
               <ArrowRight size={15} />
             </Link>

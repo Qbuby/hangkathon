@@ -76,18 +76,9 @@
 .faction-prize{color:#8aa4bc;font-size:12px;font-variant-numeric:tabular-nums;justify-self:end}
 
 /* 报名与阵营徽标 */
-.join-badge{display:flex;align-items:center;gap:9px;align-self:flex-start;border:1px solid;border-radius:20px;padding:7px 15px;font-size:13.5px;font-weight:550}
-.join-badge-dot{width:9px;height:9px;border-radius:50%}
+.join-badge{display:flex;align-items:center;gap:9px;align-self:flex-start;border:1px solid #b4d8ff55;color:#dce9f8;border-radius:20px;padding:7px 15px;font-size:13.5px;font-weight:550}
+.join-badge-dot{width:9px;height:9px;border-radius:50%;background:#8deaff}
 .join-rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:1.7;color:#c3d6ea}
-.join-dialog .join-factions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:4px 0 6px}
-.join-faction{height:42px;border:1px solid #b4d8ff30;border-radius:9px;background:transparent;color:#cfe0f2;font-size:13.5px;letter-spacing:.5px}
-.join-faction:hover{border-color:#54d7ff80;color:#fff}
-.join-faction.is-selected{background:#54d7ff14;font-weight:550}
-.join-lock-note{font-size:12px;line-height:1.7;color:#ffb46b;margin:0 0 6px}
-.join-dialog .dialog-done{width:100%}
-
-/* 区长选择与现任提示（报名弹窗内） */
-.join-leader-note{font-size:12.5px;line-height:1.7;color:#8fd8c4;margin:0 0 6px}
 
 /* 已报名面板：区长徽标、邀请链接、邀请来源 */
 .join-invitedby{font-size:12px;color:#8fd8c4;margin:0}
@@ -197,14 +188,9 @@
 .leader-board-name{margin-left:auto;color:#8fd0ff}
 
 /* 自建阵营：报名弹窗里的创建输入块 */
-.join-custom{margin:14px 0 0;border-top:1px dashed #b4d8ff22;padding-top:14px}
-.join-custom-title{margin:0 0 10px;font-size:12px;line-height:1.7;color:#8aa4bc}
-.join-custom-row{display:flex;gap:10px}
-.join-custom-input{flex:1;min-width:0;height:42px;padding:0 12px;border:1px solid #b4d8ff2e;border-radius:8px;background:#0d2138;color:#eaf6ff;font:inherit;font-size:13.5px;outline:none}
-.join-custom-input::placeholder{color:#5f7d99}
-.join-custom-input:focus{border-color:#5eb1ff}
-.join-custom-input[aria-invalid="true"]{border-color:#ff8f8f}
-.join-custom-create{height:42px;padding:0 16px;border:1px solid #54d7ff66;border-radius:8px;background:#54d7ff14;color:#8deaff;font:inherit;font-size:13px;cursor:pointer;flex:none;transition:border-color .18s,color .18s}
-.join-custom-create:hover:not(:disabled){border-color:#54d7ffaa;color:#eaf6ff}
-.join-custom-create:disabled{opacity:.45;cursor:not-allowed}
-.join-custom-error{margin:8px 0 0;font-size:12.5px;color:#ff9f9f}
+
+/* 活动所属区展示 */
+.fact-district{display:inline-flex;align-items:center;gap:6px}
+.fact-district i{display:inline-block;width:8px;height:8px;border-radius:50%}
+.join-district{display:flex;align-items:center;gap:6px;margin:10px 0 0;font-size:13px;color:#c3d6ea}
+.join-district i{display:inline-block;width:8px;height:8px;border-radius:50%}

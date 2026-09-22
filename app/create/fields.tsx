@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import type { Award, Criterion, Field } from "@/lib/activity";
+import { FACTIONS } from "@/lib/factions";
 
 type Props = {
   field: Field;
@@ -73,6 +74,33 @@ export default function FieldControl({ field, value, error, onChange }: Props) {
               >
                 <span className="cf-option-label">{option.label}</span>
                 {option.hint && <span className="cf-option-hint">{option.hint}</span>}
+              </button>
+            );
+          })}
+        </div>
+        <Hint field={field} error={error} />
+      </div>
+    );
+  }
+
+  if (field.type === "district") {
+    return (
+      <div className="cf-field">
+        <Label field={field} />
+        <div className="cf-options cf-options-inline" role="radiogroup" aria-label={field.label}>
+          {FACTIONS.map((faction) => {
+            const selected = value === faction.id;
+            return (
+              <button
+                key={faction.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`cf-option cf-option-compact${selected ? " is-selected" : ""}`}
+                style={selected ? { borderColor: faction.color, color: faction.color } : undefined}
+                onClick={() => onChange(field.name, faction.id)}
+              >
+                <span className="cf-option-label">{faction.name}</span>
               </button>
             );
           })}

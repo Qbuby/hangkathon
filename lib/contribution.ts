@@ -193,8 +193,8 @@ export function platformTotals() {
   };
 }
 
-/** 本机报名记录：按活动锁定阵营（key = activity.id）。invitedBy = 邀请人用户名（成功邀请的凭证）。 */
-export type JoinRecord = { factionId: string; joinedAt: string; invitedBy?: string };
+/** 本机报名记录：按活动（key = activity.id）。参与者以个人账户参赛，无阵营字段。invitedBy = 邀请人用户名。 */
+export type JoinRecord = { joinedAt: string; invitedBy?: string };
 
 const JOINS_KEY = "hangkathon.joins.v1";
 
@@ -206,16 +206,9 @@ export function loadJoins(): Record<string, JoinRecord> {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
     const joins: Record<string, JoinRecord> = {};
     for (const [activityId, value] of Object.entries(parsed as Record<string, unknown>)) {
-      if (
-        value &&
-        typeof value === "object" &&
-        typeof (value as JoinRecord).factionId === "string" &&
-        factionById((value as JoinRecord).factionId) &&
-        typeof (value as JoinRecord).joinedAt === "string"
-      ) {
+      if (value && typeof value === "object" && typeof (value as JoinRecord).joinedAt === "string") {
         const record = value as JoinRecord;
         joins[activityId] = {
-          factionId: record.factionId,
           joinedAt: record.joinedAt,
           ...(typeof record.invitedBy === "string" && record.invitedBy ? { invitedBy: record.invitedBy } : {}),
         };
@@ -233,11 +226,9 @@ export function loadJoin(activityId: string): JoinRecord | null {
 
 export function saveJoin(
   activityId: string,
-  factionId: string,
   extra?: { invitedBy?: string },
 ): JoinRecord {
   const record: JoinRecord = {
-    factionId,
     joinedAt: new Date().toISOString(),
     ...(extra?.invitedBy ? { invitedBy: extra.invitedBy } : {}),
   };

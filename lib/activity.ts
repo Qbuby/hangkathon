@@ -4,6 +4,7 @@
  * 表单是声明式的：STEPS 描述每一步有哪些字段，创建页只负责渲染和校验。
  * 增删字段只改这一个文件。
  */
+import { FACTIONS } from "./factions";
 
 export type ActivityFormat = "online" | "offline";
 export type ActivityPricing = "free" | "paid";
@@ -36,6 +37,8 @@ export type Activity = {
   overview: string;
   host: string;
   contact: string;
+  /** 活动所属区：13 个官方区之一，发起方在发布时选择；参与者以个人账户参赛，不再选阵营。 */
+  district: string;
   format: ActivityFormat;
   venue: string;
   pricing: ActivityPricing;
@@ -99,6 +102,14 @@ export type Field =
       help?: string;
       required?: boolean;
     }
+  /** 活动所属区：从 13 个官方区中单选一个，发起方在发布时确定。 */
+  | {
+      name: string;
+      label: string;
+      type: "district";
+      help?: string;
+      required?: boolean;
+    }
   | { name: string; label: string; type: "switch"; help?: string }
   | { name: string; label: string; type: "criteria"; help?: string }
   | { name: string; label: string; type: "awards"; help?: string };
@@ -125,6 +136,7 @@ export const STEPS: Step[] = [
       { name: "slug", label: "活动代号", type: "text", required: true, placeholder: "ai-creators-autumn", help: "给这场活动起一个代号，站内用它来指代这场活动。只能用字母、数字和连字符，中文标题需要自己起一个。" },
       { name: "subtitle", label: "一句话说明", type: "text", required: true, placeholder: "用一个周末，把想法做成能跑的原型" },
       { name: "category", label: "活动类别", type: "radio", required: true, options: CATEGORIES.map((c) => ({ value: c.value, label: c.label })), help: "活动看板会按类别筛选，选一个最贴近的。" },
+      { name: "district", label: "活动所属区", type: "district", required: true, help: "这场活动归属杭州 13 个区中的哪一个。参与者以个人账户报名参赛，不再选择阵营。" },
       { name: "overview", label: "详细介绍", type: "textarea", placeholder: "背景、面向谁、期待什么样的作品……" },
       { name: "host", label: "主办方", type: "text", required: true, placeholder: "个人、团队或机构名称" },
       { name: "contact", label: "联系方式", type: "text", required: true, placeholder: "例如：微信号 / 邮箱 / 手机号", help: "会公示在活动页，方便参与者有问题时直接联系主办方。" },
@@ -238,6 +250,7 @@ export function initialDraft(host = ""): Draft {
     overview: "",
     host,
     contact: "",
+    district: "",
     format: "offline",
     venue: "",
     pricing: "free",
@@ -339,6 +352,7 @@ export function toActivity(values: Draft): Activity {
     overview: String(values.overview ?? "").trim(),
     host: String(values.host ?? "").trim(),
     contact: String(values.contact ?? "").trim(),
+    district: FACTIONS.some((faction) => faction.id === values.district) ? String(values.district) : "",
     format: values.format === "online" ? "online" : "offline",
     venue: values.format === "offline" ? String(values.venue ?? "").trim() : "",
     pricing: values.pricing === "paid" ? "paid" : "free",
@@ -384,6 +398,7 @@ function normalize(raw: unknown): Activity | null {
     overview: text(value.overview),
     host: text(value.host),
     contact: text(value.contact),
+    district: FACTIONS.some((faction) => faction.id === value.district) ? text(value.district) : "",
     format: value.format === "online" ? "online" : "offline",
     venue: text(value.venue),
     pricing: value.pricing === "paid" ? "paid" : "free",
