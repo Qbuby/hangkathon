@@ -54,18 +54,23 @@ export function honorLevel(points: number) {
   return { ...level, next, progress };
 }
 
-export type TeamPoints = { id: string; name: string; color: string; points: number };
+export type TeamPoints = { id: string; name: string; color: string; points: number; /** 队长（成员用户名）：只有队长可以邀请用户加入战队。 */ captain?: string };
 export type MemberPoints = { name: string; teamId: string; points: number };
 export type ActivityContribution = { teams: TeamPoints[]; members: MemberPoints[] };
+
+/** 某成员担任队长的战队（一场活动中最多领一支；不是队长返回 undefined）。 */
+export function teamByCaptain(teams: TeamPoints[], name: string): TeamPoints | undefined {
+  return teams.find((team) => team.captain === name);
+}
 
 /** 三场演示活动的战队与个人贡献演示数据（虚构战队、成员与分值）。区不再计入贡献统计。 */
 export const CONTRIBUTIONS: Record<string, ActivityContribution> = {
   demo_midautumn_poetry: {
     teams: [
-      { id: "team_dyj", name: "淡妆浓抹", color: "#7fd48d", points: 1280 },
-      { id: "team_qiantang", name: "钱塘词派", color: "#54d7ff", points: 1090 },
-      { id: "team_gushan", name: "孤山雅集", color: "#b992ff", points: 760 },
-      { id: "team_yunqi", name: "云栖诗社", color: "#ffb46b", points: 450 },
+      { id: "team_dyj", name: "淡妆浓抹", color: "#7fd48d", points: 1280, captain: "lakeside_verses" },
+      { id: "team_qiantang", name: "钱塘词派", color: "#54d7ff", points: 1090, captain: "osmanthus_lane" },
+      { id: "team_gushan", name: "孤山雅集", color: "#b992ff", points: 760, captain: "canal_oars" },
+      { id: "team_yunqi", name: "云栖诗社", color: "#ffb46b", points: 450, captain: "binjiang_ferry" },
     ],
     members: [
       { name: "lakeside_verses", teamId: "team_dyj", points: 520 },
@@ -82,10 +87,10 @@ export const CONTRIBUTIONS: Record<string, ActivityContribution> = {
   },
   demo_shop_assistant: {
     teams: [
-      { id: "team_doulu", name: "斗路小店联盟", color: "#8fd8c4", points: 1620 },
-      { id: "team_yunhe", name: "运河创客", color: "#7a9dff", points: 1310 },
-      { id: "team_laojie", name: "老街新掌柜", color: "#ff8fa8", points: 890 },
-      { id: "team_shixin", name: "市集先锋", color: "#e8d16a", points: 520 },
+      { id: "team_doulu", name: "斗路小店联盟", color: "#8fd8c4", points: 1620, captain: "shopkeeper_hz" },
+      { id: "team_yunhe", name: "运河创客", color: "#7a9dff", points: 1310, captain: "code_osmanthus" },
+      { id: "team_laojie", name: "老街新掌柜", color: "#ff8fa8", points: 890, captain: "zhongshan_road" },
+      { id: "team_shixin", name: "市集先锋", color: "#e8d16a", points: 520, captain: "xianghu_night" },
     ],
     members: [
       { name: "shopkeeper_hz", teamId: "team_doulu", points: 700 },
@@ -102,9 +107,9 @@ export const CONTRIBUTIONS: Record<string, ActivityContribution> = {
   },
   demo_city_memory: {
     teams: [
-      { id: "team_chengnan", name: "城南旧事组", color: "#57d4c0", points: 1050 },
-      { id: "team_beishan", name: "北山拾光", color: "#c3e06a", points: 820 },
-      { id: "team_gongchenqiao", name: "拱宸记忆队", color: "#f27fd9", points: 610 },
+      { id: "team_chengnan", name: "城南旧事组", color: "#57d4c0", points: 1050, captain: "broken_bridge" },
+      { id: "team_beishan", name: "北山拾光", color: "#c3e06a", points: 820, captain: "lakeside_verses" },
+      { id: "team_gongchenqiao", name: "拱宸记忆队", color: "#f27fd9", points: 610, captain: "xiaohe_street" },
     ],
     members: [
       { name: "broken_bridge", teamId: "team_chengnan", points: 480 },

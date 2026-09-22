@@ -26,6 +26,7 @@ import {
   getContribution,
   loadJoin,
   saveJoin,
+  teamByCaptain,
   teamShares,
   type JoinRecord,
 } from "@/lib/contribution";
@@ -50,7 +51,7 @@ type AccountState = {
   user: { name: string | null; email: string | null } | null;
 };
 
-type Invite = { factionId: string; by: string } | "refused" | null;
+type Invite = { factionId: string; teamId?: string; by: string } | "refused" | null;
 
 /** 剪贴板 API 不可用（无用户手势/权限）时的兜底复制。 */
 function legacyCopy(text: string) {
@@ -101,9 +102,13 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       const params = new URLSearchParams(window.location.search);
       const inviteDistrict = params.get("invite");
       const by = params.get("by");
-      // 邀请链接锚定活动所属区（?invite=<区id>&by=<名字>）
+      const inviteTeam = params.get("team");
+      // 邀请链接由战队队长生成：?invite=<区id>&by=<名字>&team=<战队id>
+      const team = inviteTeam && found
+        ? (getContribution(found.id)?.teams ?? []).find((item) => item.id === inviteTeam)
+        : undefined;
       if (inviteDistrict && by && factionById(inviteDistrict) && found) {
-        setInvite({ factionId: inviteDistrict, by });
+        setInvite({ factionId: inviteDistrict, teamId: team?.id, by });
       } else {
         setInvite(null);
       }
@@ -156,6 +161,9 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const contributionTotal = shares.reduce((sum, row) => sum + row.points, 0);
   const accountName = account?.user?.name ?? account?.user?.email ?? "本机数字市民";
   const district = factionById(activity.district);
+  const activityTeams = getContribution(activity.id)?.teams ?? [];
+  // 只有战队的队长可以邀请用户加入战队
+  const myTeam = teamByCaptain(activityTeams, accountName);
   const settledLeaders = settleFactionLeaders(inviteEvents, activity.id);
   const districtLeader = district ? settledLeaders[district.id] : undefined;
   const myInvites = inviteCount(inviteEvents, activity.id, activity.district, accountName);
@@ -188,6 +196,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
     setInviteEvents(recordInviteEvent({
       activityId: activity.id,
       factionId: activity.district,
+      teamId: invite.teamId,
       inviter: invite.by,
       invitee: accountName,
       at: new Date().toISOString(),
@@ -246,13 +255,15 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       {invite && invite !== "refused" && !joinRecord && (() => {
         const inviteDistrict = factionById(invite.factionId);
         if (!inviteDistrict) return null;
+        const inviteTeam = invite.teamId ? activityTeams.find((team) => team.id === invite.teamId) : undefined;
         return (
-          <div className="invite-banner" role="region" aria-label="活动邀请">
+          <div className="invite-banner" role="region" aria-label="战队邀请">
             <p className="invite-banner-title">
-              <strong>{invite.by}</strong> 邀请你一起参加这场活动{district ? <>（所属区 · <strong style={{ color: inviteDistrict.color }}>{inviteDistrict.name}</strong>）</> : null}
+              <strong>{invite.by}</strong> {inviteTeam ? <>邀请你加入 <strong style={{ color: inviteTeam.color }}>{inviteTeam.name}</strong> 战队</> : "邀请你"} 一起参加这场活动
+              {district ? <>（所属区 · <strong style={{ color: inviteDistrict.color }}>{inviteDistrict.name}</strong>）</> : null}
             </p>
             <p className="invite-banner-sub">
-              接受后你将以个人账户报名参赛；你和 {invite.by} 都将获得 +{MECHANISM.invite.inviteeBonus} / +{MECHANISM.invite.inviterBonus} 贡献值激励。
+              接受后你将加入{inviteTeam ? `${inviteTeam.name} 战队、` : ""}以个人账户报名本场活动；你和 {invite.by} 都将获得 +{MECHANISM.invite.inviteeBonus} / +{MECHANISM.invite.inviterBonus} 贡献值激励。
               也可以拒绝邀请，之后仍可自由报名。
             </p>
             {inviteNeedsLogin ? (
@@ -402,7 +413,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 )
               ) : (
                 <p className="detail-placeholder">
-                  活动期间任何报名成员都可分享邀请链接，对方接受报名后双方各得 +{MECHANISM.invite.inviteeBonus} / +{MECHANISM.invite.inviterBonus} 贡献值。
+                  活动期间只有战队队长可以分享邀请链接邀请新队员，对方接受报名后双方各得 +{MECHANISM.invite.inviteeBonus} / +{MECHANISM.invite.inviterBonus} 贡献值。
                   活动结束（{activity.endsAt || "日期待定"}）后，成功邀请人数最多的成员将结算为本活动所属区（{district.name}）的数字区长，区长个人贡献值额外 +{Math.round(MECHANISM.leaderBonusPct * 100)}%。
                 </p>
               )}
@@ -496,28 +507,30 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               {joinRecord.invitedBy && (
                 <p className="join-invitedby">由 {joinRecord.invitedBy} 的邀请链接报名 · 邀请激励 +{MECHANISM.invite.inviteeBonus} 贡献值</p>
               )}
-              <div className="leader-invite">
-                <p className="leader-invite-title">邀请链接 · 活动期间随时可邀请</p>
-                {typeof window !== "undefined" && (
-                  <div className="leader-invite-row">
-                    <code>{
-                      `${window.location.origin}/activities/${activity.slug}?invite=${activity.district}&by=${encodeURIComponent(accountName)}`
-                    }</code>
-                    <button type="button" onClick={() => copyInviteLink(
-                      `${window.location.origin}/activities/${activity.slug}?invite=${activity.district}&by=${encodeURIComponent(accountName)}`,
-                    )}>{inviteCopied ? "已复制" : "复制"}</button>
-                  </div>
-                )}
-                <p className="leader-invite-note">
-                  任何报名成员都可分享。打开链接的数字市民接受后以个人账户报名本场活动（需登录）；对方 +{MECHANISM.invite.inviteeBonus}、你 +{MECHANISM.invite.inviterBonus} 贡献值。
-                  你已邀请 {myInvites} 人 · 累计 +{myInvites * MECHANISM.invite.inviterBonus} 贡献值。活动结束时邀请人数最多的成员即结算为本活动所属区的数字区长。
-                </p>
-              </div>
+              {myTeam && (
+                <div className="leader-invite">
+                  <p className="leader-invite-title">邀请链接 · 你是「{myTeam.name}」队长，活动期间随时可邀请新队员</p>
+                  {typeof window !== "undefined" && (
+                    <div className="leader-invite-row">
+                      <code>{
+                        `${window.location.origin}/activities/${activity.slug}?invite=${activity.district}&by=${encodeURIComponent(accountName)}&team=${myTeam.id}`
+                      }</code>
+                      <button type="button" onClick={() => copyInviteLink(
+                        `${window.location.origin}/activities/${activity.slug}?invite=${activity.district}&by=${encodeURIComponent(accountName)}&team=${myTeam.id}`,
+                      )}>{inviteCopied ? "已复制" : "复制"}</button>
+                    </div>
+                  )}
+                  <p className="leader-invite-note">
+                    只有战队队长可以邀请用户加入战队。打开链接的数字市民接受后加入你的战队、以个人账户报名本场活动（需登录）；对方 +{MECHANISM.invite.inviteeBonus}、你 +{MECHANISM.invite.inviterBonus} 贡献值。
+                    你已邀请 {myInvites} 人 · 累计 +{myInvites * MECHANISM.invite.inviterBonus} 贡献值。活动结束时邀请人数最多的成员即结算为本活动所属区的数字区长。
+                  </p>
+                </div>
+              )}
               <ul className="join-rules">
                 <li>正式阶段每天发 ¥{MECHANISM.voucher.base} 算力券，当日有效</li>
                 <li>每邀请 1 位新用户，日面额 +¥{MECHANISM.voucher.perInvite}，封顶 ¥{MECHANISM.voucher.dailyCap}</li>
                 <li>产出物 {MECHANISM.review.hours} 小时内审核，按质量计入个人贡献值</li>
-                <li>以个人账户参赛，无需选择阵营；战队功能即将开放</li>
+                <li>以个人账户参赛，无需选择阵营；加入战队需由战队队长邀请</li>
               </ul>
               <p className="detail-join-note">演示环境：报名记录保存在这台设备的浏览器里，贡献值不会真实累计。</p>
             </div>
@@ -526,7 +539,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <p className="detail-join-title">想参加这场活动？</p>
               <Button className="primary-action" onClick={confirmJoin}>报名参赛</Button>
               <p className="detail-join-note">
-                以个人账户报名参赛，无需选择阵营，正式阶段每天领取算力券。战队功能即将由平台方开放。
+                以个人账户报名参赛，无需选择阵营，正式阶段每天领取算力券。加入战队需由战队队长邀请。
                 {isDemo ? "此活动为虚构的演示数据。" : "活动目前只保存在这台设备的浏览器里。"}
               </p>
             </div>

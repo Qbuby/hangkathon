@@ -10,7 +10,10 @@
 
 export type InviteEvent = {
   activityId: string;
+  /** 活动所属区（结算数字区长的口径） */
   factionId: string;
+  /** 邀请加入的战队；旧数据无此字段 */
+  teamId?: string;
   inviter: string;
   invitee: string;
   at: string;
@@ -36,7 +39,8 @@ export function loadInviteEvents(): InviteEvent[] {
           typeof (item as InviteEvent).factionId === "string" &&
           typeof (item as InviteEvent).inviter === "string" &&
           typeof (item as InviteEvent).invitee === "string" &&
-          typeof (item as InviteEvent).at === "string",
+          typeof (item as InviteEvent).at === "string" &&
+          ((item as InviteEvent).teamId === undefined || typeof (item as InviteEvent).teamId === "string"),
       )
       .slice(-MAX_EVENTS);
   } catch {
