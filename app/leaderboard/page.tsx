@@ -3,8 +3,8 @@ import Link from "next/link";
 import FactionPanel from "../faction-panel";
 import SiteHeader from "../site-header";
 import YourEntry from "./your-entry";
+import DistrictStats from "./district-stats";
 import { platformTotals } from "@/lib/contribution";
-import { FACTIONS } from "@/lib/factions";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
 
@@ -14,14 +14,8 @@ const RANK_COLORS = ["#e8d16a", "#c3d6ea", "#ffb46b"];
 
 export default function LeaderboardPage() {
   const totals = platformTotals();
-
-  // 全部 13 个阵营一视同仁，按贡献降序；暂无贡献的排后置灰。
-  const allFactions = FACTIONS
-    .map((faction) => {
-      const row = totals.factions.find((item) => item.faction.id === faction.id);
-      return row ?? { faction, points: 0, share: 0, prize: 0 };
-    })
-    .sort((a, b) => b.points - a.points);
+  // 饼图与明细同分母：战队贡献合计（个人贡献合计是另一个口径，见个人榜）
+  const teamTotal = totals.teams.reduce((sum, team) => sum + team.points, 0);
 
   return (
     <main className="detail-page lb-page">
@@ -32,48 +26,56 @@ export default function LeaderboardPage() {
         <h1>排行榜</h1>
         <p className="lb-hero-sub">
           杭客松的荣誉从这里结算：参加<Link href="/activities">活动</Link>的数字市民按产出贡献值，
-          为自己的阵营和「数字杭州市民」勋章累计荣誉。阵营贡献 = 阵营成员的个人贡献值之和；
-          个人贡献跨活动累计，只升不降。
+          为自己的战队和「数字杭州市民」勋章累计荣誉。区是活动的归属标签，只统计活动数，不计入贡献。
         </p>
           <div className="lb-stats">
             <div className="lb-stat"><strong>{totals.total.toLocaleString("zh-CN")}</strong><span>平台总贡献值</span></div>
             <div className="lb-stat"><strong>{totals.activityCount} 场</strong><span>活动已产生荣誉</span></div>
             <div className="lb-stat"><strong>{totals.citizenCount} 位</strong><span>数字杭州市民</span></div>
-            <div className="lb-stat"><strong>{FACTIONS.length} 个</strong><span>阵营</span></div>
+            <div className="lb-stat"><strong>{totals.teams.length} 支</strong><span>战队</span></div>
           </div>
       </section>
 
-      <section className="lb-section" aria-labelledby="lb-factions">
-        <p className="detail-eyebrow">FACTIONS</p>
-        <h2 id="lb-factions">阵营荣誉</h2>
+      <section className="lb-section" aria-labelledby="lb-districts">
+        <p className="detail-eyebrow">DISTRICTS</p>
+        <h2 id="lb-districts">区的活动数</h2>
+        <DistrictStats />
+        <p className="detail-placeholder">区不再计入贡献统计；这里只统计各区名下的活动场数（含本机创建）。</p>
+      </section>
+
+      <section className="lb-section" aria-labelledby="lb-teams">
+        <p className="detail-eyebrow">TEAMS</p>
+        <h2 id="lb-teams">战队的贡献</h2>
         <div className="lb-faction-panel">
           <FactionPanel
-            slices={allFactions.map((row) => ({
-              id: row.faction.id,
-              label: row.faction.name,
-              value: row.points,
-              color: row.faction.color,
+            slices={totals.teams.map((team) => ({
+              id: team.id,
+              label: team.name,
+              value: team.points,
+              color: team.color,
             }))}
-            rows={allFactions.map((row) => ({
-              id: row.faction.id,
-              name: row.faction.name,
-              color: row.faction.color,
-              points: row.points,
-              share: row.share,
+            rows={totals.teams.map((team) => ({
+              id: team.id,
+              name: team.name,
+              color: team.color,
+              points: team.points,
+              share: teamTotal > 0 ? team.points / teamTotal : 0,
             }))}
-            centerValue={totals.total.toLocaleString("zh-CN")}
+            centerValue={teamTotal.toLocaleString("zh-CN")}
+            nameLabel="战队"
           />
         </div>
+        <p className="detail-placeholder">贡献数据为演示数据；接入后端后按全部活动实时汇总。</p>
       </section>
 
       <section className="lb-section" aria-labelledby="lb-citizens">
         <p className="detail-eyebrow">CITIZENS</p>
-        <h2 id="lb-citizens">数字市民排行榜</h2>
+        <h2 id="lb-citizens">个人的贡献</h2>
         <div className="lb-table">
           <div className="lb-row lb-table-head">
             <span>排名</span>
             <span>数字市民</span>
-            <span>阵营</span>
+            <span>主要战队</span>
             <span>活动</span>
             <span>贡献值</span>
           </div>
@@ -84,7 +86,7 @@ export default function LeaderboardPage() {
               </span>
               <span className="lb-name">{row.name}</span>
               <span className="lb-user-faction">
-                <i style={{ background: row.faction.color }} />{row.faction.name}
+                {row.team ? (<><i style={{ background: row.team.color }} />{row.team.name}</>) : "—"}
               </span>
               <span className="lb-acts">{row.activities} 场</span>
               <span className="lb-points">{row.points.toLocaleString("zh-CN")}</span>

@@ -7,14 +7,16 @@ import type { DonutSlice } from "./donut";
 type FactionRow = { id: string; name: string; color: string; points: number; share: number; prize?: number };
 
 /**
- * 饼图 + 阵营列表的组合：悬停扇区或列表行时互相高亮，
- * 父组件统一交互状态；明细保留完整名称、占比、贡献值及零值阵营。
+ * 饼图 + 明细列表的组合：悬停扇区或列表行时互相高亮，
+ * 父组件统一交互状态；明细保留完整名称、占比、贡献值及零值项。
+ * 用于战队贡献（详情页与排行榜），nameLabel 是明细列表第一列表头。
  */
-export default function FactionPanel({ slices, rows, centerValue, hasPrize }: {
+export default function FactionPanel({ slices, rows, centerValue, hasPrize, nameLabel = "分区" }: {
   slices: DonutSlice[];
   rows: FactionRow[];
   centerValue: string;
   hasPrize?: boolean;
+  nameLabel?: string;
 }) {
   const [active, setActive] = useState<string | null>(null);
 
@@ -30,7 +32,7 @@ export default function FactionPanel({ slices, rows, centerValue, hasPrize }: {
       </div>
       <div className="faction-list">
         <div className="faction-list-header" aria-hidden="true">
-          <span className="faction-name-heading">分区</span>
+          <span className="faction-name-heading">{nameLabel}</span>
           <span>贡献值</span>
           <span>占比</span>
         </div>

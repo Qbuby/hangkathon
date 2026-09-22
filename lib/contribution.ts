@@ -1,5 +1,3 @@
-import { factionById, type Faction } from "./factions";
-
 /**
  * 杭客松核心机制的数值定义与演示数据。规则全文见 docs/prize-mechanism.md。
  * 所有数据目前是演示数据；接入数据库后，把 CONTRIBUTIONS 换成服务端查询即可，页面代码不变。
@@ -56,74 +54,67 @@ export function honorLevel(points: number) {
   return { ...level, next, progress };
 }
 
-export type FactionPoints = { factionId: string; points: number };
-export type MemberPoints = { name: string; factionId: string; points: number };
-export type ActivityContribution = { factions: FactionPoints[]; members: MemberPoints[] };
+export type TeamPoints = { id: string; name: string; color: string; points: number };
+export type MemberPoints = { name: string; teamId: string; points: number };
+export type ActivityContribution = { teams: TeamPoints[]; members: MemberPoints[] };
 
-/** 三场演示活动的阵营与个人贡献演示数据（虚构数字市民与分值）。 */
+/** 三场演示活动的战队与个人贡献演示数据（虚构战队、成员与分值）。区不再计入贡献统计。 */
 export const CONTRIBUTIONS: Record<string, ActivityContribution> = {
   demo_midautumn_poetry: {
-    factions: [
-      { factionId: "xihu", points: 1520 },
-      { factionId: "shangcheng", points: 1150 },
-      { factionId: "gongshu", points: 880 },
-      { factionId: "binjiang", points: 690 },
-      { factionId: "yuhang", points: 460 },
+    teams: [
+      { id: "team_dyj", name: "淡妆浓抹", color: "#7fd48d", points: 1280 },
+      { id: "team_qiantang", name: "钱塘词派", color: "#54d7ff", points: 1090 },
+      { id: "team_gushan", name: "孤山雅集", color: "#b992ff", points: 760 },
+      { id: "team_yunqi", name: "云栖诗社", color: "#ffb46b", points: 450 },
     ],
     members: [
-      { name: "lakeside_verses", factionId: "xihu", points: 560 },
-      { name: "broken_bridge", factionId: "xihu", points: 480 },
-      { name: "longjing_tea", factionId: "xihu", points: 480 },
-      { name: "osmanthus_lane", factionId: "shangcheng", points: 520 },
-      { name: "qiantang_tide", factionId: "shangcheng", points: 380 },
-      { name: "wushan_wind", factionId: "shangcheng", points: 250 },
-      { name: "canal_oars", factionId: "gongshu", points: 470 },
-      { name: "qiaoxi_street", factionId: "gongshu", points: 410 },
-      { name: "binjiang_ferry", factionId: "binjiang", points: 390 },
-      { name: "code_osmanthus", factionId: "binjiang", points: 300 },
-      { name: "liangzhu_jade", factionId: "yuhang", points: 280 },
-      { name: "future_town_coder", factionId: "yuhang", points: 180 },
+      { name: "lakeside_verses", teamId: "team_dyj", points: 520 },
+      { name: "broken_bridge", teamId: "team_dyj", points: 430 },
+      { name: "longjing_tea", teamId: "team_dyj", points: 330 },
+      { name: "osmanthus_lane", teamId: "team_qiantang", points: 560 },
+      { name: "qiantang_tide", teamId: "team_qiantang", points: 330 },
+      { name: "wushan_wind", teamId: "team_qiantang", points: 200 },
+      { name: "canal_oars", teamId: "team_gushan", points: 410 },
+      { name: "qiaoxi_street", teamId: "team_gushan", points: 350 },
+      { name: "binjiang_ferry", teamId: "team_yunqi", points: 260 },
+      { name: "code_osmanthus", teamId: "team_yunqi", points: 190 },
     ],
   },
   demo_shop_assistant: {
-    factions: [
-      { factionId: "gongshu", points: 2100 },
-      { factionId: "binjiang", points: 1680 },
-      { factionId: "shangcheng", points: 1450 },
-      { factionId: "xiaoshan", points: 920 },
-      { factionId: "linping", points: 640 },
+    teams: [
+      { id: "team_doulu", name: "斗路小店联盟", color: "#8fd8c4", points: 1620 },
+      { id: "team_yunhe", name: "运河创客", color: "#7a9dff", points: 1310 },
+      { id: "team_laojie", name: "老街新掌柜", color: "#ff8fa8", points: 890 },
+      { id: "team_shixin", name: "市集先锋", color: "#e8d16a", points: 520 },
     ],
     members: [
-      { name: "shopkeeper_hz", factionId: "gongshu", points: 860 },
-      { name: "qiaoxi_street", factionId: "gongshu", points: 640 },
-      { name: "dadou_kitchen", factionId: "gongshu", points: 600 },
-      { name: "code_osmanthus", factionId: "binjiang", points: 880 },
-      { name: "binjiang_ferry", factionId: "binjiang", points: 800 },
-      { name: "osmanthus_lane", factionId: "shangcheng", points: 730 },
-      { name: "zhongshan_road", factionId: "shangcheng", points: 720 },
-      { name: "xianghu_night", factionId: "xiaoshan", points: 540 },
-      { name: "shixin_square", factionId: "xiaoshan", points: 380 },
-      { name: "yishang_town", factionId: "linping", points: 360 },
-      { name: "linping_north", factionId: "linping", points: 280 },
+      { name: "shopkeeper_hz", teamId: "team_doulu", points: 700 },
+      { name: "qiaoxi_street", teamId: "team_doulu", points: 560 },
+      { name: "dadou_kitchen", teamId: "team_doulu", points: 360 },
+      { name: "code_osmanthus", teamId: "team_yunhe", points: 680 },
+      { name: "binjiang_ferry", teamId: "team_yunhe", points: 630 },
+      { name: "osmanthus_lane", teamId: "team_laojie", points: 500 },
+      { name: "zhongshan_road", teamId: "team_laojie", points: 390 },
+      { name: "xianghu_night", teamId: "team_shixin", points: 300 },
+      { name: "shixin_square", teamId: "team_shixin", points: 220 },
+      { name: "yishang_town", teamId: "team_yunhe", points: 310 },
     ],
   },
   demo_city_memory: {
-    factions: [
-      { factionId: "xihu", points: 1180 },
-      { factionId: "shangcheng", points: 940 },
-      { factionId: "gongshu", points: 760 },
-      { factionId: "fuyang", points: 420 },
-      { factionId: "tonglu", points: 300 },
+    teams: [
+      { id: "team_chengnan", name: "城南旧事组", color: "#57d4c0", points: 1050 },
+      { id: "team_beishan", name: "北山拾光", color: "#c3e06a", points: 820 },
+      { id: "team_gongchenqiao", name: "拱宸记忆队", color: "#f27fd9", points: 610 },
     ],
     members: [
-      { name: "broken_bridge", factionId: "xihu", points: 620 },
-      { name: "lakeside_verses", factionId: "xihu", points: 560 },
-      { name: "qiantang_tide", factionId: "shangcheng", points: 540 },
-      { name: "nanxing_bridge", factionId: "shangcheng", points: 400 },
-      { name: "xiaohe_street", factionId: "gongshu", points: 460 },
-      { name: "canal_oars", factionId: "gongshu", points: 300 },
-      { name: "guanshan_view", factionId: "fuyang", points: 420 },
-      { name: "fuchun_villa", factionId: "tonglu", points: 300 },
+      { name: "broken_bridge", teamId: "team_chengnan", points: 480 },
+      { name: "lakeside_verses", teamId: "team_beishan", points: 420 },
+      { name: "qiantang_tide", teamId: "team_chengnan", points: 390 },
+      { name: "nanxing_bridge", teamId: "team_beishan", points: 330 },
+      { name: "xiaohe_street", teamId: "team_gongchenqiao", points: 340 },
+      { name: "canal_oars", teamId: "team_gongchenqiao", points: 270 },
+      { name: "guanshan_view", teamId: "team_chengnan", points: 180 },
+      { name: "fuchun_villa", teamId: "team_beishan", points: 70 },
     ],
   },
 };
@@ -132,63 +123,61 @@ export function getContribution(activityId: string): ActivityContribution | null
   return CONTRIBUTIONS[activityId] ?? null;
 }
 
-export type FactionShare = { faction: Faction; points: number; share: number; prize: number };
+export type TeamShare = { team: TeamPoints; points: number; share: number; prize: number };
 
-/** 阵营贡献占比；有奖金时同时算出各阵营按两层比例公式应得的奖金。 */
-export function factionShares(contribution: ActivityContribution | null, prizePool: number): FactionShare[] {
+/** 战队贡献占比；有奖金时同时算出各战队按两层比例公式应得的奖金。区不计入贡献统计。 */
+export function teamShares(contribution: ActivityContribution | null, prizePool: number): TeamShare[] {
   if (!contribution) return [];
-  const total = contribution.factions.reduce((sum, item) => sum + item.points, 0);
-  return contribution.factions
-    .map((item) => {
-      const faction = factionById(item.factionId);
-      const share = total > 0 ? item.points / total : 0;
-      return faction && item.points > 0
-        ? { faction, points: item.points, share, prize: Math.round(prizePool * share) }
+  const total = contribution.teams.reduce((sum, item) => sum + item.points, 0);
+  return contribution.teams
+    .map((team) => {
+      const share = total > 0 ? team.points / total : 0;
+      return team.points > 0
+        ? { team, points: team.points, share, prize: Math.round(prizePool * share) }
         : null;
     })
-    .filter((row): row is FactionShare => row !== null)
+    .filter((row): row is TeamShare => row !== null)
     .sort((a, b) => b.points - a.points);
 }
 
-export type CitizenRow = { name: string; faction: Faction; points: number; activities: number };
+export type CitizenRow = { name: string; team: TeamPoints | null; points: number; activities: number };
 
+/** 平台总览：总贡献值、活动数、数字市民数、战队贡献榜、个人贡献榜（徽标 = 贡献最多的战队）。 */
 export function platformTotals() {
-  const factionTotals = new Map<string, number>();
-  const citizens = new Map<string, { points: number; activities: number; factions: Map<string, number> }>();
+  const teamTotals = new Map<string, TeamPoints>();
+  const citizens = new Map<string, { points: number; activities: number; teams: Map<string, number> }>();
 
   for (const contribution of Object.values(CONTRIBUTIONS)) {
-    for (const item of contribution.factions) {
-      factionTotals.set(item.factionId, (factionTotals.get(item.factionId) ?? 0) + item.points);
+    for (const team of contribution.teams) {
+      const acc = teamTotals.get(team.id) ?? { ...team, points: 0 };
+      acc.points += team.points;
+      teamTotals.set(team.id, acc);
     }
     for (const member of contribution.members) {
-      const row = citizens.get(member.name) ?? { points: 0, activities: 0, factions: new Map<string, number>() };
+      const row = citizens.get(member.name) ?? { points: 0, activities: 0, teams: new Map<string, number>() };
       row.points += member.points;
       row.activities += 1;
-      row.factions.set(member.factionId, (row.factions.get(member.factionId) ?? 0) + member.points);
+      row.teams.set(member.teamId, (row.teams.get(member.teamId) ?? 0) + member.points);
       citizens.set(member.name, row);
     }
   }
 
-  const total = [...factionTotals.values()].reduce((sum, value) => sum + value, 0);
-  const factions = factionShares(
-    { factions: [...factionTotals.entries()].map(([factionId, points]) => ({ factionId, points })), members: [] },
-    0,
-  );
+  const total = [...citizens.values()].reduce((sum, value) => sum + value.points, 0);
+  const teams = [...teamTotals.values()].sort((a, b) => b.points - a.points);
   const users: CitizenRow[] = [...citizens.entries()]
     .map(([name, row]) => {
-      // 跨活动换过阵营的数字市民，徽标展示其贡献最多的阵营
-      const top = [...row.factions.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
-      const faction = factionById(top);
-      return faction ? { name, faction, points: row.points, activities: row.activities } : null;
+      // 跨活动换过战队的数字市民，徽标展示其贡献最多的战队
+      const top = [...row.teams.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+      const team = teamTotals.get(top) ?? null;
+      return { name, team, points: row.points, activities: row.activities };
     })
-    .filter((row): row is CitizenRow => row !== null)
     .sort((a, b) => b.points - a.points);
 
   return {
     total,
     activityCount: Object.keys(CONTRIBUTIONS).length,
     citizenCount: users.length,
-    factions,
+    teams,
     users,
   };
 }

@@ -152,7 +152,7 @@ export default function ProfilePage() {
               <div className="medal-demo-row">
                 <strong>{demoTop.name}</strong>
                 <span className="medal-demo-faction">
-                  <i style={{ background: demoTop.faction.color }} />{demoTop.faction.name}
+                  {demoTop.team ? (<><i style={{ background: demoTop.team.color }} />{demoTop.team.name}</>) : "—"}
                 </span>
                 <span>{demoTop.points.toLocaleString("zh-CN")} 平台贡献值</span>
                 <span className="medal-demo-level">★{demoTopLevel.stars} {demoTopLevel.title}</span>

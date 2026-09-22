@@ -23,10 +23,10 @@ import FactionPanel from "../../faction-panel";
 import SiteHeader from "../../site-header";
 import {
   MECHANISM,
-  factionShares,
   getContribution,
   loadJoin,
   saveJoin,
+  teamShares,
   type JoinRecord,
 } from "@/lib/contribution";
 import {
@@ -152,7 +152,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const isDemo = DEMO_ACTIVITIES.some((item) => item.id === activity.id);
   const submissionTypeLabels = submissionLabels(activity.submissionTypes);
   const hasPrize = activity.awardsEnabled && activity.prizePool > 0;
-  const shares = factionShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
+  const shares = teamShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
   const contributionTotal = shares.reduce((sum, row) => sum + row.points, 0);
   const accountName = account?.user?.name ?? account?.user?.email ?? "本机数字市民";
   const district = factionById(activity.district);
@@ -342,37 +342,38 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           </section>
 
           <section className="detail-section" aria-labelledby="detail-factions">
-            <p className="detail-eyebrow">FACTIONS</p>
-            <h2 id="detail-factions">阵营贡献</h2>
+            <p className="detail-eyebrow">TEAMS</p>
+            <h2 id="detail-factions">战队贡献</h2>
             {shares.length > 0 ? (
               <>
                 <FactionPanel
                   slices={shares.map((row) => ({
-                    id: row.faction.id,
-                    label: row.faction.name,
+                    id: row.team.id,
+                    label: row.team.name,
                     value: row.points,
-                    color: row.faction.color,
+                    color: row.team.color,
                   }))}
                   rows={shares.map((row) => ({
-                    id: row.faction.id,
-                    name: row.faction.name,
-                    color: row.faction.color,
+                    id: row.team.id,
+                    name: row.team.name,
+                    color: row.team.color,
                     points: row.points,
                     share: row.share,
                     prize: row.prize,
                   }))}
                   centerValue={contributionTotal.toLocaleString("zh-CN")}
                   hasPrize={hasPrize}
+                  nameLabel="战队"
                 />
                 <p className="detail-placeholder">
                   {hasPrize
-                    ? "奖金按两层比例分发：阵营奖金 = 奖池 × 阵营占比，阵营内再按个人贡献占比分给成员；贡献数据为演示数据。"
-                    : "这场活动不设奖金，阵营贡献只累计荣誉；贡献数据为演示数据。"}
+                    ? "奖金按两层比例分发：战队奖金 = 奖池 × 战队占比，战队内再按个人贡献占比分给成员；贡献数据为演示数据。"
+                    : "这场活动不设奖金，战队贡献只累计荣誉；贡献数据为演示数据。"}
                 </p>
               </>
             ) : (
               <p className="detail-placeholder">
-                还没有阵营贡献数据。报名开始后，各阵营的贡献值将在这里实时汇总（阵营贡献 = 阵营成员个人贡献之和）。
+                还没有战队贡献数据。报名开始后，各战队的贡献值将在这里实时汇总（战队贡献 = 战队成员个人贡献之和）。
               </p>
             )}
           </section>
