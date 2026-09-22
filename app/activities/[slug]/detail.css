@@ -175,3 +175,22 @@
 }
 .detail-top-tags{display:flex;justify-content:flex-end;padding:0 6%;margin:0 0 -30px;position:relative;pointer-events:none}
 .detail-top-tags .detail-top-note{pointer-events:auto}
+
+/* 作品提交：抖音视频分享链接 */
+.submit-form{display:flex;gap:10px;margin:0 0 12px}
+.submit-input{flex:1;min-width:0;height:44px;padding:0 14px;border:1px solid #b4d8ff2e;border-radius:8px;background:#0d2138;color:#eaf6ff;font:inherit;font-size:13.5px;outline:none}
+.submit-input::placeholder{color:#5f7d99}
+.submit-input:focus{border-color:#5eb1ff}
+.submit-input[aria-invalid="true"]{border-color:#ff8f8f}
+.submit-form .primary-action{height:44px;padding:0 20px;white-space:nowrap;flex:none}
+.submit-error{margin:-4px 0 12px;font-size:13px;color:#ff9f9f}
+.submit-ok{margin:-4px 0 12px;font-size:13px;color:#7ee0a3}
+.submit-list{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:8px}
+.submit-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid #b4d8ff1f;border-radius:8px;font-size:13px}
+.submit-list a{color:#8fd0ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.submit-list a:hover{text-decoration:underline}
+.submit-list span{color:#8aa4bc;flex:none;font-variant-numeric:tabular-nums}
+@container(max-width:560px){
+  .submit-form{flex-direction:column}
+  .submit-form .primary-action{width:100%;justify-content:center}
+}

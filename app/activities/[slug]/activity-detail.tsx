@@ -34,6 +34,12 @@ import {
   saveLeader,
   type JoinRecord,
 } from "@/lib/contribution";
+import {
+  addSubmission,
+  isValidDouyinUrl,
+  loadActivitySubmissions,
+  type SubmissionRecord,
+} from "@/lib/submission";
 import "./detail.css";
 
 type AccountState = {
@@ -57,6 +63,12 @@ function legacyCopy(text: string) {
   return ok;
 }
 
+/** 列表里展示链接时压掉协议头并截断。 */
+function shortenUrl(url: string) {
+  const text = url.replace(/^https?:\/\//i, "");
+  return text.length > 52 ? `${text.slice(0, 52)}…` : text;
+}
+
 export default function ActivityDetail({ slug, initial }: { slug: string; initial: Activity | null }) {
   const [activity, setActivity] = useState<Activity | null>(initial);
   const [resolved, setResolved] = useState(false);
@@ -68,6 +80,10 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [inviteNeedsLogin, setInviteNeedsLogin] = useState(false);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [submissions, setSubmissions] = useState<SubmissionRecord[]>([]);
+  const [submitUrl, setSubmitUrl] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitDone, setSubmitDone] = useState(false);
 
   // 本机创建的活动只存在 localStorage 里，挂载后再查一次；
   // 邀请链接 ?invite=<阵营>&by=<用户名> 也在此时解析。
@@ -77,6 +93,10 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       const found = findActivityBySlug(slug, DEMO_ACTIVITIES);
       setActivity(found);
       setJoinRecord(found ? loadJoin(found.id) : null);
+      setSubmissions(found ? loadActivitySubmissions(found.id) : []);
+      setSubmitUrl("");
+      setSubmitError(null);
+      setSubmitDone(false);
       setPickedFaction(null);
       setWantsLeader(false);
       const params = new URLSearchParams(window.location.search);
@@ -133,7 +153,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   }
 
   const isDemo = DEMO_ACTIVITIES.some((item) => item.id === activity.id);
-  const submissions = submissionLabels(activity.submissionTypes);
+  const submissionTypeLabels = submissionLabels(activity.submissionTypes);
   const hasPrize = activity.awardsEnabled && activity.prizePool > 0;
   const shares = factionShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
   const contributionTotal = shares.reduce((sum, row) => sum + row.points, 0);
@@ -185,6 +205,20 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
     } else if (legacyCopy(link)) {
       done();
     }
+  }
+
+  /** 提交抖音视频分享链接；校验不过时行内报错，过了才写入本机记录。 */
+  function submitWork() {
+    if (!activity) return;
+    if (!isValidDouyinUrl(submitUrl)) {
+      setSubmitError("请输入有效的抖音视频分享链接，如 https://v.douyin.com/xxxx 或 https://www.douyin.com/video/数字ID");
+      return;
+    }
+    setSubmissions(addSubmission(activity.id, submitUrl));
+    setSubmitUrl("");
+    setSubmitError(null);
+    setSubmitDone(true);
+    window.setTimeout(() => setSubmitDone(false), 2500);
   }
 
   return (
@@ -338,13 +372,62 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             )}
           </section>
 
-          {submissions.length > 0 && (
+          {submissionTypeLabels.length > 0 && (
             <section className="detail-section" aria-labelledby="detail-submissions">
               <p className="detail-eyebrow">SUBMISSION</p>
               <h2 id="detail-submissions">提交形式</h2>
               <div className="detail-chips">
-                {submissions.map((label) => <span key={label}>{label}</span>)}
+                {submissionTypeLabels.map((label) => <span key={label}>{label}</span>)}
               </div>
+            </section>
+          )}
+
+          {activity.submissionTypes.includes("video") && (
+            <section className="detail-section" aria-labelledby="detail-submit">
+              <p className="detail-eyebrow">SUBMISSIONS</p>
+              <h2 id="detail-submit">作品提交</h2>
+              {joinRecord ? (
+                <>
+                  <form className="submit-form" onSubmit={(event) => { event.preventDefault(); submitWork(); }}>
+                    <input
+                      type="text"
+                      inputMode="url"
+                      className="submit-input"
+                      placeholder="粘贴抖音视频分享链接，如 https://v.douyin.com/…"
+                      value={submitUrl}
+                      aria-label="抖音视频分享链接"
+                      aria-invalid={submitError ? true : undefined}
+                      onChange={(event) => {
+                        setSubmitUrl(event.target.value);
+                        if (submitError) setSubmitError(null);
+                      }}
+                    />
+                    <Button type="submit" className="primary-action">提交作品</Button>
+                  </form>
+                  {submitError && <p className="submit-error" role="alert">{submitError}</p>}
+                  {submitDone && (
+                    <p className="submit-ok">已提交。作品将在 {MECHANISM.review.hours} 小时内审核，按质量计入你的个人与阵营贡献值。</p>
+                  )}
+                  {submissions.length > 0 ? (
+                    <ul className="submit-list">
+                      {submissions.map((record, index) => (
+                        <li key={`${record.submittedAt}-${index}`}>
+                          <a href={record.url} target="_blank" rel="noopener noreferrer">{shortenUrl(record.url)}</a>
+                          <span>{new Date(record.submittedAt).toLocaleString("zh-CN")}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="detail-placeholder">还没有提交过作品。可以反复提交，每次提交都会进入审核队列。</p>
+                  )}
+                  <p className="detail-join-note">演示环境：提交记录保存在这台设备的浏览器里。</p>
+                </>
+              ) : (
+                <>
+                  <p className="detail-placeholder">报名并选择阵营后，即可在这里提交抖音视频分享链接作为参赛作品。</p>
+                  <Button className="primary-action" onClick={() => setJoinOpen(true)}>报名参加</Button>
+                </>
+              )}
             </section>
           )}
         </div>
