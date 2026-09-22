@@ -23,17 +23,20 @@ import { FACTIONS, factionById } from "@/lib/factions";
 import FactionPanel from "../../faction-panel";
 import SiteHeader from "../../site-header";
 import {
-  LEADER_INVITE_BONUS,
   MECHANISM,
   factionShares,
   getContribution,
-  getLeaders,
   loadJoin,
-  noteInviteLeader,
   saveJoin,
-  saveLeader,
   type JoinRecord,
 } from "@/lib/contribution";
+import {
+  inviteCount,
+  loadInviteEvents,
+  recordInviteEvent,
+  settleFactionLeaders,
+  type InviteEvent,
+} from "@/lib/invites";
 import {
   addSubmission,
   isValidDouyinUrl,
@@ -75,7 +78,6 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [joinRecord, setJoinRecord] = useState<JoinRecord | null>(null);
   const [joinOpen, setJoinOpen] = useState(false);
   const [pickedFaction, setPickedFaction] = useState<string | null>(null);
-  const [wantsLeader, setWantsLeader] = useState(false);
   const [invite, setInvite] = useState<Invite>(null);
   const [inviteNeedsLogin, setInviteNeedsLogin] = useState(false);
   const [account, setAccount] = useState<AccountState | null>(null);
@@ -84,6 +86,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [submitUrl, setSubmitUrl] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitDone, setSubmitDone] = useState(false);
+  const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
 
   // 本机创建的活动只存在 localStorage 里，挂载后再查一次；
   // 邀请链接 ?invite=<阵营>&by=<用户名> 也在此时解析。
@@ -97,15 +100,12 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       setSubmitUrl("");
       setSubmitError(null);
       setSubmitDone(false);
+      setInviteEvents(loadInviteEvents());
       setPickedFaction(null);
-      setWantsLeader(false);
       const params = new URLSearchParams(window.location.search);
       const inviteFaction = params.get("invite");
       const by = params.get("by");
       if (inviteFaction && by && factionById(inviteFaction) && found) {
-        // 链接由数字区长面板生成，是数字区长身份的凭证：即使随后拒绝邀请也记入本机名册，
-        // 让自由报名时正确显示「现任数字区长」而不是再次开放担任选项。
-        noteInviteLeader(found.id, inviteFaction, by);
         setInvite({ factionId: inviteFaction, by });
       } else {
         setInvite(null);
@@ -158,20 +158,19 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const shares = factionShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
   const contributionTotal = shares.reduce((sum, row) => sum + row.points, 0);
   const joinFaction = joinRecord ? factionById(joinRecord.factionId) : undefined;
-  const leaders = getLeaders(activity.id);
   const accountName = account?.user?.name ?? account?.user?.email ?? "本机数字市民";
+  const settledLeaders = settleFactionLeaders(inviteEvents, activity.id);
+  const myInvites = joinRecord ? inviteCount(inviteEvents, activity.id, joinRecord.factionId, accountName) : 0;
+  const activityEnded = activity.endsAt ? new Date(activity.endsAt) < new Date() : false;
 
   function confirmJoin() {
     if (!activity || !pickedFaction) return;
-    const claimLeader = wantsLeader && !leaders[pickedFaction];
-    setJoinRecord(saveJoin(activity.id, pickedFaction, claimLeader ? { leader: true } : undefined));
-    if (claimLeader) saveLeader(activity.id, pickedFaction, accountName);
+    setJoinRecord(saveJoin(activity.id, pickedFaction));
     setPickedFaction(null);
-    setWantsLeader(false);
     setJoinOpen(false);
   }
 
-  /** 被邀请者接受邀请：需先登录，接受后只能加入数字区长所在阵营。 */
+  /** 被邀请者接受邀请：需先登录，接受后只能加入邀请人所在阵营，双方各得贡献值激励。 */
   async function acceptInvite() {
     if (!activity || !invite || invite === "refused") return;
     if (!account?.user) {
@@ -189,6 +188,13 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       }
     }
     setJoinRecord(saveJoin(activity.id, invite.factionId, { invitedBy: invite.by }));
+    setInviteEvents(recordInviteEvent({
+      activityId: activity.id,
+      factionId: invite.factionId,
+      inviter: invite.by,
+      invitee: accountName,
+      at: new Date().toISOString(),
+    }));
     setInvite(null);
     setInviteNeedsLogin(false);
   }
@@ -248,7 +254,8 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <strong>{invite.by}</strong> 邀请你加入 <strong style={{ color: faction.color }}>{faction.name}</strong> 阵营
             </p>
             <p className="invite-banner-sub">
-              接受后将直接加入该阵营，阵营在本活动中锁定、不可更改；也可以拒绝邀请，之后仍可自由报名。
+              接受后将直接加入该阵营，阵营在本活动中锁定、不可更改；你和 {invite.by} 都将获得 +{MECHANISM.invite.inviteeBonus} / +{MECHANISM.invite.inviterBonus} 贡献值激励。
+              也可以拒绝邀请，之后仍可自由报名。
             </p>
             {inviteNeedsLogin ? (
               <div className="invite-login">
@@ -372,6 +379,41 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             )}
           </section>
 
+          <section className="detail-section" aria-labelledby="detail-leaders">
+            <p className="detail-eyebrow">LEADERS</p>
+            <h2 id="detail-leaders">数字区长结算</h2>
+            {activityEnded ? (
+              Object.keys(settledLeaders).length > 0 ? (
+                <>
+                  <div className="leader-board">
+                    {Object.entries(settledLeaders).map(([factionId, standing]) => {
+                      const faction = factionById(factionId);
+                      if (!faction) return null;
+                      return (
+                        <div className="leader-board-row" key={factionId}>
+                          <span className="join-badge-dot" style={{ background: faction.color }} />
+                          <strong>{faction.name}</strong>
+                          <span className="leader-board-name">{standing.name}</span>
+                          <span>邀请 {standing.invites} 人</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="detail-placeholder">
+                    以上为本场活动各阵营的数字区长（成功邀请人数最多，并列时以最早受邀加入者胜）。区长个人贡献值额外 +{Math.round(MECHANISM.leaderBonusPct * 100)}%，结算时计入。
+                  </p>
+                </>
+              ) : (
+                <p className="detail-placeholder">本场活动没有受邀加入记录，各阵营暂无结算区长。</p>
+              )
+            ) : (
+              <p className="detail-placeholder">
+                活动期间任何报名成员都可分享邀请链接，对方接受加入后双方各得 +{MECHANISM.invite.inviteeBonus} / +{MECHANISM.invite.inviterBonus} 贡献值。
+                活动结束（{activity.endsAt || "日期待定"}）后，各阵营成功邀请人数最多的成员将结算为数字区长，区长个人贡献值额外 +{Math.round(MECHANISM.leaderBonusPct * 100)}%。
+              </p>
+            )}
+          </section>
+
           {submissionTypeLabels.length > 0 && (
             <section className="detail-section" aria-labelledby="detail-submissions">
               <p className="detail-eyebrow">SUBMISSION</p>
@@ -451,29 +493,27 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <div className="join-badge" style={{ borderColor: `${joinFaction.color}66`, color: joinFaction.color }}>
                 <span className="join-badge-dot" style={{ background: joinFaction.color }} />
                 {joinFaction.name}阵营
-                {joinRecord.leader && <span className="join-leader-chip">数字区长</span>}
               </div>
               {joinRecord.invitedBy && (
-                <p className="join-invitedby">由 {joinRecord.invitedBy} 的邀请链接加入</p>
+                <p className="join-invitedby">由 {joinRecord.invitedBy} 的邀请链接加入 · 邀请激励 +{MECHANISM.invite.inviteeBonus} 贡献值</p>
               )}
-              {joinRecord.leader && (
-                <div className="leader-invite">
-                  <p className="leader-invite-title">数字区长邀请链接 · 活动期间任一阶段可邀请</p>
-                  {typeof window !== "undefined" && (
-                    <div className="leader-invite-row">
-                      <code>{
-                        `${window.location.origin}/activities/${activity.slug}?invite=${joinRecord.factionId}&by=${encodeURIComponent(leaders[joinRecord.factionId]?.name ?? accountName)}`
-                      }</code>
-                      <button type="button" onClick={() => copyInviteLink(
-                        `${window.location.origin}/activities/${activity.slug}?invite=${joinRecord.factionId}&by=${encodeURIComponent(leaders[joinRecord.factionId]?.name ?? accountName)}`,
-                      )}>{inviteCopied ? "已复制" : "复制"}</button>
-                    </div>
-                  )}
-                  <p className="leader-invite-note">
-                    打开链接的数字市民只能加入本阵营或拒绝（需登录）；每位成功加入为你 +{LEADER_INVITE_BONUS} 平台贡献值。
-                  </p>
-                </div>
-              )}
+              <div className="leader-invite">
+                <p className="leader-invite-title">邀请链接 · 活动期间随时可邀请</p>
+                {typeof window !== "undefined" && (
+                  <div className="leader-invite-row">
+                    <code>{
+                      `${window.location.origin}/activities/${activity.slug}?invite=${joinRecord.factionId}&by=${encodeURIComponent(accountName)}`
+                    }</code>
+                    <button type="button" onClick={() => copyInviteLink(
+                      `${window.location.origin}/activities/${activity.slug}?invite=${joinRecord.factionId}&by=${encodeURIComponent(accountName)}`,
+                    )}>{inviteCopied ? "已复制" : "复制"}</button>
+                  </div>
+                )}
+                <p className="leader-invite-note">
+                  任何报名成员都可分享。打开链接的数字市民接受后加入你的阵营（需登录，阵营锁定）；对方 +{MECHANISM.invite.inviteeBonus}、你 +{MECHANISM.invite.inviterBonus} 贡献值。
+                  你已邀请 {myInvites} 人 · 累计 +{myInvites * MECHANISM.invite.inviterBonus} 贡献值。活动结束时邀请人数最多的成员即为本阵营数字区长。
+                </p>
+              </div>
               <ul className="join-rules">
                 <li>正式阶段每天发 ¥{MECHANISM.voucher.base} 算力券，当日有效</li>
                 <li>每邀请 1 位新用户，日面额 +¥{MECHANISM.voucher.perInvite}，封顶 ¥{MECHANISM.voucher.dailyCap}</li>
@@ -521,24 +561,10 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             ))}
           </div>
           <p className="join-lock-note">阵营在本活动中锁定，确认后无法更改。</p>
-          {pickedFaction && leaders[pickedFaction] ? (
-            <p className="join-leader-note">现任数字区长 · {leaders[pickedFaction].name}（该阵营数字区长已有人担任）</p>
-          ) : pickedFaction ? (
-            <label className="join-leader-choice">
-              <input
-                type="checkbox"
-                checked={wantsLeader}
-                onChange={(event) => setWantsLeader(event.target.checked)}
-              />
-              <span>
-                担任{factionById(pickedFaction)?.name}数字区长
-                <small>
-                  你是第一个加入该阵营的人，可选择担任数字区长。数字区长可分享邀请链接（活动期间任一阶段有效），
-                  每位通过链接加入的数字市民为你 +{LEADER_INVITE_BONUS} 平台贡献值。
-                </small>
-              </span>
-            </label>
-          ) : null}
+          <p className="join-leader-note">
+            报名后随时可分享邀请链接；对方接受加入后双方各得 +{MECHANISM.invite.inviteeBonus} / +{MECHANISM.invite.inviterBonus} 贡献值。
+            活动结束时邀请人数最多的成员将结算为本阵营数字区长，区长个人贡献值额外 +{Math.round(MECHANISM.leaderBonusPct * 100)}%。
+          </p>
           <Button className="dialog-done" disabled={!pickedFaction} onClick={confirmJoin}>
             确认报名
           </Button>

@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { ArrowLeft, ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HONOR_LEVELS, honorLevel, loadJoins, platformTotals, type JoinRecord } from "@/lib/contribution";
+import { inviteCount, loadInviteEvents, type InviteEvent } from "@/lib/invites";
 import { factionById } from "@/lib/factions";
 import { loadActivities, type Activity } from "@/lib/activity";
 import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
@@ -21,6 +22,7 @@ type SessionState = {
 export default function ProfilePage() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [joins, setJoins] = useState<Record<string, JoinRecord>>({});
+  const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,11 +43,15 @@ export default function ProfilePage() {
 
   // 报名记录在本机 localStorage，挂载后再读，避免 set-state-in-effect。
   useEffect(() => {
-    const timer = window.setTimeout(() => setJoins(loadJoins()), 0);
+    const timer = window.setTimeout(() => {
+      setJoins(loadJoins());
+      setInviteEvents(loadInviteEvents());
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
   const user = session?.user ?? null;
+  const accountName = user?.name ?? user?.email ?? "本机数字市民";
   // 真实起点：平台贡献值从 0 开始累计（接入后端后由结算写入）。
   const points = 0;
   const level = honorLevel(points);
@@ -73,7 +79,9 @@ export default function ProfilePage() {
               <span className="join-badge-dot" style={{ background: row.faction.color }} />
               <strong>
                 {row.activity.title}
-                {row.record.leader && <em className="profile-join-leader">数字区长</em>}
+                {inviteCount(inviteEvents, row.activity.id, row.record.factionId, accountName) > 0 && (
+                  <em className="profile-join-leader">已邀请 {inviteCount(inviteEvents, row.activity.id, row.record.factionId, accountName)} 人</em>
+                )}
               </strong>
               <span className="profile-join-faction" style={{ color: row.faction.color }}>{row.faction.name}</span>
               <span className="profile-join-date">{new Date(row.record.joinedAt).toLocaleDateString("zh-CN")}</span>

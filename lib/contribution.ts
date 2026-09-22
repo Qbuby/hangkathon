@@ -19,6 +19,10 @@ export const MECHANISM = {
       { label: "未通过", points: 0 },
     ] as const,
   },
+  /** 邀请激励：活动期间任何报名用户都可分享邀请链接，对方接受并加入后双方各得贡献值。 */
+  invite: { inviterBonus: 50, inviteeBonus: 20 },
+  /** 活动结束时各阵营邀请人数最多者结算为数字区长，区长个人贡献值额外 +5%。 */
+  leaderBonusPct: 0.05,
   /** 活动结束的荣誉结算（折算为平台贡献值）。 */
   honor: {
     organizerRate: 0.1, // 举办者 = 活动总贡献值 × 10%
@@ -189,8 +193,8 @@ export function platformTotals() {
   };
 }
 
-/** 本机报名记录：按活动锁定阵营（key = activity.id）。leader = 担任该阵营数字区长；invitedBy = 邀请人用户名。 */
-export type JoinRecord = { factionId: string; joinedAt: string; leader?: boolean; invitedBy?: string };
+/** 本机报名记录：按活动锁定阵营（key = activity.id）。invitedBy = 邀请人用户名（成功邀请的凭证）。 */
+export type JoinRecord = { factionId: string; joinedAt: string; invitedBy?: string };
 
 const JOINS_KEY = "hangkathon.joins.v1";
 
@@ -213,7 +217,6 @@ export function loadJoins(): Record<string, JoinRecord> {
         joins[activityId] = {
           factionId: record.factionId,
           joinedAt: record.joinedAt,
-          ...(typeof record.leader === "boolean" ? { leader: record.leader } : {}),
           ...(typeof record.invitedBy === "string" && record.invitedBy ? { invitedBy: record.invitedBy } : {}),
         };
       }
@@ -231,12 +234,11 @@ export function loadJoin(activityId: string): JoinRecord | null {
 export function saveJoin(
   activityId: string,
   factionId: string,
-  extra?: { leader?: boolean; invitedBy?: string },
+  extra?: { invitedBy?: string },
 ): JoinRecord {
   const record: JoinRecord = {
     factionId,
     joinedAt: new Date().toISOString(),
-    ...(extra?.leader ? { leader: true } : {}),
     ...(extra?.invitedBy ? { invitedBy: extra.invitedBy } : {}),
   };
   if (typeof window !== "undefined") {
@@ -245,112 +247,7 @@ export function saveJoin(
   return record;
 }
 
-/** 每位通过邀请链接成功加入的数字市民，奖励给数字区长的平台贡献值。 */
-export const LEADER_INVITE_BONUS = 50;
-
-export type LeaderRecord = { name: string; since: string };
-
-const LEADERS_KEY = "hangkathon.leaders.v1";
-
-/** 演示活动里已由演示数字市民担任数字区长的阵营：加入这些阵营时不再出现「担任数字区长」选项。 */
-export const DEMO_LEADERS: Record<string, Record<string, string>> = {
-  demo_midautumn_poetry: { xihu: "lakeside_verses" },
-  demo_shop_assistant: { gongshu: "shopkeeper_hz" },
-  demo_city_memory: { xihu: "broken_bridge" },
-};
-
-function loadAllLeaders(): Record<string, Record<string, LeaderRecord>> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(LEADERS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : {};
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    const all: Record<string, Record<string, LeaderRecord>> = {};
-    for (const [activityId, factions] of Object.entries(parsed as Record<string, unknown>)) {
-      if (!factions || typeof factions !== "object") continue;
-      const records: Record<string, LeaderRecord> = {};
-      for (const [factionId, value] of Object.entries(factions as Record<string, unknown>)) {
-        if (
-          value &&
-          typeof value === "object" &&
-          factionById(factionId) &&
-          typeof (value as LeaderRecord).name === "string"
-        ) {
-          records[factionId] = { name: (value as LeaderRecord).name, since: (value as LeaderRecord).since ?? "" };
-        }
-      }
-      all[activityId] = records;
-    }
-    return all;
-  } catch {
-    return {};
-  }
-}
-
-/** 某活动的数字区长名册：演示种子 + 邀请链接携带（拒绝邀请也保留）+ 本机认领（本机优先）。 */
-export function getLeaders(activityId: string): Record<string, LeaderRecord> {
-  const leaders: Record<string, LeaderRecord> = {};
-  for (const [factionId, name] of Object.entries(DEMO_LEADERS[activityId] ?? {})) {
-    if (factionById(factionId)) leaders[factionId] = { name, since: "" };
-  }
-  for (const [factionId, name] of Object.entries(loadKnownLeaders()[activityId] ?? {})) {
-    if (factionById(factionId)) leaders[factionId] = { name, since: "" };
-  }
-  Object.assign(leaders, loadAllLeaders()[activityId] ?? {});
-  return leaders;
-}
-
 /**
- * 邀请链接是数字区长身份的权威凭证（由数字区长面板生成）。打开过链接的浏览器据此把
- * 「该阵营已有数字区长」记入本机名册——没有后端时，这是受邀方得知现任数字区长的唯一途径。
+ * 数字区长不再在报名时认领：活动期间任何成员都可分享邀请链接，
+ * 活动结束时由 lib/invites.ts 按成功邀请数结算（见 MECHANISM.invite / leaderBonusPct）。
  */
-export function noteInviteLeader(activityId: string, factionId: string, name: string): void {
-  if (typeof window === "undefined" || !factionById(factionId) || !name) return;
-  try {
-    const known = loadKnownLeaders();
-    const current = known[activityId] ?? {};
-    if (current[factionId] === name) return;
-    window.localStorage.setItem(KNOWN_LEADERS_KEY, JSON.stringify({
-      ...known,
-      [activityId]: { ...current, [factionId]: name },
-    }));
-  } catch {
-    /* 存储失败时退化为不知道该数字区长，仅影响演示提示 */
-  }
-}
-
-const KNOWN_LEADERS_KEY = "hangkathon.knownleaders.v1";
-
-function loadKnownLeaders(): Record<string, Record<string, string>> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(KNOWN_LEADERS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : {};
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    const known: Record<string, Record<string, string>> = {};
-    for (const [activityId, factions] of Object.entries(parsed as Record<string, unknown>)) {
-      if (!factions || typeof factions !== "object") continue;
-      const names: Record<string, string> = {};
-      for (const [factionId, name] of Object.entries(factions as Record<string, unknown>)) {
-        if (factionById(factionId) && typeof name === "string" && name) names[factionId] = name;
-      }
-      known[activityId] = names;
-    }
-    return known;
-  } catch {
-    return {};
-  }
-}
-
-/** 第一个加入某阵营的用户认领数字区长；同一阵营只记录一次。 */
-export function saveLeader(activityId: string, factionId: string, name: string): LeaderRecord {
-  const record: LeaderRecord = { name, since: new Date().toISOString() };
-  if (typeof window !== "undefined") {
-    const all = loadAllLeaders();
-    window.localStorage.setItem(LEADERS_KEY, JSON.stringify({
-      ...all,
-      [activityId]: { ...(all[activityId] ?? {}), [factionId]: record },
-    }));
-  }
-  return record;
-}

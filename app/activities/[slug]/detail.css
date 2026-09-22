@@ -88,13 +88,8 @@
 
 /* 区长选择与现任提示（报名弹窗内） */
 .join-leader-note{font-size:12.5px;line-height:1.7;color:#8fd8c4;margin:0 0 6px}
-.join-leader-choice{display:flex;gap:11px;align-items:flex-start;border:1px solid #e8d16a40;border-radius:10px;background:#e8d16a0d;padding:12px 14px;margin:0 0 8px;cursor:pointer}
-.join-leader-choice input{margin-top:3px;accent-color:#e8d16a;flex:none}
-.join-leader-choice span{display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:#eaf3ff}
-.join-leader-choice small{font-size:11.5px;line-height:1.7;color:#8aa4bc}
 
 /* 已报名面板：区长徽标、邀请链接、邀请来源 */
-.join-leader-chip{margin-left:8px;border:1px solid #e8d16a66;color:#e8d16a;border-radius:4px;padding:2px 7px;font-size:10.5px;letter-spacing:1px;font-weight:500}
 .join-invitedby{font-size:12px;color:#8fd8c4;margin:0}
 .leader-invite{border:1px dashed #e8d16a55;border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:9px}
 .leader-invite-title{font-size:11px;letter-spacing:1.5px;color:#e8d16a;margin:0}
@@ -194,3 +189,9 @@
   .submit-form{flex-direction:column}
   .submit-form .primary-action{width:100%;justify-content:center}
 }
+
+/* 数字区长结算 */
+.leader-board{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+.leader-board-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #b4d8ff1f;border-radius:8px;font-size:13px;color:#c3d6ea}
+.leader-board-row strong{color:#eaf6ff;font-weight:550}
+.leader-board-name{margin-left:auto;color:#8fd0ff}
