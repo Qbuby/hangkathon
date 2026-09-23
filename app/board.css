@@ -1,4 +1,4 @@
-/* 活动看板 —— 白底明亮主题：白色卡片 + 淡蓝 pastel 筛选 + 金色奖金点缀。 */
+/* 活动看板 —— 白底明亮主题：pastel 筛选 + 单列信息流（仿 cerebralvalley）+ 金色奖金点缀。 */
 
 .board{padding:90px 6% 70px;background:transparent;position:relative;z-index:5}
 .board-head{display:flex;align-items:stretch;justify-content:space-between;gap:28px;margin-bottom:36px}
@@ -19,32 +19,41 @@
 .board-reset{background:none;border:0;padding:0;font-size:12px;color:#0aa2e0;text-decoration:underline;text-underline-offset:4px}
 .board-reset:hover{color:#1b9cfc}
 
-.board-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:22px}
-.board-card{display:flex;flex-direction:column;gap:14px;border:1px solid #dce7f2;border-radius:16px;background:#ffffff;padding:26px;transition:border-color .2s,box-shadow .2s,transform .2s;cursor:pointer;box-shadow:0 2px 10px rgba(23,58,102,.05)}
-.board-card:hover{border-color:#b9dcf5;box-shadow:0 8px 24px rgba(23,58,102,.12);transform:translateY(-2px)}
-.board-card:focus-visible{outline:2px solid #1b9cfc;outline-offset:3px}
-.board-card-tags{display:flex;flex-wrap:wrap;gap:8px}
-.board-card-tags span{font-size:11px;letter-spacing:1px;color:#0b6fa8;border:1px solid #b9dcf5;background:#e3f4ff;border-radius:6px;padding:3px 9px}
-.board-card-tags .is-category{color:#0c7a5b;border-color:#a7e3cd;background:#e4f8f0}
-.board-card h3{font-size:21px;font-weight:600;line-height:1.5;margin:0;letter-spacing:.5px;color:#17273a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.board-card-intro{display:flex;align-items:baseline;gap:6px;min-width:0;margin:0;font-size:13px;line-height:1.8;color:#5b6b7d}
-.board-card-intro span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.board-card-intro.is-expanded{align-items:flex-start}
-.board-card-intro.is-expanded span{white-space:normal;overflow:visible;overflow-wrap:anywhere}
-.board-card-expand{flex:none;padding:0;border:0;background:transparent;color:#0aa2e0;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
-.board-card-expand:hover{color:#1b9cfc;text-decoration:underline;text-underline-offset:3px}
-.board-prize{display:flex;align-items:center;gap:9px;font-size:13px;color:#c9952a}
-.board-prize svg{color:#d99b2c;flex:none}
-.board-prize strong{font-weight:600;letter-spacing:.5px}
-.board-prize span{font-size:11.5px;color:#8fa6bb}
-.board-card-meta{display:flex;flex-direction:column;gap:10px;margin:0;border-top:1px solid #e6eef6;padding-top:16px}
-.board-card-meta div{display:flex;justify-content:space-between;gap:16px;font-size:12.5px}
-.board-card-meta dt{display:flex;align-items:center;gap:7px;color:#8fa6bb;flex:none}
-.board-card-meta dt svg{opacity:.8}
-.board-card-meta dd{margin:0;color:#42566b;text-align:right}
-.board-card-host{font-size:11.5px;letter-spacing:.5px;color:#8fa6bb;margin:0;border-top:1px solid #e6eef6;padding-top:14px}
-.board-card-more{display:flex;align-items:center;gap:7px;font-size:12px;letter-spacing:1px;color:#0aa2e0;margin-top:auto;padding-top:4px;text-decoration:none}
-.board-card:hover .board-card-more{color:#1b9cfc}
+/* 信息流（仿 cerebralvalley events）：单列开放列表行 —— 无边框、无卡片底色，仅靠留白分隔。 */
+.feed-group{max-width:820px;margin:10px 0 0}
+.feed-group+.feed-group{margin-top:46px}
+.feed-group-head{display:flex;align-items:baseline;gap:11px;margin-bottom:6px}
+.feed-group-head h3{font-size:20px;font-weight:650;letter-spacing:1px;margin:0;color:#17273a}
+.feed-group-head span{font-size:12px;color:#9fb2c4}
+
+.feed-item{cursor:pointer;border-radius:12px;padding:22px 6px 30px}
+.feed-item:focus-visible{outline:2px solid #1b9cfc;outline-offset:3px}
+.feed-item:hover h3{color:#0aa2e0}
+
+/* 行首日期方块：无封面图时的替代，按类别取渐变色，月份+日期 */
+.feed-item-top{display:flex;align-items:flex-start;gap:16px}
+.feed-date{flex:none;width:58px;height:58px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#fff}
+.feed-date span{font-size:10.5px;letter-spacing:1px;opacity:.92}
+.feed-date strong{font-size:21px;font-weight:650;line-height:1}
+.feed-date.is-creation{background:linear-gradient(145deg,#5fc8ff,#2a8de8)}
+.feed-date.is-tooling{background:linear-gradient(145deg,#9a8bf8,#6b5be0)}
+.feed-date.is-city{background:linear-gradient(145deg,#41cf9d,#199b72)}
+.feed-date.is-research{background:linear-gradient(145deg,#f3bd3e,#d99318)}
+.feed-date.is-community{background:linear-gradient(145deg,#f484a3,#d9547a)}
+
+.feed-item-head{min-width:0;flex:1;padding-top:1px}
+.feed-item-head h3{font-size:17px;font-weight:650;line-height:1.5;margin:0;letter-spacing:.3px;color:#17273a;transition:color .15s}
+.feed-when{margin:7px 0 0;font-size:13px;letter-spacing:.3px;color:#7c93a8}
+.feed-where{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:14px 0 0;font-size:13px;color:#66809a}
+.feed-where svg{flex:none;opacity:.85}
+.feed-sep{color:#c4d3e0}
+.feed-intro{margin:9px 0 0;font-size:14px;line-height:1.75;color:#5b6b7d}
+.feed-more{padding:0;border:0;background:none;color:#0aa2e0;font:inherit;font-size:13.5px;cursor:pointer}
+.feed-more:hover{color:#1b9cfc;text-decoration:underline;text-underline-offset:3px}
+.feed-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0 0;font-size:12.5px;color:#9fb2c4}
+.feed-prize{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#c9952a}
+.feed-prize svg{flex:none;color:#d99b2c}
+.feed-prize em{font-style:normal;font-weight:400}
 .board-empty{border:1px dashed #c7d8e8;border-radius:16px;padding:48px 26px;text-align:center;font-size:14px;color:#7c93a8;background:#f8fbfe}
 .board-note{font-size:12px;color:#8fa6bb;line-height:1.8;margin:26px 0 0}
 
@@ -53,7 +62,6 @@
   .board-head{flex-direction:column;align-items:flex-start;gap:20px}
   .board-head h2{font-size:28px}
   .board-head-actions{flex-direction:row;align-items:center;width:100%;padding-top:0}
-  .board-grid{grid-template-columns:1fr}
 }
 @media(max-width:760px){
   .board{padding:52px 6% 44px}
@@ -63,7 +71,12 @@
   .board-filter-label{width:auto}
   .board-chip{height:30px;padding:0 13px;font-size:12px}
   .board-filter-foot{flex-direction:column;align-items:stretch}
-  .board-card{padding:22px}
-  .board-card h3{font-size:19px}
-  .board-card-meta div{flex-direction:column;gap:4px}
+  .feed-group{max-width:none}
+  .feed-item{padding:14px 0 24px}
+  .feed-item-top{gap:12px}
+  .feed-date{width:48px;height:48px;border-radius:9px}
+  .feed-date span{font-size:9.5px}
+  .feed-date strong{font-size:17px}
+  .feed-item-head h3{font-size:15.5px}
+  .feed-intro{font-size:13.5px}
 }

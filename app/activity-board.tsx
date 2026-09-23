@@ -1,16 +1,16 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, CalendarDays, Coins, MapPin } from "lucide-react";
-import { CATEGORIES, categoryLabel, formatLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
+import { Coins, MapPin } from "lucide-react";
+import { CATEGORIES, categoryLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
 import "./board.css";
 
 type PrizeFilter = "all" | "with" | "without";
 type FormatFilter = "all" | "online" | "offline";
 type CostFilter = "all" | "free" | "paid";
 type Sort = "latest" | "prize" | "ending";
+type GroupId = "ongoing" | "upcoming" | "past";
 
 const PRIZE_FILTERS: { value: PrizeFilter; label: string }[] = [
   { value: "all", label: "全部" },
@@ -35,6 +35,28 @@ const SORTS: { value: Sort; label: string }[] = [
   { value: "prize", label: "奖金最高" },
   { value: "ending", label: "即将截止" },
 ];
+
+const GROUPS: { id: GroupId; title: string }[] = [
+  { id: "ongoing", title: "进行中" },
+  { id: "upcoming", title: "即将开始" },
+  { id: "past", title: "已结束" },
+];
+
+function todayKey() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function dateBadge(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return { month: "--", day: "??" };
+  return { month: `${Number(match[2])}月`, day: String(Number(match[3])) };
+}
+
+/** 折叠态显示的介绍字数（超出则截断并给「展开更多」）。 */
+const INTRO_CLAMP = 92;
 
 function Chip({
   active,
@@ -67,7 +89,7 @@ export default function ActivityBoard({
   const [format, setFormat] = useState<FormatFilter>("all");
   const [cost, setCost] = useState<CostFilter>("all");
   const [sort, setSort] = useState<Sort>("latest");
-  const [expandedIntro, setExpandedIntro] = useState<string | null>(null);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
   const shown = useMemo(() => {
     const filtered = activities.filter((activity) => {
@@ -86,6 +108,15 @@ export default function ActivityBoard({
     return sorted;
   }, [activities, category, prize, format, cost, sort]);
 
+  const grouped = useMemo(() => {
+    const today = todayKey();
+    return {
+      ongoing: shown.filter((a) => !(a.endsAt && a.endsAt < today) && !(a.startsAt && a.startsAt > today)),
+      upcoming: shown.filter((a) => !!a.startsAt && a.startsAt > today),
+      past: shown.filter((a) => !!a.endsAt && a.endsAt < today),
+    } satisfies Record<GroupId, Activity[]>;
+  }, [shown]);
+
   const activeCount = [category !== "all", prize !== "all", format !== "all", cost !== "all"].filter(Boolean).length;
 
   function reset() {
@@ -93,6 +124,74 @@ export default function ActivityBoard({
     setPrize("all");
     setFormat("all");
     setCost("all");
+  }
+
+  function renderItem(activity: Activity) {
+    const badge = dateBadge(activity.startsAt);
+    const isExpanded = expandedCard === activity.id;
+    const clamped = !isExpanded && activity.overview.length > INTRO_CLAMP;
+    return (
+      <article
+        className="feed-item"
+        key={activity.id}
+        role="link"
+        tabIndex={0}
+        aria-label={`查看${activity.title}详情`}
+        onClick={() => router.push(`/activities/${activity.slug}`)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") router.push(`/activities/${activity.slug}`);
+        }}
+      >
+        <div className="feed-item-top">
+          <div className={`feed-date is-${activity.category}`} aria-hidden="true">
+            <span>{badge.month}</span>
+            <strong>{badge.day}</strong>
+          </div>
+          <div className="feed-item-head">
+            <h3>{activity.title}</h3>
+            <p className="feed-when">{activity.startsAt} 至 {activity.endsAt}</p>
+          </div>
+        </div>
+        <p className="feed-where">
+          <MapPin size={13} aria-hidden="true" />
+          {activity.format === "offline" && activity.venue ? activity.venue : "线上"}
+          <span className="feed-sep" aria-hidden="true">·</span>
+          {categoryLabel(activity.category)}
+          <span className="feed-sep" aria-hidden="true">·</span>
+          {pricingLabel(activity)}
+        </p>
+        {activity.overview && (
+          <p className="feed-intro">
+            {clamped ? `${activity.overview.slice(0, INTRO_CLAMP).trimEnd()}……` : activity.overview}
+            {activity.overview.length > INTRO_CLAMP && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="feed-more"
+                  aria-expanded={isExpanded}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setExpandedCard(isExpanded ? null : activity.id);
+                  }}
+                >
+                  {isExpanded ? "收起" : "展开更多"}
+                </button>
+              </>
+            )}
+          </p>
+        )}
+        <p className="feed-meta">
+          <span className="feed-prize">
+            <Coins size={13} aria-hidden="true" />
+            {prizeText(activity)}
+            {activity.awardsEnabled && activity.awards.length > 0 && <em>（{activity.awards.length} 个奖项）</em>}
+          </span>
+          <span className="feed-sep" aria-hidden="true">·</span>
+          <span className="feed-host">主办方 {activity.host}</span>
+        </p>
+      </article>
+    );
   }
 
   return (
@@ -164,74 +263,17 @@ export default function ActivityBoard({
       {shown.length === 0 ? (
         <p className="board-empty">没有符合当前筛选的活动。换一组条件，或者清除筛选看看全部。</p>
       ) : (
-        <div className="board-grid">
-          {shown.map((activity) => (
-            <article
-              className="board-card"
-              key={activity.id}
-              role="link"
-              tabIndex={0}
-              aria-label={`查看${activity.title}详情`}
-              onClick={() => router.push(`/activities/${activity.slug}`)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") router.push(`/activities/${activity.slug}`);
-              }}
-            >
-              <div className="board-card-tags">
-                <span className="is-category">{categoryLabel(activity.category)}</span>
-                <span>{formatLabel(activity)}</span>
-                <span>{pricingLabel(activity)}</span>
-              </div>
-
-              <h3 title={activity.title}>{activity.title}</h3>
-              {activity.overview && (
-                <p className={`board-card-intro${expandedIntro === activity.id ? " is-expanded" : ""}`}>
-                  <span>{activity.overview}</span>
-                  {activity.overview.length > 50 && (
-                    <button
-                      type="button"
-                      className="board-card-expand"
-                      aria-expanded={expandedIntro === activity.id}
-                      aria-label={expandedIntro === activity.id ? "收起活动介绍" : "展开活动介绍"}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setExpandedIntro(expandedIntro === activity.id ? null : activity.id);
-                      }}
-                    >
-                      {expandedIntro === activity.id ? "收起" : "展开"}
-                    </button>
-                  )}
-                </p>
-              )}
-
-              <div className="board-prize">
-                <Coins size={16} />
-                <strong>{prizeText(activity)}</strong>
-                {activity.awardsEnabled && activity.awards.length > 0 && (
-                  <span>{activity.awards.length} 个奖项</span>
-                )}
-              </div>
-
-              <dl className="board-card-meta">
-                <div><dt><CalendarDays size={14} />时间</dt><dd>{activity.startsAt} 至 {activity.endsAt}</dd></div>
-                <div>
-                  <dt><MapPin size={14} />地点</dt>
-                  <dd>{activity.format === "offline" ? activity.venue : "线上"}</dd>
-                </div>
-              </dl>
-
-              <p className="board-card-host">主办方 · {activity.host}</p>
-              <Link
-                className="board-card-more"
-                href={`/activities/${activity.slug}`}
-                aria-label={`查看${activity.title}详情`}
-                onClick={(event) => event.stopPropagation()}
-              >
-                查看详情 <ArrowUpRight size={15} />
-              </Link>
-            </article>
-          ))}
-        </div>
+        GROUPS.filter((group) => grouped[group.id].length > 0).map((group) => (
+          <div className="feed-group" key={group.id}>
+            <div className="feed-group-head">
+              <h3>{group.title}</h3>
+              <span>{grouped[group.id].length} 场</span>
+            </div>
+            <div className="feed-list">
+              {grouped[group.id].map(renderItem)}
+            </div>
+          </div>
+        ))
       )}
 
       <p className="board-note">
