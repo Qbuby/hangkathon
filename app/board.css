@@ -18,6 +18,13 @@
 .board-chip:hover{border-color:#8fd0ff;color:#0b6fa8;background:#f3f9ff}
 .board-chip.is-active{border-color:#1b9cfc;background:#e3f4ff;color:#0b6fa8;font-weight:600;box-shadow:0 1px 6px #1b9cfc1f}
 .board-count{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0;padding-top:18px;border-top:1px solid #e8f0f8;font-size:13px;color:#7c93a8}
+/* 日期区间筛选：两个原生日期输入，Chrome 自带日历弹层 */
+.board-dates{display:flex;align-items:center;gap:7px;width:100%}
+.board-date{flex:1 1 0;min-width:0;height:30px;padding:0 7px;border:1px solid #dce7f2;border-radius:9px;background:#fff;font:inherit;font-size:12px;letter-spacing:.3px;color:#42566b;outline:none;transition:border-color .18s,box-shadow .18s}
+.board-date:focus-visible{border-color:#1b9cfc;box-shadow:0 0 0 3px #1b9cfc1f}
+.board-date::-webkit-calendar-picker-indicator{opacity:.5;cursor:pointer}
+.board-date:hover::-webkit-calendar-picker-indicator{opacity:.85}
+.board-dates-sep{flex:none;font-size:12px;color:#9fb2c4}
 .board-reset{background:none;border:0;padding:0;font-size:12px;color:#0aa2e0;text-decoration:underline;text-underline-offset:4px}
 .board-reset:hover{color:#1b9cfc}
 
@@ -59,10 +66,13 @@
 .board-empty{border:1px dashed #c7d8e8;border-radius:16px;padding:48px 26px;text-align:center;font-size:14px;color:#7c93a8;background:#f8fbfe}
 .board-note{font-size:12px;color:#8fa6bb;line-height:1.8;margin:26px 0 0}
 
-/* 版心变窄时收一收右栏，把宽度让给信息流 */
+/* 版心变窄时收一收右栏，把宽度让给信息流；日期输入改竖排，
+   原生日期控件固有宽度约 121px，272px 的面板装不下两个 */
 @media(max-width:1500px){
   .board-body{gap:40px}
   .board-side{width:272px}
+  .board-dates{flex-direction:column;align-items:stretch;gap:6px}
+  .board-dates-sep{text-align:center}
 }
 /* 再窄就回到单栏：筛选面板整宽排在信息流上方 */
 @media(max-width:1180px){

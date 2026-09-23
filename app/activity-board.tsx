@@ -88,6 +88,8 @@ export default function ActivityBoard({
   const [prize, setPrize] = useState<PrizeFilter>("all");
   const [format, setFormat] = useState<FormatFilter>("all");
   const [cost, setCost] = useState<CostFilter>("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [sort, setSort] = useState<Sort>("latest");
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
@@ -98,6 +100,9 @@ export default function ActivityBoard({
       if (prize === "without" && activity.awardsEnabled && activity.prizePool > 0) return false;
       if (format !== "all" && activity.format !== format) return false;
       if (cost !== "all" && activity.pricing !== cost) return false;
+      // 日期区间取「有交集」：活动结束不早于起始日，且开始不晚于结束日
+      if (from && (activity.endsAt || activity.startsAt) < from) return false;
+      if (to && (activity.startsAt || activity.endsAt) > to) return false;
       return true;
     });
 
@@ -106,7 +111,7 @@ export default function ActivityBoard({
     else if (sort === "ending") sorted.sort((a, b) => (a.endsAt || "9999").localeCompare(b.endsAt || "9999"));
     else sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return sorted;
-  }, [activities, category, prize, format, cost, sort]);
+  }, [activities, category, prize, format, cost, from, to, sort]);
 
   const grouped = useMemo(() => {
     const today = todayKey();
@@ -117,13 +122,15 @@ export default function ActivityBoard({
     } satisfies Record<GroupId, Activity[]>;
   }, [shown]);
 
-  const activeCount = [category !== "all", prize !== "all", format !== "all", cost !== "all"].filter(Boolean).length;
+  const activeCount = [category !== "all", prize !== "all", format !== "all", cost !== "all", from !== "" || to !== ""].filter(Boolean).length;
 
   function reset() {
     setCategory("all");
     setPrize("all");
     setFormat("all");
     setCost("all");
+    setFrom("");
+    setTo("");
   }
 
   function renderItem(activity: Activity) {
@@ -264,6 +271,29 @@ export default function ActivityBoard({
               {COST_FILTERS.map((item) => (
                 <Chip key={item.value} active={cost === item.value} onClick={() => setCost(item.value)}>{item.label}</Chip>
               ))}
+            </div>
+          </div>
+
+          <div className="board-filter-row">
+            <span className="board-filter-label">日期</span>
+            <div className="board-dates">
+              <input
+                type="date"
+                className="board-date"
+                aria-label="起始日期"
+                value={from}
+                max={to || undefined}
+                onChange={(event) => setFrom(event.target.value)}
+              />
+              <span className="board-dates-sep" aria-hidden="true">至</span>
+              <input
+                type="date"
+                className="board-date"
+                aria-label="结束日期"
+                value={to}
+                min={from || undefined}
+                onChange={(event) => setTo(event.target.value)}
+              />
             </div>
           </div>
 

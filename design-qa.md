@@ -1,5 +1,11 @@
 # 杭客松首页升级 — Design QA
 
+## 看板筛选面板加日期区间 — 2026-09-23
+
+- The user asked for a calendar filter so activities can be narrowed to a date range. The panel gained a 日期 row with two native `<input type="date">` fields (same control the create form already uses) separated by 至, and the range filters by **overlap**: an activity stays when its end is not before the start bound and its start is not after the end bound, with each bound optional and missing dates falling back to whichever date the record has. 清除筛选 clears the range too, and the range counts as one active filter for the 清除筛选 affordance. Each input also carries `min`/`max` against the other so the picker cannot build an inverted range.
+- Verified: 起始日期 2026-10-01 keeps the activity (共 1 场), 2026-10-10 gives 共 0 场 with the empty state, 结束日期 2026-09-01 gives 共 0 场, the 2026-09-25 → 2026-10-02 range keeps it, and 清除筛选 returns 共 1 场 with both fields emptied; setting 起始日期 stamps `min` on the 结束日期 input.
+- Layout note: a native date input has an intrinsic width of ~121px, so two of them only fit side by side in the 300px panel. Below 1500px the panel narrows to 272px and the two fields stack vertically instead (1440/1200 measured 226px each); at 1920 the row is horizontal with 114px fields and both dates render in full. No horizontal overflow at 1920/1440/1200/420. ESLint 0/0, both builds passed.
+
 ## 活动看板筛选排序移到信息流右侧 — 2026-09-23
 
 - The user asked for the category filter and sort controls to move to the right of the activity feed. The board body is now two columns: the feed keeps its 820px measure on the left, and a filter panel (类别 / 奖金 / 形式 / 费用 / 排序, plus 共 N 场 with 清除筛选) sits against the right edge of the content column, sticky 132px from the viewport top so it clears the 116px fixed header. Filter rows went from label-left/chips-right to label-above-chips to fit the 300px column, and the panel takes a very light `#f8fbfe` plate so the right column reads as a control surface rather than floating chips.
