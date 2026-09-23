@@ -13,7 +13,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-hangkathon}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # postgres:18 起数据目录改成带版本号的子目录，挂载点必须是 /var/lib/postgresql；
+      # 挂到 /var/lib/postgresql/data 会被镜像判定成旧版布局并拒绝启动。
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hangkathon} -d ${POSTGRES_DB:-hangkathon}"]
       interval: 10s
