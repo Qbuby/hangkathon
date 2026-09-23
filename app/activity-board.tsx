@@ -208,73 +208,80 @@ export default function ActivityBoard({
         </div>
       </div>
 
-      <div className="board-filters">
-        <div className="board-filter-row">
-          <span className="board-filter-label">类别</span>
-          <div className="board-chips">
-            <Chip active={category === "all"} onClick={() => setCategory("all")}>全部</Chip>
-            {CATEGORIES.map((item) => (
-              <Chip key={item.value} active={category === item.value} onClick={() => setCategory(item.value)}>
-                {item.label}
-              </Chip>
-            ))}
-          </div>
+      <div className="board-body">
+        <div className="board-feed">
+          {shown.length === 0 ? (
+            <p className="board-empty">没有符合当前筛选的活动。换一组条件，或者清除筛选看看全部。</p>
+          ) : (
+            GROUPS.filter((group) => grouped[group.id].length > 0).map((group) => (
+              <div className="feed-group" key={group.id}>
+                <div className="feed-group-head">
+                  <h3>{group.title}</h3>
+                  <span>{grouped[group.id].length} 场</span>
+                </div>
+                <div className="feed-list">
+                  {grouped[group.id].map(renderItem)}
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
-        <div className="board-filter-row">
-          <span className="board-filter-label">奖金</span>
-          <div className="board-chips">
-            {PRIZE_FILTERS.map((item) => (
-              <Chip key={item.value} active={prize === item.value} onClick={() => setPrize(item.value)}>{item.label}</Chip>
-            ))}
+        <aside className="board-side" aria-label="筛选与排序">
+          <div className="board-filter-row">
+            <span className="board-filter-label">类别</span>
+            <div className="board-chips">
+              <Chip active={category === "all"} onClick={() => setCategory("all")}>全部</Chip>
+              {CATEGORIES.map((item) => (
+                <Chip key={item.value} active={category === item.value} onClick={() => setCategory(item.value)}>
+                  {item.label}
+                </Chip>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="board-filter-row">
-          <span className="board-filter-label">形式</span>
-          <div className="board-chips">
-            {FORMAT_FILTERS.map((item) => (
-              <Chip key={item.value} active={format === item.value} onClick={() => setFormat(item.value)}>{item.label}</Chip>
-            ))}
+          <div className="board-filter-row">
+            <span className="board-filter-label">奖金</span>
+            <div className="board-chips">
+              {PRIZE_FILTERS.map((item) => (
+                <Chip key={item.value} active={prize === item.value} onClick={() => setPrize(item.value)}>{item.label}</Chip>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="board-filter-row">
-          <span className="board-filter-label">费用</span>
-          <div className="board-chips">
-            {COST_FILTERS.map((item) => (
-              <Chip key={item.value} active={cost === item.value} onClick={() => setCost(item.value)}>{item.label}</Chip>
-            ))}
+          <div className="board-filter-row">
+            <span className="board-filter-label">形式</span>
+            <div className="board-chips">
+              {FORMAT_FILTERS.map((item) => (
+                <Chip key={item.value} active={format === item.value} onClick={() => setFormat(item.value)}>{item.label}</Chip>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="board-filter-row board-filter-foot">
-          <span className="board-count">
-            共 {shown.length} 场{activeCount > 0 && <button type="button" className="board-reset" onClick={reset}>清除筛选</button>}
-          </span>
-          <div className="board-chips">
-            {SORTS.map((item) => (
-              <Chip key={item.value} active={sort === item.value} onClick={() => setSort(item.value)}>{item.label}</Chip>
-            ))}
+          <div className="board-filter-row">
+            <span className="board-filter-label">费用</span>
+            <div className="board-chips">
+              {COST_FILTERS.map((item) => (
+                <Chip key={item.value} active={cost === item.value} onClick={() => setCost(item.value)}>{item.label}</Chip>
+              ))}
+            </div>
           </div>
-        </div>
+
+          <div className="board-filter-row">
+            <span className="board-filter-label">排序</span>
+            <div className="board-chips">
+              {SORTS.map((item) => (
+                <Chip key={item.value} active={sort === item.value} onClick={() => setSort(item.value)}>{item.label}</Chip>
+              ))}
+            </div>
+          </div>
+
+          <p className="board-count">
+            共 {shown.length} 场
+            {activeCount > 0 && <button type="button" className="board-reset" onClick={reset}>清除筛选</button>}
+          </p>
+        </aside>
       </div>
-
-      {shown.length === 0 ? (
-        <p className="board-empty">没有符合当前筛选的活动。换一组条件，或者清除筛选看看全部。</p>
-      ) : (
-        GROUPS.filter((group) => grouped[group.id].length > 0).map((group) => (
-          <div className="feed-group" key={group.id}>
-            <div className="feed-group-head">
-              <h3>{group.title}</h3>
-              <span>{grouped[group.id].length} 场</span>
-            </div>
-            <div className="feed-list">
-              {grouped[group.id].map(renderItem)}
-            </div>
-          </div>
-        ))
-      )}
 
       <p className="board-note">
         {localCount > 0 && "本机创建的活动仅保存在此设备，尚未同步。"}

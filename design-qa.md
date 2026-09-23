@@ -1,5 +1,10 @@
 # 杭客松首页升级 — Design QA
 
+## 活动看板筛选排序移到信息流右侧 — 2026-09-23
+
+- The user asked for the category filter and sort controls to move to the right of the activity feed. The board body is now two columns: the feed keeps its 820px measure on the left, and a filter panel (类别 / 奖金 / 形式 / 费用 / 排序, plus 共 N 场 with 清除筛选) sits against the right edge of the content column, sticky 132px from the viewport top so it clears the 116px fixed header. Filter rows went from label-left/chips-right to label-above-chips to fit the 300px column, and the panel takes a very light `#f8fbfe` plate so the right column reads as a control surface rather than floating chips.
+- Verified: at 1920 the feed is 820 wide at x217 and the panel 300 wide at x1403, flush with the content right edge and top-aligned with the first group; the panel pins at y132 while the feed scrolls under it (checked at scroll 700 and 1600 against nine injected test activities, then the injected rows were cleared); clicking 技术探索 yields 共 0 场 with the empty state and 清除筛选 restores 共 1 场 with the item back; the panel goes full-width above the feed at 1180 and below, and the 1500 breakpoint trims the panel to 272px so mid-size laptops keep a 695–803px feed; no horizontal overflow at 1440/1300/1180/1100/900/420. ESLint 0/0, both builds passed.
+
 ## 二级页 wordmark 换深色版 — 2026-09-23
 
 - The user reported the header logo was hard to tell apart from the white background on the secondary pages. Measured cause: `public/brand/hangkathon-logo.png` is silver artwork drawn for the dark hero — 26% of its opaque pixels are literally `#f8f8f8`, and its median opaque colour composites to `(205,218,232)` over white, a 1.42 contrast ratio against the 3.0 graphics minimum. An earlier attempt had darkened it with a CSS `invert(1) brightness(.62) sepia(.18) hue-rotate(160deg)` filter; that reached 17.4 but flattened the artwork's tonal range, and when the filter was later dropped the contrast problem returned.
