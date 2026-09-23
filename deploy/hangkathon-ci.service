@@ -1,0 +1,13 @@
+[Unit]
+Description=HangKathon CI：拉取 GitHub main，有变化就重建部署
+Documentation=file:/opt/hangkathon/deploy/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/hangkathon
+ExecStart=/bin/sh /opt/hangkathon/deploy/ci.sh
+# 构建可能耗时较久，给足时间；CI 脚本内部自己会等健康检查
+TimeoutStartSec=1800
+Nice=5
