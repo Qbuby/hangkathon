@@ -7,7 +7,6 @@ import { ArrowRight, CalendarDays, Coins, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   categoryLabel,
-  findActivityBySlug,
   formatLabel,
   joinPolicyLabel,
   judgingLabel,
@@ -17,7 +16,6 @@ import {
   visibilityLabel,
   type Activity,
 } from "@/lib/activity";
-import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import { factionById } from "@/lib/factions";
 import FactionPanel from "../../faction-panel";
 import SiteHeader from "../../site-header";
@@ -25,25 +23,25 @@ import { revealOnce, usePageMotion } from "../../motion-scope";
 import {
   MECHANISM,
   getContribution,
-  loadJoin,
-  saveJoin,
   teamByCaptain,
   teamShares,
   type JoinRecord,
 } from "@/lib/contribution";
 import {
   inviteCount,
-  loadInviteEvents,
-  recordInviteEvent,
   settleFactionLeaders,
   type InviteEvent,
 } from "@/lib/invites";
+import { isValidDouyinUrl, type SubmissionRecord } from "@/lib/submission";
 import {
-  addSubmission,
-  isValidDouyinUrl,
-  loadActivitySubmissions,
-  type SubmissionRecord,
-} from "@/lib/submission";
+  getActivity,
+  joinActivity,
+  listMyInviteEvents,
+  listMySubmissions,
+  recordInvite,
+  submitWork as submitWorkRemote,
+} from "@/lib/api/data";
+import { hasServerData } from "@/lib/api/client";
 import "./detail.css";
 
 type AccountState = {
@@ -86,9 +84,16 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitDone, setSubmitDone] = useState(false);
   const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"local" | "server">("local");
 
   // 入场动效：标签行 → 标题 → 各区块依次淡入上移。活动数据要等 effect 读出来再播。
   usePageMotion("detail", { ready: Boolean(activity) });
+
+  useEffect(() => {
+    void hasServerData().then((server) => setMode(server ? "server" : "local"));
+  }, []);
 
   /** 新提交的一条单独入场，不动整段列表。 */
   const submitListRef = useRef<HTMLUListElement | null>(null);
@@ -101,19 +106,23 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
     if (last instanceof HTMLElement) revealOnce(last);
   }, [submissions]);
 
-  // 本机创建的活动只存在 localStorage 里，挂载后再查一次；
-  // 邀请链接 ?invite=<阵营>&by=<用户名> 也在此时解析。
-  // setState 放进回调，与 scene.tsx 一样避开 set-state-in-effect。
+  // 活动详情按数据模式取：有数据库走 /api/activities/<slug>（含报名状态），否则读本机。
+  // 邀请链接 ?invite=<阵营>&by=<用户名> 也在这里解析。
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const found = findActivityBySlug(slug, PUBLISHED_ACTIVITIES);
+    let cancelled = false;
+    void (async () => {
+      const detail = await getActivity(slug);
+      if (cancelled) return;
+      const found = detail?.activity ?? null;
       setActivity(found);
-      setJoinRecord(found ? loadJoin(found.id) : null);
-      setSubmissions(found ? loadActivitySubmissions(found.id) : []);
+      setJoinRecord(detail?.joined ? { joinedAt: detail.joinedAt ?? new Date().toISOString() } : null);
+      setSubmissions(found ? await listMySubmissions(found) : []);
+      if (cancelled) return;
       setSubmitUrl("");
       setSubmitError(null);
       setSubmitDone(false);
-      setInviteEvents(loadInviteEvents());
+      setInviteEvents(await listMyInviteEvents());
+      if (cancelled) return;
       const params = new URLSearchParams(window.location.search);
       const inviteDistrict = params.get("invite");
       const by = params.get("by");
@@ -128,8 +137,15 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
         setInvite(null);
       }
       setResolved(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
+    })().catch(() => {
+      if (!cancelled) {
+        setActivity(null);
+        setResolved(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   useEffect(() => {
@@ -169,7 +185,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
     );
   }
 
-  const isLocalActivity = activity.id.startsWith("a_");
+  const isLocalActivity = mode === "local" && activity.id.startsWith("a_");
   const submissionTypeLabels = submissionLabels(activity.submissionTypes);
   const hasPrize = activity.awardsEnabled && activity.prizePool > 0;
   const shares = teamShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
@@ -184,10 +200,20 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const myInvites = inviteCount(inviteEvents, activity.id, activity.district, accountName);
   const activityEnded = activity.endsAt ? new Date(activity.endsAt) < new Date() : false;
 
-  /** 个人参赛：无需选择阵营，点击即报名。 */
-  function confirmJoin() {
+  /** 个人参赛：无需选择阵营，点击即报名。服务端模式需要先登录。 */
+  async function confirmJoin() {
     if (!activity) return;
-    setJoinRecord(saveJoin(activity.id));
+    if (mode === "server" && !account?.user) {
+      setJoinError("这个部署把报名记录存在服务端，请先用右上角入口登录，再回来报名。");
+      return;
+    }
+    setJoinError(null);
+    try {
+      await joinActivity(activity, invite && invite !== "refused" ? invite.by : undefined);
+      setJoinRecord({ joinedAt: new Date().toISOString() });
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : "报名失败，请稍后重试。");
+    }
   }
 
   /** 被邀请者接受邀请：需先登录，接受后只能加入邀请人所在阵营，双方各得贡献值激励。 */
@@ -207,17 +233,23 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
         return;
       }
     }
-    setJoinRecord(saveJoin(activity.id, { invitedBy: invite.by }));
-    setInviteEvents(recordInviteEvent({
-      activityId: activity.id,
-      factionId: activity.district,
-      teamId: invite.teamId,
-      inviter: invite.by,
-      invitee: accountName,
-      at: new Date().toISOString(),
-    }));
-    setInvite(null);
-    setInviteNeedsLogin(false);
+    try {
+      await joinActivity(activity, invite.by);
+      await recordInvite({
+        activityId: activity.id,
+        factionId: activity.district,
+        teamId: invite.teamId,
+        inviter: invite.by,
+        invitee: accountName,
+        at: new Date().toISOString(),
+      });
+      setJoinRecord({ joinedAt: new Date().toISOString() });
+      setInviteEvents(await listMyInviteEvents());
+      setInvite(null);
+      setInviteNeedsLogin(false);
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : "接受邀请失败，请稍后重试。");
+    }
   }
 
   function copyInviteLink(link: string) {
@@ -234,19 +266,31 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
     }
   }
 
-  /** 提交抖音视频分享链接；校验不过时行内报错，过了才写入本机记录。 */
-  function submitWork() {
+  /** 提交抖音视频分享链接；校验不过时行内报错，过了才写入记录。服务端模式需要先登录。 */
+  async function submitWork() {
     if (!activity) return;
+    if (mode === "server" && !account?.user) {
+      setSubmitError("这个部署把作品记录存在服务端，请先用右上角入口登录，再回来提交。");
+      return;
+    }
     if (!isValidDouyinUrl(submitUrl)) {
       setSubmitError("请输入有效的抖音视频分享链接，如 https://v.douyin.com/xxxx 或 https://www.douyin.com/video/数字ID");
       return;
     }
-    pendingReveal.current = true;
-    setSubmissions(addSubmission(activity.id, submitUrl));
-    setSubmitUrl("");
-    setSubmitError(null);
-    setSubmitDone(true);
-    window.setTimeout(() => setSubmitDone(false), 2500);
+    setSubmitting(true);
+    try {
+      await submitWorkRemote(activity, submitUrl);
+      pendingReveal.current = true;
+      setSubmissions(await listMySubmissions(activity));
+      setSubmitUrl("");
+      setSubmitError(null);
+      setSubmitDone(true);
+      window.setTimeout(() => setSubmitDone(false), 2500);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "提交失败，请稍后重试。");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -445,7 +489,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <h2 id="detail-submit">作品提交</h2>
               {joinRecord ? (
                 <>
-                  <form className="submit-form" onSubmit={(event) => { event.preventDefault(); submitWork(); }}>
+                  <form className="submit-form" onSubmit={(event) => { event.preventDefault(); void submitWork(); }}>
                     <input
                       type="text"
                       inputMode="url"
@@ -459,7 +503,9 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                         if (submitError) setSubmitError(null);
                       }}
                     />
-                    <Button type="submit" className="primary-action">提交作品</Button>
+                    <Button type="submit" className="primary-action" disabled={submitting}>
+                      {submitting ? "提交中…" : "提交作品"}
+                    </Button>
                   </form>
                   {submitError && <p className="submit-error" role="alert">{submitError}</p>}
                   {submitDone && (
@@ -477,12 +523,15 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                   ) : (
                     <p className="detail-placeholder">还没有提交过作品。可以反复提交，每次提交都会进入审核队列。</p>
                   )}
-                  <p className="detail-join-note">提交记录保存在此设备。</p>
+                  <p className="detail-join-note">
+                    {mode === "server" ? "提交记录保存在平台，只有你自己能看到。" : "提交记录保存在此设备。"}
+                  </p>
                 </>
               ) : (
                 <>
                   <p className="detail-placeholder">报名参赛后，即可在这里提交抖音视频分享链接作为参赛作品。</p>
-                  <Button className="primary-action" onClick={confirmJoin}>报名参赛</Button>
+                  <Button className="primary-action" onClick={() => void confirmJoin()}>报名参赛</Button>
+                  {joinError && <p className="submit-error" role="alert">{joinError}</p>}
                 </>
               )}
             </section>
@@ -539,12 +588,17 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 <li>产出物 {MECHANISM.review.hours} 小时内审核，按质量计入个人贡献值</li>
                 <li>以个人账户参赛，无需选择阵营；战队由平台统一组织</li>
               </ul>
-              <p className="detail-join-note">报名记录保存在此设备。贡献值将在平台支持后累计。</p>
+              <p className="detail-join-note">
+                {mode === "server"
+                  ? "报名记录保存在平台。贡献值将在平台支持后累计。"
+                  : "报名记录保存在此设备。贡献值将在平台支持后累计。"}
+              </p>
             </div>
           ) : (
             <div className="detail-join">
               <p className="detail-join-title">想参加这场活动？</p>
-              <Button className="primary-action" onClick={confirmJoin}>报名参赛</Button>
+              <Button className="primary-action" onClick={() => void confirmJoin()}>报名参赛</Button>
+              {joinError && <p className="submit-error" role="alert">{joinError}</p>}
               <p className="detail-join-note">
                 以个人账户报名参赛，无需选择阵营，正式阶段每天领取算力券。战队由平台统一组织。
                 {isLocalActivity ? "活动记录保存在此设备。" : ""}

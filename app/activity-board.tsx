@@ -78,11 +78,14 @@ function Chip({
 
 export default function ActivityBoard({
   activities,
-  localCount = 0,
+  mode = "local",
+  loaded = true,
   action,
 }: {
   activities: Activity[];
-  localCount?: number;
+  /** local：数据只在这台设备的浏览器里；server：数据在服务端数据库里。 */
+  mode?: "local" | "server";
+  loaded?: boolean;
   action?: ReactNode;
 }) {
   const router = useRouter();
@@ -125,6 +128,9 @@ export default function ActivityBoard({
   }, [shown]);
 
   const activeCount = [category !== "all", prize !== "all", format !== "all", cost !== "all", from !== "" || to !== ""].filter(Boolean).length;
+
+  /** 服务端模式下，当前登录用户发起的活动数（本地模式恒为 0）。 */
+  const mineCount = activities.filter((activity) => (activity as { mine?: boolean }).mine).length;
 
   // 筛选/排序/日期变化后，新列表（含分组标题与计数）重新错峰入场。
   usePageMotion("board", { signature: shown.map((activity) => activity.id).join(",") });
@@ -258,14 +264,17 @@ export default function ActivityBoard({
         </div>
         <div className="board-head-actions">
           {action}
-          {localCount > 0 && <span className="demo-label">本机活动仅保存在此设备</span>}
+          {mode === "local" && activities.length > 0 && <span className="demo-label">本机活动仅保存在此设备</span>}
+          {mode === "server" && mineCount > 0 && <span className="demo-label">我发起的 {mineCount} 场</span>}
         </div>
       </div>
 
       <div className="board-body">
         <div className="board-feed">
           {shown.length === 0 ? (
-            <p className="board-empty" data-reveal="item">没有符合当前筛选的活动。换一组条件，或者清除筛选看看全部。</p>
+            <p className="board-empty" data-reveal="item">
+              {loaded ? "没有符合当前筛选的活动。换一组条件，或者清除筛选看看全部。" : "正在读取活动…"}
+            </p>
           ) : (
             GROUPS.filter((group) => grouped[group.id].length > 0).map((group) => (
               <div className="feed-group" key={group.id}>
@@ -361,7 +370,7 @@ export default function ActivityBoard({
       </div>
 
       <p className="board-note" data-reveal="block">
-        {localCount > 0 && "本机创建的活动仅保存在此设备，尚未同步。"}
+        {mode === "local" && activities.length > 0 && "本机创建的活动仅保存在此设备，尚未同步。"}
       </p>
     </section>
   );

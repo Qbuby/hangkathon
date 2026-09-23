@@ -5,11 +5,11 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { ArrowLeft, ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { HONOR_LEVELS, honorLevel, loadJoins, type JoinRecord } from "@/lib/contribution";
-import { inviteCount, loadInviteEvents, type InviteEvent } from "@/lib/invites";
+import { HONOR_LEVELS, honorLevel, type JoinRecord } from "@/lib/contribution";
+import { inviteCount, type InviteEvent } from "@/lib/invites";
 import { factionById } from "@/lib/factions";
-import { loadActivities, type Activity } from "@/lib/activity";
-import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
+import { listActivities, listMyInviteEvents, listMyJoins, type ActivityView } from "@/lib/api/data";
+import type { Activity } from "@/lib/activity";
 import { usePageMotion } from "../motion-scope";
 import "../activities/[slug]/detail.css";
 import "./profile.css";
@@ -24,6 +24,7 @@ export default function ProfilePage() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [joins, setJoins] = useState<Record<string, JoinRecord>>({});
   const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
+  const [activities, setActivities] = useState<ActivityView[]>([]);
 
   // 入场动效：勋章区块与报名列表依次淡入上移。登录状态读回来之后再播。
   usePageMotion("profile", { ready: session !== null });
@@ -45,13 +46,38 @@ export default function ProfilePage() {
     };
   }, []);
 
-  // 报名记录在本机 localStorage，挂载后再读，避免 set-state-in-effect。
+  // 报名与邀请：有数据库的部署从服务端读，没有的读本机 localStorage。
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setJoins(loadJoins());
-      setInviteEvents(loadInviteEvents());
-    }, 0);
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    void Promise.all([listMyJoins(), listMyInviteEvents()])
+      .then(([joinMap, events]) => {
+        if (cancelled) return;
+        setJoins(joinMap);
+        setInviteEvents(events);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setJoins({});
+        setInviteEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 活动列表同样按模式取：服务端模式下来自 /api/activities。
+  useEffect(() => {
+    let cancelled = false;
+    void listActivities()
+      .then((list) => {
+        if (!cancelled) setActivities(list);
+      })
+      .catch(() => {
+        if (!cancelled) setActivities([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const user = session?.user ?? null;
@@ -61,9 +87,7 @@ export default function ProfilePage() {
   const level = honorLevel(points);
   const joinedRows = Object.entries(joins)
     .map(([activityId, record]) => {
-      const activity: Activity | undefined = [...PUBLISHED_ACTIVITIES, ...loadActivities()].find(
-        (item) => item.id === activityId,
-      );
+      const activity: Activity | undefined = activities.find((item) => item.id === activityId);
       // 参与者不再选阵营；行内展示活动所属区（发起方在发布时设定）。
       const district = activity ? factionById(activity.district) : undefined;
       return activity ? { activity, district, record } : null;

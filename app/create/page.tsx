@@ -7,9 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   STEPS,
   initialDraft,
-  saveActivity,
   slugify,
-  toActivity,
   validateAll,
   validateStep,
   type Activity,
@@ -17,6 +15,8 @@ import {
   type Criterion,
   type Draft,
 } from "@/lib/activity";
+import { createActivity } from "@/lib/api/data";
+import { hasServerData } from "@/lib/api/client";
 import FieldControl from "./fields";
 import SiteHeader from "../site-header";
 import { usePageMotion } from "../motion-scope";
@@ -28,9 +28,16 @@ export default function CreateActivityPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [slugTouched, setSlugTouched] = useState(false);
   const [published, setPublished] = useState<Activity | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"local" | "server">("local");
 
   // 入场动效：步骤卡与表单面板依次入场；切步骤或发布成功时表单/成功页重新入场。
   usePageMotion("create", { signature: `${stepIndex}:${published ? "done" : "edit"}` });
+
+  useEffect(() => {
+    void hasServerData().then((server) => setMode(server ? "server" : "local"));
+  }, []);
 
   // Signed-in hosts get their name prefilled; the flow stays usable without it.
   useEffect(() => {
@@ -87,7 +94,7 @@ export default function CreateActivityPage() {
     setStepIndex((index) => Math.max(index - 1, 0));
   }
 
-  function publish() {
+  async function publish() {
     const all = validateAll(values);
     if (Object.keys(all).length > 0) {
       setErrors(all);
@@ -95,9 +102,17 @@ export default function CreateActivityPage() {
       if (firstBad >= 0) setStepIndex(firstBad);
       return;
     }
-    const activity = toActivity(values);
-    saveActivity(activity);
-    setPublished(activity);
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      // 有数据库的部署 POST /api/activities（归属当前登录用户）；没有数据库的写本机。
+      const activity = await createActivity(values);
+      setPublished(activity);
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : "创建失败，请稍后重试。");
+    } finally {
+      setPublishing(false);
+    }
   }
 
   if (published) {
@@ -107,7 +122,9 @@ export default function CreateActivityPage() {
           <span className="create-done-mark"><Check size={26} /></span>
           <h1>活动已创建</h1>
           <p>
-            「{published.title}」已经加入活动列表。当前版本把活动保存在这台设备的浏览器里，换设备或清理数据后会消失。
+            {mode === "server"
+              ? `「${published.title}」已经发布到平台，所有人都能在活动看板看到它。`
+              : `「${published.title}」已经加入活动列表。当前版本把活动保存在这台设备的浏览器里，换设备或清理数据后会消失。`}
           </p>
           <div className="create-done-actions">
             <Button asChild className="primary-action"><Link href={`/activities/${published.slug}`}>查看活动页 <ArrowRight size={18} /></Link></Button>
@@ -183,11 +200,19 @@ export default function CreateActivityPage() {
                 下一步 <ArrowRight size={17} />
               </Button>
             ) : (
-              <Button className="create-primary" onClick={publish}>
-                <Rocket size={17} /> 创建活动
+              <Button className="create-primary" onClick={() => void publish()} disabled={publishing}>
+                <Rocket size={17} /> {publishing ? "发布中…" : "创建活动"}
               </Button>
             )}
           </div>
+          {publishError && (
+            <p className="cf-error" role="alert">
+              {publishError}
+              {mode === "server" && publishError.includes("登录") && (
+                <> —— 请先用右上角入口登录后再发起活动。</>
+              )}
+            </p>
+          )}
         </section>
 
         <aside className="create-preview" aria-label="活动预览">

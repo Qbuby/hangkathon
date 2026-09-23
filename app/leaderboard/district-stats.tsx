@@ -1,20 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadActivities, type Activity } from "@/lib/activity";
-import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
+import { listActivities, type ActivityView } from "@/lib/api/data";
 import { FACTIONS } from "@/lib/factions";
 
-/** 区的活动数统计：13 个官方区各名下有多少场活动（已发布 + 本机创建）。区不计入贡献统计。 */
+/** 区的活动数统计：13 个官方区各名下有多少场活动。区不计入贡献统计。 */
 export default function DistrictStats() {
-  const [local, setLocal] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<ActivityView[]>([]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setLocal(loadActivities().filter((item) => item.visibility === "public")), 0);
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    void listActivities()
+      .then((list) => {
+        if (!cancelled) setActivities(list.filter((item) => item.visibility === "public"));
+      })
+      .catch(() => {
+        if (!cancelled) setActivities([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  const activities = [...PUBLISHED_ACTIVITIES, ...local];
 
   return (
     <div className="district-stats">
