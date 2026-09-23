@@ -5,7 +5,7 @@ export const PUBLISHED_ACTIVITIES: Activity[] = [
   {
     id: "midautumn_poetry",
     slug: "midautumn-poetry",
-    title: "中秋诗会 · 用 AI 写杭州",
+    title: "中秋诗会 · AI 写杭州",
     subtitle: "",
     overview:
       "柳永写“钱塘自古繁华”，白居易写“最忆是杭州”，苏轼写“淡妆浓抹总相宜”。这个中秋，借助AI，向千年名家发起挑战——用你的诗、词、歌、赋，写出属于今天杭州的千古名篇。",
