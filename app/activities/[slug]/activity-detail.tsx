@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { ArrowRight, CalendarDays, Coins, MapPin } from "lucide-react";
@@ -21,6 +21,7 @@ import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import { factionById } from "@/lib/factions";
 import FactionPanel from "../../faction-panel";
 import SiteHeader from "../../site-header";
+import { revealOnce, usePageMotion } from "../../motion-scope";
 import {
   MECHANISM,
   getContribution,
@@ -85,6 +86,20 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitDone, setSubmitDone] = useState(false);
   const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
+
+  // 入场动效：标签行 → 标题 → 各区块依次淡入上移。活动数据要等 effect 读出来再播。
+  usePageMotion("detail", { ready: Boolean(activity) });
+
+  /** 新提交的一条单独入场，不动整段列表。 */
+  const submitListRef = useRef<HTMLUListElement | null>(null);
+  const pendingReveal = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!pendingReveal.current) return;
+    pendingReveal.current = false;
+    const last = submitListRef.current?.lastElementChild;
+    if (last instanceof HTMLElement) revealOnce(last);
+  }, [submissions]);
 
   // 本机创建的活动只存在 localStorage 里，挂载后再查一次；
   // 邀请链接 ?invite=<阵营>&by=<用户名> 也在此时解析。
@@ -226,6 +241,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       setSubmitError("请输入有效的抖音视频分享链接，如 https://v.douyin.com/xxxx 或 https://www.douyin.com/video/数字ID");
       return;
     }
+    pendingReveal.current = true;
     setSubmissions(addSubmission(activity.id, submitUrl));
     setSubmitUrl("");
     setSubmitError(null);
@@ -236,20 +252,20 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   return (
     <main className="detail-page">
       <SiteHeader />
-      <div className="detail-top-tags">{isLocalActivity && <span className="detail-top-note">仅保存在此设备</span>}</div>
+      <div className="detail-top-tags" data-reveal="block">{isLocalActivity && <span className="detail-top-note">仅保存在此设备</span>}</div>
 
       <section className="detail-hero">
-        <div className="detail-tags">
+        <div className="detail-tags" data-reveal="block">
           <span className="is-category">{categoryLabel(activity.category)}</span>
           {district && <span style={{ borderColor: `${district.color}55`, color: district.color }}>{district.name}</span>}
           <span>{formatLabel(activity)}</span>
           <span>{pricingLabel(activity)}</span>
           <span>{visibilityLabel(activity.visibility)}</span>
         </div>
-        <h1>{activity.title}</h1>
-        {activity.subtitle && <p className="detail-sub">{activity.subtitle}</p>}
-        <p className="detail-host">主办方 · {activity.host || "未填写"}</p>
-        {activity.contact && <p className="detail-contact">联系方式 · {activity.contact}</p>}
+        <h1 data-reveal="block">{activity.title}</h1>
+        {activity.subtitle && <p className="detail-sub" data-reveal="block">{activity.subtitle}</p>}
+        <p className="detail-host" data-reveal="block">主办方 · {activity.host || "未填写"}</p>
+        {activity.contact && <p className="detail-contact" data-reveal="block">联系方式 · {activity.contact}</p>}
       </section>
 
       {invite && invite !== "refused" && !joinRecord && (() => {
@@ -257,7 +273,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
         if (!inviteDistrict) return null;
         const inviteTeam = invite.teamId ? activityTeams.find((team) => team.id === invite.teamId) : undefined;
         return (
-          <div className="invite-banner" role="region" aria-label="战队邀请">
+          <div className="invite-banner" role="region" aria-label="战队邀请" data-reveal="block">
             <p className="invite-banner-title">
               <strong>{invite.by}</strong> {inviteTeam ? <>邀请你加入 <strong style={{ color: inviteTeam.color }}>{inviteTeam.name}</strong> 战队</> : "邀请你"} 一起参加这场活动
               {district ? <>（所属区 · <strong style={{ color: inviteDistrict.color }}>{inviteDistrict.name}</strong>）</> : null}
@@ -300,7 +316,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
 
       <div className="detail-body">
         <div className="detail-main">
-          <section className="detail-section" aria-labelledby="detail-overview">
+          <section data-reveal="block" className="detail-section" aria-labelledby="detail-overview">
             <p className="detail-eyebrow">OVERVIEW</p>
             <h2 id="detail-overview">活动介绍</h2>
             {activity.overview ? (
@@ -310,7 +326,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             )}
           </section>
 
-          <section className="detail-section" aria-labelledby="detail-criteria">
+          <section data-reveal="block" className="detail-section" aria-labelledby="detail-criteria">
             <p className="detail-eyebrow">JUDGING</p>
             <h2 id="detail-criteria">评审维度</h2>
             <p className="detail-placeholder">评审方式：{judgingLabel(activity.judging)}</p>
@@ -331,7 +347,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             )}
           </section>
 
-          <section className="detail-section" aria-labelledby="detail-awards">
+          <section data-reveal="block" className="detail-section" aria-labelledby="detail-awards">
             <p className="detail-eyebrow">AWARDS</p>
             <h2 id="detail-awards">奖项</h2>
             {!activity.awardsEnabled || activity.awards.length === 0 ? (
@@ -352,7 +368,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             )}
           </section>
 
-          <section className="detail-section" aria-labelledby="detail-factions">
+          <section data-reveal="block" className="detail-section" aria-labelledby="detail-factions">
             <p className="detail-eyebrow">TEAMS</p>
             <h2 id="detail-factions">战队贡献</h2>
             {shares.length > 0 ? (
@@ -390,7 +406,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           </section>
 
       {district && activityEnded && (
-        <section className="detail-section" aria-labelledby="detail-leaders">
+        <section data-reveal="block" className="detail-section" aria-labelledby="detail-leaders">
           <p className="detail-eyebrow">DISTRICT LEADER</p>
           <h2 id="detail-leaders">所属区区长结算</h2>
           {districtLeader ? (
@@ -414,7 +430,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       )}
 
           {submissionTypeLabels.length > 0 && (
-            <section className="detail-section" aria-labelledby="detail-submissions">
+            <section data-reveal="block" className="detail-section" aria-labelledby="detail-submissions">
               <p className="detail-eyebrow">SUBMISSION</p>
               <h2 id="detail-submissions">提交形式</h2>
               <div className="detail-chips">
@@ -424,7 +440,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           )}
 
           {activity.submissionTypes.includes("video") && (
-            <section className="detail-section" aria-labelledby="detail-submit">
+            <section data-reveal="block" className="detail-section" aria-labelledby="detail-submit">
               <p className="detail-eyebrow">SUBMISSIONS</p>
               <h2 id="detail-submit">作品提交</h2>
               {joinRecord ? (
@@ -450,7 +466,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                     <p className="submit-ok">已提交。作品将在 {MECHANISM.review.hours} 小时内审核，按质量计入你的个人与阵营贡献值。</p>
                   )}
                   {submissions.length > 0 ? (
-                    <ul className="submit-list">
+                    <ul className="submit-list" ref={submitListRef}>
                       {submissions.map((record, index) => (
                         <li key={`${record.submittedAt}-${index}`}>
                           <a href={record.url} target="_blank" rel="noopener noreferrer">{shortenUrl(record.url)}</a>
@@ -474,7 +490,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
         </div>
 
         <aside className="detail-side" aria-label="活动关键信息">
-          <div className="detail-facts">
+          <div className="detail-facts" data-reveal="block">
             <h2>关键信息</h2>
             <dl>
               <div><dt><CalendarDays size={14} />时间</dt><dd>{activity.startsAt && activity.endsAt ? `${activity.startsAt} 至 ${activity.endsAt}` : "待定"}</dd></div>

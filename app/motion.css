@@ -1,0 +1,8 @@
+/* 入场动效的隐藏初态：只在顶部脚本打开 data-motion 的短窗口内生效
+   （见 MOTION.windowMs）。窗口一过就无条件放开，所以：
+   - JS 被禁用 / 加载失败：data-motion 从未打开，内容照常可见；
+   - 挂载之后才渲染的内容：窗口已过，不会被藏住。 */
+html[data-motion="on"] [data-reveal] {
+  opacity: 0;
+  transform: translateY(12px);
+}

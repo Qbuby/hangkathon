@@ -19,6 +19,7 @@ import {
 } from "@/lib/activity";
 import FieldControl from "./fields";
 import SiteHeader from "../site-header";
+import { usePageMotion } from "../motion-scope";
 import "./create.css";
 
 export default function CreateActivityPage() {
@@ -27,6 +28,9 @@ export default function CreateActivityPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [slugTouched, setSlugTouched] = useState(false);
   const [published, setPublished] = useState<Activity | null>(null);
+
+  // 入场动效：步骤卡与表单面板依次入场；切步骤或发布成功时表单/成功页重新入场。
+  usePageMotion("create", { signature: `${stepIndex}:${published ? "done" : "edit"}` });
 
   // Signed-in hosts get their name prefilled; the flow stays usable without it.
   useEffect(() => {
@@ -99,7 +103,7 @@ export default function CreateActivityPage() {
   if (published) {
     return (
       <main className="create-page">
-        <div className="create-done">
+        <div className="create-done" data-reveal="item">
           <span className="create-done-mark"><Check size={26} /></span>
           <h1>活动已创建</h1>
           <p>
@@ -133,6 +137,7 @@ export default function CreateActivityPage() {
                 key={item.id}
                 type="button"
                 className={`create-step is-${state}`}
+                data-reveal="block"
                 aria-current={state === "current" ? "step" : undefined}
                 onClick={() => { setErrors({}); setStepIndex(index); }}
               >
@@ -146,7 +151,7 @@ export default function CreateActivityPage() {
           })}
         </nav>
 
-        <section className="create-form" aria-labelledby="create-step-title">
+        <section className="create-form" aria-labelledby="create-step-title" data-reveal="item">
           <div className="create-form-head">
             <div>
               <h2 id="create-step-title">{step.title}</h2>
@@ -186,8 +191,8 @@ export default function CreateActivityPage() {
         </section>
 
         <aside className="create-preview" aria-label="活动预览">
-          <span className="create-preview-label">预览</span>
-          <div className="create-card">
+          <span className="create-preview-label" data-reveal="block">预览</span>
+          <div className="create-card" data-reveal="block">
             <div className="create-card-tags">
               <span>{values.format === "online" ? "线上" : "线下"}</span>
               <span>{values.pricing === "paid" ? "收费" : "免费"}</span>

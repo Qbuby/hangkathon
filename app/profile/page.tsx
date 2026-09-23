@@ -10,6 +10,7 @@ import { inviteCount, loadInviteEvents, type InviteEvent } from "@/lib/invites";
 import { factionById } from "@/lib/factions";
 import { loadActivities, type Activity } from "@/lib/activity";
 import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
+import { usePageMotion } from "../motion-scope";
 import "../activities/[slug]/detail.css";
 import "./profile.css";
 
@@ -23,6 +24,9 @@ export default function ProfilePage() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [joins, setJoins] = useState<Record<string, JoinRecord>>({});
   const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
+
+  // 入场动效：勋章区块与报名列表依次淡入上移。登录状态读回来之后再播。
+  usePageMotion("profile", { ready: session !== null });
 
   useEffect(() => {
     let cancelled = false;
@@ -69,12 +73,12 @@ export default function ProfilePage() {
   // 报名记录是本机数据，与登录状态无关，两种状态都展示。
   const joinsSection = (
     <section className="profile-joins" aria-labelledby="profile-joins-title">
-      <p className="detail-eyebrow">ACTIVITIES</p>
-      <h2 id="profile-joins-title">我的报名</h2>
+      <p className="detail-eyebrow" data-reveal="block">ACTIVITIES</p>
+      <h2 id="profile-joins-title" data-reveal="block">我的报名</h2>
       {joinedRows.length > 0 ? (
         <div className="profile-join-list">
           {joinedRows.map((row) => (
-            <Link key={row.activity.id} className="profile-join-row" href={`/activities/${row.activity.slug}`}>
+            <Link key={row.activity.id} className="profile-join-row" href={`/activities/${row.activity.slug}`} data-reveal="item">
               <span className="join-badge-dot" style={{ background: row.district?.color ?? "#5f7d99" }} />
               <strong>
                 {row.activity.title}
@@ -98,21 +102,22 @@ export default function ProfilePage() {
 
   return (
     <main className="detail-page profile-page">
-      <header className="detail-top">
+      <header className="detail-top" data-reveal="block">
         <Link className="detail-back" href="/"><ArrowLeft size={17} /> 返回首页</Link>
         <span className="detail-top-title">个人主页</span>
         <span className="detail-top-note">{session === null ? "读取中" : user ? "已登录" : "未登录"}</span>
       </header>
 
       {session === null ? (
-        <div className="profile-card">
+        <div className="profile-card" data-reveal="block">
           <p className="eyebrow">HONOR · 数字杭州市民</p>
           <h1>正在读取登录状态…</h1>
           <span className="session-placeholder" aria-hidden="true" />
         </div>
       ) : user ? (
         <div className="profile-body">
-          <section className="medal-card" aria-labelledby="medal-title">            <p className="eyebrow">HONOR · 数字杭州市民</p>
+          <section className="medal-card" aria-labelledby="medal-title" data-reveal="block">
+            <p className="eyebrow">HONOR · 数字杭州市民</p>
             <h1>{user.name ?? user.email}</h1>
             <div className="medal-stars" role="img" aria-label={`数字杭州市民 ${level.stars} 星，${level.title}`}>
               {HONOR_LEVELS.map((item) => (
@@ -147,7 +152,7 @@ export default function ProfilePage() {
         </div>
       ) : (
         <>
-          <div className="profile-card">
+          <div className="profile-card" data-reveal="block">
             <p className="eyebrow">HONOR · 数字杭州市民</p>
             <h1>登录后查看你的勋章</h1>
             <p>

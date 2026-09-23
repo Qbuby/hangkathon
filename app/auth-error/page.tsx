@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import PageMotion from "../motion-mount";
 import { oauthProviders, sessionSecretConfigured } from "@/auth";
 
 const EXPLANATIONS: Record<string, string> = {
@@ -33,26 +34,27 @@ export default async function AuthErrorPage({
 
   return (
     <main className="auth-error">
+      <PageMotion page="auth-error" />
       <div className="auth-error-card">
-        <p className="eyebrow">SIGN IN FAILED</p>
-        <h1 className="dialog-title">登录没有完成</h1>
-        <p className="dialog-description">
+        <p className="eyebrow" data-reveal="block">SIGN IN FAILED</p>
+        <h1 className="dialog-title" data-reveal="block">登录没有完成</h1>
+        <p className="dialog-description" data-reveal="block">
           {EXPLANATIONS[code] ?? "登录过程中出现未知错误。"}
         </p>
 
-        <div className="dialog-note">
+        <div className="dialog-note" data-reveal="block">
           <span>错误代码</span>
           <p>{code}</p>
         </div>
 
         {missing.length > 0 && (
-          <div className="dialog-note">
+          <div className="dialog-note" data-reveal="block">
             <span>当前部署缺少</span>
             <p>{missing.join(" 和 ")}。在部署环境补上并重新部署后即可登录。</p>
           </div>
         )}
 
-        <Link className="auth-error-back" href="/">
+        <Link className="auth-error-back" href="/" data-reveal="block">
           <ArrowLeft size={16} /> 返回首页
         </Link>
       </div>

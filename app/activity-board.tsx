@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { animate, type JSAnimation } from "animejs";
 import { Coins, MapPin } from "lucide-react";
 import { CATEGORIES, categoryLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
+import { prefersReducedMotion, usePageMotion } from "./motion-scope";
 import "./board.css";
 
 type PrizeFilter = "all" | "with" | "without";
@@ -124,6 +126,44 @@ export default function ActivityBoard({
 
   const activeCount = [category !== "all", prize !== "all", format !== "all", cost !== "all", from !== "" || to !== ""].filter(Boolean).length;
 
+  // 筛选/排序/日期变化后，新列表（含分组标题与计数）重新错峰入场。
+  usePageMotion("board", { signature: shown.map((activity) => activity.id).join(",") });
+
+  /** 简介展开/收起：先量高度，换完内容再从旧高度过渡到新高度。 */
+  const introNodes = useRef(new Map<string, HTMLParagraphElement>());
+  const introAnim = useRef<JSAnimation | null>(null);
+  const pendingToggle = useRef<{ id: string; from: number } | null>(null);
+
+  function toggleIntro(id: string, expanded: boolean) {
+    const node = introNodes.current.get(id);
+    if (node && !prefersReducedMotion()) {
+      pendingToggle.current = { id, from: node.getBoundingClientRect().height };
+    }
+    setExpandedCard(expanded ? null : id);
+  }
+
+  useLayoutEffect(() => {
+    const pending = pendingToggle.current;
+    pendingToggle.current = null;
+    if (!pending) return;
+    const node = introNodes.current.get(pending.id);
+    if (!node) return;
+    const to = node.getBoundingClientRect().height;
+    introAnim.current?.revert();
+    if (Math.abs(to - pending.from) < 1) return;
+    node.style.overflow = "hidden";
+    introAnim.current = animate(node, {
+      height: [`${pending.from}px`, `${to}px`],
+      opacity: [0.55, 1],
+      duration: 280,
+      ease: "out(2)",
+      onComplete: () => {
+        node.style.height = "";
+        node.style.overflow = "";
+      },
+    });
+  }, [expandedCard]);
+
   function reset() {
     setCategory("all");
     setPrize("all");
@@ -141,6 +181,7 @@ export default function ActivityBoard({
       <article
         className="feed-item"
         key={activity.id}
+        data-reveal="item"
         role="link"
         tabIndex={0}
         aria-label={`查看${activity.title}详情`}
@@ -168,7 +209,13 @@ export default function ActivityBoard({
           {pricingLabel(activity)}
         </p>
         {activity.overview && (
-          <p className="feed-intro">
+          <p
+            className="feed-intro"
+            ref={(node) => {
+              if (node) introNodes.current.set(activity.id, node);
+              else introNodes.current.delete(activity.id);
+            }}
+          >
             {clamped ? `${activity.overview.slice(0, INTRO_CLAMP).trimEnd()}……` : activity.overview}
             {activity.overview.length > INTRO_CLAMP && (
               <>
@@ -179,7 +226,7 @@ export default function ActivityBoard({
                   aria-expanded={isExpanded}
                   onClick={(event) => {
                     event.stopPropagation();
-                    setExpandedCard(isExpanded ? null : activity.id);
+                    toggleIntro(activity.id, isExpanded);
                   }}
                 >
                   {isExpanded ? "收起" : "展开更多"}
@@ -205,9 +252,9 @@ export default function ActivityBoard({
     <section id="activities" className="board" aria-labelledby="board-title">
       <div className="board-head">
         <div>
-          <p className="eyebrow">ACTIVITY BOARD</p>
-          <h2 id="board-title">活动看板</h2>
-          <p className="board-sub">每一场活动都欢迎个人参赛，组队信息由平台统一发布。按类别、奖金、形式和费用筛选，找到你想参加的那一场。</p>
+          <p className="eyebrow" data-reveal="block">ACTIVITY BOARD</p>
+          <h2 id="board-title" data-reveal="block">活动看板</h2>
+          <p className="board-sub" data-reveal="block">每一场活动都欢迎个人参赛，组队信息由平台统一发布。按类别、奖金、形式和费用筛选，找到你想参加的那一场。</p>
         </div>
         <div className="board-head-actions">
           {action}
@@ -218,11 +265,11 @@ export default function ActivityBoard({
       <div className="board-body">
         <div className="board-feed">
           {shown.length === 0 ? (
-            <p className="board-empty">没有符合当前筛选的活动。换一组条件，或者清除筛选看看全部。</p>
+            <p className="board-empty" data-reveal="item">没有符合当前筛选的活动。换一组条件，或者清除筛选看看全部。</p>
           ) : (
             GROUPS.filter((group) => grouped[group.id].length > 0).map((group) => (
               <div className="feed-group" key={group.id}>
-                <div className="feed-group-head">
+                <div className="feed-group-head" data-reveal="item">
                   <h3>{group.title}</h3>
                   <span>{grouped[group.id].length} 场</span>
                 </div>
@@ -235,7 +282,7 @@ export default function ActivityBoard({
         </div>
 
         <aside className="board-side" aria-label="筛选与排序">
-          <div className="board-filter-row">
+          <div className="board-filter-row" data-reveal="block">
             <span className="board-filter-label">类别</span>
             <div className="board-chips">
               <Chip active={category === "all"} onClick={() => setCategory("all")}>全部</Chip>
@@ -247,7 +294,7 @@ export default function ActivityBoard({
             </div>
           </div>
 
-          <div className="board-filter-row">
+          <div className="board-filter-row" data-reveal="block">
             <span className="board-filter-label">奖金</span>
             <div className="board-chips">
               {PRIZE_FILTERS.map((item) => (
@@ -256,7 +303,7 @@ export default function ActivityBoard({
             </div>
           </div>
 
-          <div className="board-filter-row">
+          <div className="board-filter-row" data-reveal="block">
             <span className="board-filter-label">形式</span>
             <div className="board-chips">
               {FORMAT_FILTERS.map((item) => (
@@ -265,7 +312,7 @@ export default function ActivityBoard({
             </div>
           </div>
 
-          <div className="board-filter-row">
+          <div className="board-filter-row" data-reveal="block">
             <span className="board-filter-label">费用</span>
             <div className="board-chips">
               {COST_FILTERS.map((item) => (
@@ -274,7 +321,7 @@ export default function ActivityBoard({
             </div>
           </div>
 
-          <div className="board-filter-row">
+          <div className="board-filter-row" data-reveal="block">
             <span className="board-filter-label">日期</span>
             <div className="board-dates">
               <input
@@ -297,7 +344,7 @@ export default function ActivityBoard({
             </div>
           </div>
 
-          <div className="board-filter-row">
+          <div className="board-filter-row" data-reveal="block">
             <span className="board-filter-label">排序</span>
             <div className="board-chips">
               {SORTS.map((item) => (
@@ -306,14 +353,14 @@ export default function ActivityBoard({
             </div>
           </div>
 
-          <p className="board-count">
+          <p className="board-count" data-reveal="item">
             共 {shown.length} 场
             {activeCount > 0 && <button type="button" className="board-reset" onClick={reset}>清除筛选</button>}
           </p>
         </aside>
       </div>
 
-      <p className="board-note">
+      <p className="board-note" data-reveal="block">
         {localCount > 0 && "本机创建的活动仅保存在此设备，尚未同步。"}
       </p>
     </section>
