@@ -2,6 +2,10 @@
 
 这份部署与 Vercel 上的 `hangkathon.net` **互相独立**：域名仍在 Vercel，这台机器用 `IP + 非标端口` 访问。
 
+**两者最关键的区别：这台有后端。** 它跑一个自己的 Postgres 容器，活动 / 报名 / 作品提交 / 邀请事件都存在服务端，
+并且**写操作需要登录**；Vercel 那份没有 `DATABASE_URL`，继续用浏览器 localStorage（登录可选、数据只在本机）。
+代码是同一份，靠 `DATABASE_URL` 是否存在自动切换，见 `lib/api/data.ts`。
+
 ## 目标环境
 
 | 项 | 值 |
@@ -10,6 +14,8 @@
 | 公网 IP | `106.14.92.106` |
 | 应用目录 | `/opt/hangkathon` |
 | 对外端口 | `3210` → 容器内 `3000` |
+| 数据库 | compose 内的 `hangkathon-postgres`（postgres:18-alpine），只在 compose 内网，不对外发布端口 |
+| 数据卷 | `hangkathon_pgdata`（挂载在 `/var/lib/postgresql`） |
 
 ## 部署
 
@@ -18,6 +24,43 @@ sh /opt/hangkathon/deploy/deploy.sh
 ```
 
 脚本是幂等的：装 Docker（走 mirrors.aliyun.com）→ 写 registry 镜像（这台机器直连 Docker Hub 不通）→ 生成 `.env` → `docker compose up -d --build` → 等应用应答。
+
+## 数据库
+
+容器入口 `deploy/entrypoint.sh` 会先跑 `db/migrate.mjs`（幂等，重复启动不会重复建表），再启动 Next.js。
+`lib/published-activities.ts` 里的预置活动在首次读取时自动 upsert 入库（归属 `seed@hangkathon.local`）。
+
+```sh
+cd /opt/hangkathon
+
+# 看表与行数
+docker exec hangkathon-postgres psql -U hangkathon -d hangkathon -c '\dt'
+docker exec hangkathon-postgres psql -U hangkathon -d hangkathon -c 'select count(*) from activities;'
+
+# 备份 / 恢复
+docker exec hangkathon-postgres pg_dump -U hangkathon hangkathon > /root/hangkathon-$(date +%F).sql
+docker exec -i hangkathon-postgres psql -U hangkathon -d hangkathon < /root/hangkathon-2026-09-24.sql
+
+# 进交互式 psql
+docker exec -it hangkathon-postgres psql -U hangkathon -d hangkathon
+```
+
+改 schema 的流程：改 `db/schema.ts` → 本地 `npx drizzle-kit generate` → 提交生成的 `drizzle/*.sql` → 部署时自动应用。
+
+**注意**：postgres:18 起数据目录是带版本号的子目录，卷必须挂在 `/var/lib/postgresql`；
+挂到 `/var/lib/postgresql/data` 会被镜像判定为旧版布局并拒绝启动（第一次部署就踩过这个坑）。
+
+## 登录（OAuth）
+
+写操作（发起活动 / 报名 / 提交作品 / 邀请）要求登录，凭据放在 `.env`：
+`AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` / `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`。
+
+回调地址是**按访问地址推导**的（`trustHost: true`），所以这份部署的回调是：
+
+- Google：`http://106.14.92.106:3210/api/auth/callback/google` —— Google 客户端支持多个重定向 URI，
+  把它加进「已授权的重定向 URI」即可，不影响 Vercel。
+- GitHub：`http://106.14.92.106:3210/api/auth/callback/github` —— 但 **GitHub OAuth App 只能填一个回调地址**，
+  与 `hangkathon.net` 冲突。要么给这份部署新建一个 OAuth App，要么这份就用 Google 登录。
 
 ## 健康检查
 

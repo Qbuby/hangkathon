@@ -23,10 +23,12 @@
   「作品提交」，输入框占位文案就是「粘贴抖音视频分享链接」。
 - 校验**已经有了**：`lib/submission.ts` 的 `isValidDouyinUrl`（只认 v.douyin.com / www.douyin.com/video/数字 /
   iesdouyin.com/share/video/数字），配套测试 `scripts/douyin-url.test.mjs`。
-- 存储**是纯本机的**：`SubmissionRecord = { url, submittedAt }`，写进 localStorage
-  `hangkathon.submissions.v1`，每个活动上限 20 条。**没有** 文案/点赞/评论/转发字段。
-- **没有后端**：没有数据库表（`db/schema.ts` 是空的）、没有 server action、没有任何服务端出网请求。
-  要抓数据就必须新增至少一个服务端路由。
+- 存储**看部署**：没有数据库的部署（Vercel）写 localStorage `hangkathon.submissions.v1`，每个活动上限 20 条；
+  自托管那份（2026-09-24 起）走服务端 `submissions` 表，按登录账号归属，只有本人看得到自己的提交。
+  两种情况都**没有** 文案/点赞/评论/转发字段。
+- **后端已经就位（自托管那份）**：Postgres + `/api/activities/[slug]/submissions` 等路由，
+  所以抓取服务有地方落：新增一个服务端路由调抓取服务、把结果写进 `submissions` 表即可；
+  Vercel 那份没有数据库，只能先走手动填写。
 - **文档口径矛盾，需要统一**：`README.md` 写着「活动全程在杭客松平台内进行……创建流程里没有任何要求填写外部网址的字段」，
   但详情页已经有抖音链接提交表单了。这条要么改文档、要么改产品，不能两存。
 
