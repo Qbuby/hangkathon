@@ -1,5 +1,12 @@
 # 杭客松首页升级 — Design QA
 
+## 阿里云自托管部署与 CI — 2026-09-24
+
+- 在用户那台轻量应用服务器（cn-shanghai，Alibaba Cloud Linux 3，2C2G/40G）上做了一份**独立于 Vercel** 的部署：`Dockerfile` 多阶段构建出 Next.js standalone，`docker-compose.yml` 以 `3210:3000` 暴露、`restart: unless-stopped`、带容器级健康检查。`next.config.ts` 只在 `DOCKER_BUILD=1` 时开 `output: "standalone"`，所以 Vercel 与 Cloudflare 两个构建目标完全不受影响。该机器上原本跑着宝塔面板(21077)、nginx(80/888)、PostgreSQL(5432)，部署只占用 3210。
+- 仓库是私有的，服务器无法 clone，所以首次源码是用云助手分片上传的（`/opt/hk-src` 26 个 16KB 分片 + sha256 校验后解包），`public/` 下 6 个未随包上传的大图从线上 hangkathon.net 抓回。之后改成 git 检出 + CI，这条一次性路径只保留在 `deploy/README.md` 里备查。
+- **CI**：`deploy/ci.sh` 由 `hangkathon-ci.timer` 每 3 分钟调用一次 —— `git fetch origin main`，SHA 未变则静默退出，变了才 `reset --hard` + `docker compose up -d --build` + 等 `127.0.0.1:3210` 健康检查通过，并写 `/var/log/hangkathon-ci.log`。认证用**只读 deploy key**（私钥只在服务器 `/root/.ssh/hangkathon_deploy`，公钥 id 164224058 加在 GitHub 仓库 Settings → Deploy keys）。
+- 验证：容器 `healthy`、重启次数 0；8 条路由与静态资源从公网全部 200；`prefers-reduced-motion`、动效层、日期筛选、改名后的活动标题在部署实例上逐一核对过。CI 用一个本地裸仓库冒充 origin 做过整链路干跑（fetch → 比对 → reset → 重建 → 健康检查全部走通，日志写入 `已部署 9fd369b —— 健康检查通过`），跑完 origin 自动恢复为 GitHub；随后用真实 GitHub 推送验证自动更新。
+
 ## 全站入场动效（除首页）— 2026-09-23
 
 - The user asked for anime.js (juliangarnier/anime) to drive interaction and entrance motion. Installed `animejs@^4.5.0` (MIT, ESM+CJS, tree-shakeable subpaths) and added one motion layer instead of per-page animation code: `app/motion.ts` (constants + pure `revealPlan`), `app/motion-scope.tsx` (`usePageMotion`, built on anime's `createScope` with a `mediaQueries` reduced-motion flag), `app/motion.css`, and `app/motion-mount.tsx` for the two server pages. Elements opt in with `data-reveal="block"` (mount only) or `data-reveal="item"` (also replayed when a data signature changes). The homepage is deliberately excluded — it already runs the Three.js scene.
