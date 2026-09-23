@@ -9,25 +9,17 @@ const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind
 const { teamByCaptain, CONTRIBUTIONS, MECHANISM } = await import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
 
 test("teamByCaptain returns the team led by the named member only", () => {
-  const teams = CONTRIBUTIONS.demo_midautumn_poetry.teams;
-  const led = teamByCaptain(teams, "lakeside_verses");
-  assert.equal(led?.id, "team_dyj");
-  assert.equal(teamByCaptain(teams, "osmanthus_lane")?.id, "team_qiantang");
-  // 普通成员不是队长
-  assert.equal(teamByCaptain(teams, "longjing_tea"), undefined);
-  assert.equal(teamByCaptain(teams, "nobody"), undefined);
+  const teams = [
+    { id: "t1", name: "西湖队", color: "#7fd48d", points: 100, captain: "alice" },
+    { id: "t2", name: "运河队", color: "#54d7ff", points: 80 },
+  ];
+  assert.equal(teamByCaptain(teams, "alice")?.id, "t1");
+  assert.equal(teamByCaptain(teams, "bob"), undefined);
+  assert.equal(teamByCaptain(teams, ""), undefined);
 });
 
-test("every demo team has a captain who is also a member", () => {
-  for (const [activityId, contribution] of Object.entries(CONTRIBUTIONS)) {
-    for (const team of contribution.teams) {
-      assert.ok(team.captain, `${activityId}/${team.id} missing captain`);
-      assert.ok(
-        contribution.members.some((member) => member.name === team.captain && member.teamId === team.id),
-        `${activityId}/${team.id} captain ${team.captain} is not a member`,
-      );
-    }
-  }
+test("contribution source carries no fabricated records", () => {
+  assert.equal(Object.keys(CONTRIBUTIONS).length, 0);
 });
 
 test("invite bonuses stay two-sided", () => {

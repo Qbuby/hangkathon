@@ -1,6 +1,5 @@
 /**
- * 杭客松核心机制的数值定义与演示数据。规则全文见 docs/prize-mechanism.md。
- * 所有数据目前是演示数据；接入数据库后，把 CONTRIBUTIONS 换成服务端查询即可，页面代码不变。
+ * 杭客松核心机制的数值定义与贡献数据入口。规则全文见 docs/prize-mechanism.md。
  */
 
 export const MECHANISM = {
@@ -19,15 +18,15 @@ export const MECHANISM = {
   },
   /** 邀请激励：活动期间任何报名用户都可分享邀请链接，对方接受并加入后双方各得贡献值。 */
   invite: { inviterBonus: 50, inviteeBonus: 20 },
-  /** 活动结束时各阵营邀请人数最多者结算为数字区长，区长个人贡献值额外 +5%。 */
+  /** 活动结束时邀请人数最多者获得区长称号，个人贡献值额外 +5%。 */
   leaderBonusPct: 0.05,
   /** 活动结束的荣誉结算（折算为平台贡献值）。 */
   honor: {
     organizerRate: 0.1, // 举办者 = 活动总贡献值 × 10%
     top10Bonus: 200, // 个人贡献前 10%
     top30Bonus: 100, // 个人贡献前 11–30%
-    championFactionBonus: 150, // 冠军阵营每人
-    runnerUpFactionBonus: 80, // 亚军阵营每人（需 ≥2 个阵营有贡献）
+    championFactionBonus: 150, // 冠军战队每人
+    runnerUpFactionBonus: 80, // 亚军战队每人（需 ≥2 支战队有贡献）
     finisherBonus: 50, // 至少 1 份合格提交
   },
 } as const;
@@ -63,66 +62,8 @@ export function teamByCaptain(teams: TeamPoints[], name: string): TeamPoints | u
   return teams.find((team) => team.captain === name);
 }
 
-/** 三场演示活动的战队与个人贡献演示数据（虚构战队、成员与分值）。区不再计入贡献统计。 */
-export const CONTRIBUTIONS: Record<string, ActivityContribution> = {
-  demo_midautumn_poetry: {
-    teams: [
-      { id: "team_dyj", name: "淡妆浓抹", color: "#7fd48d", points: 1280, captain: "lakeside_verses" },
-      { id: "team_qiantang", name: "钱塘词派", color: "#54d7ff", points: 1090, captain: "osmanthus_lane" },
-      { id: "team_gushan", name: "孤山雅集", color: "#b992ff", points: 760, captain: "canal_oars" },
-      { id: "team_yunqi", name: "云栖诗社", color: "#ffb46b", points: 450, captain: "binjiang_ferry" },
-    ],
-    members: [
-      { name: "lakeside_verses", teamId: "team_dyj", points: 520 },
-      { name: "broken_bridge", teamId: "team_dyj", points: 430 },
-      { name: "longjing_tea", teamId: "team_dyj", points: 330 },
-      { name: "osmanthus_lane", teamId: "team_qiantang", points: 560 },
-      { name: "qiantang_tide", teamId: "team_qiantang", points: 330 },
-      { name: "wushan_wind", teamId: "team_qiantang", points: 200 },
-      { name: "canal_oars", teamId: "team_gushan", points: 410 },
-      { name: "qiaoxi_street", teamId: "team_gushan", points: 350 },
-      { name: "binjiang_ferry", teamId: "team_yunqi", points: 260 },
-      { name: "code_osmanthus", teamId: "team_yunqi", points: 190 },
-    ],
-  },
-  demo_shop_assistant: {
-    teams: [
-      { id: "team_doulu", name: "斗路小店联盟", color: "#8fd8c4", points: 1620, captain: "shopkeeper_hz" },
-      { id: "team_yunhe", name: "运河创客", color: "#7a9dff", points: 1310, captain: "code_osmanthus" },
-      { id: "team_laojie", name: "老街新掌柜", color: "#ff8fa8", points: 890, captain: "zhongshan_road" },
-      { id: "team_shixin", name: "市集先锋", color: "#e8d16a", points: 520, captain: "xianghu_night" },
-    ],
-    members: [
-      { name: "shopkeeper_hz", teamId: "team_doulu", points: 700 },
-      { name: "qiaoxi_street", teamId: "team_doulu", points: 560 },
-      { name: "dadou_kitchen", teamId: "team_doulu", points: 360 },
-      { name: "code_osmanthus", teamId: "team_yunhe", points: 680 },
-      { name: "binjiang_ferry", teamId: "team_yunhe", points: 630 },
-      { name: "osmanthus_lane", teamId: "team_laojie", points: 500 },
-      { name: "zhongshan_road", teamId: "team_laojie", points: 390 },
-      { name: "xianghu_night", teamId: "team_shixin", points: 300 },
-      { name: "shixin_square", teamId: "team_shixin", points: 220 },
-      { name: "yishang_town", teamId: "team_yunhe", points: 310 },
-    ],
-  },
-  demo_city_memory: {
-    teams: [
-      { id: "team_chengnan", name: "城南旧事组", color: "#57d4c0", points: 1050, captain: "broken_bridge" },
-      { id: "team_beishan", name: "北山拾光", color: "#c3e06a", points: 820, captain: "lakeside_verses" },
-      { id: "team_gongchenqiao", name: "拱宸记忆队", color: "#f27fd9", points: 610, captain: "xiaohe_street" },
-    ],
-    members: [
-      { name: "broken_bridge", teamId: "team_chengnan", points: 480 },
-      { name: "lakeside_verses", teamId: "team_beishan", points: 420 },
-      { name: "qiantang_tide", teamId: "team_chengnan", points: 390 },
-      { name: "nanxing_bridge", teamId: "team_beishan", points: 330 },
-      { name: "xiaohe_street", teamId: "team_gongchenqiao", points: 340 },
-      { name: "canal_oars", teamId: "team_gongchenqiao", points: 270 },
-      { name: "guanshan_view", teamId: "team_chengnan", points: 180 },
-      { name: "fuchun_villa", teamId: "team_beishan", points: 70 },
-    ],
-  },
-};
+/** 当前没有已核验的战队与个人贡献记录；收到真实结算数据后写入此数据源。 */
+export const CONTRIBUTIONS: Record<string, ActivityContribution> = {};
 
 export function getContribution(activityId: string): ActivityContribution | null {
   return CONTRIBUTIONS[activityId] ?? null;

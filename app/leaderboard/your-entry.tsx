@@ -35,9 +35,9 @@ export default function YourEntry() {
       <span className="lb-you-tag">你</span>
       <div className="lb-you-main">
         <strong>{user.name ?? user.email}</strong>
-        <span>平台贡献值 0 · 完成活动后开始累计</span>
+        <span>平台贡献值 0</span>
       </div>
-      <span className="lb-you-state">未进入前十</span>
+      <span className="lb-you-state">暂无排名</span>
     </div>
   );
 }

@@ -105,7 +105,7 @@ export default function ActivityBoard({
         </div>
         <div className="board-head-actions">
           {action}
-          <span className="demo-label">{localCount > 0 ? "含本机创建 · 未同步到服务器" : "演示数据 · 非真实活动"}</span>
+          {localCount > 0 && <span className="demo-label">本机活动仅保存在此设备</span>}
         </div>
       </div>
 
@@ -235,8 +235,7 @@ export default function ActivityBoard({
       )}
 
       <p className="board-note">
-        三场示例活动均为虚构，用于展示活动看板的筛选与分类，不代表已举办、已开放报名或已有合作方。
-        {localCount > 0 && " 由你在本机创建的活动也列在其中，保存在这台设备的浏览器里，尚未同步到服务器。"}
+        {localCount > 0 && "本机创建的活动仅保存在此设备，尚未同步。"}
       </p>
     </section>
   );

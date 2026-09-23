@@ -17,7 +17,7 @@ import {
   visibilityLabel,
   type Activity,
 } from "@/lib/activity";
-import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
+import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import { factionById } from "@/lib/factions";
 import FactionPanel from "../../faction-panel";
 import SiteHeader from "../../site-header";
@@ -91,7 +91,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   // setState 放进回调，与 scene.tsx 一样避开 set-state-in-effect。
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const found = findActivityBySlug(slug, DEMO_ACTIVITIES);
+      const found = findActivityBySlug(slug, PUBLISHED_ACTIVITIES);
       setActivity(found);
       setJoinRecord(found ? loadJoin(found.id) : null);
       setSubmissions(found ? loadActivitySubmissions(found.id) : []);
@@ -154,7 +154,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
     );
   }
 
-  const isDemo = DEMO_ACTIVITIES.some((item) => item.id === activity.id);
+  const isLocalActivity = activity.id.startsWith("a_");
   const submissionTypeLabels = submissionLabels(activity.submissionTypes);
   const hasPrize = activity.awardsEnabled && activity.prizePool > 0;
   const shares = teamShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
@@ -236,7 +236,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   return (
     <main className="detail-page">
       <SiteHeader />
-      <div className="detail-top-tags"><span className="detail-top-note">{isDemo ? "演示数据 · 非真实活动" : "本机创建 · 未同步到服务器"}</span></div>
+      <div className="detail-top-tags">{isLocalActivity && <span className="detail-top-note">仅保存在此设备</span>}</div>
 
       <section className="detail-hero">
         <div className="detail-tags">
@@ -378,8 +378,8 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 />
                 <p className="detail-placeholder">
                   {hasPrize
-                    ? "奖金按两层比例分发：战队奖金 = 奖池 × 战队占比，战队内再按个人贡献占比分给成员；贡献数据为演示数据。"
-                    : "这场活动不设奖金，战队贡献只累计荣誉；贡献数据为演示数据。"}
+                    ? "奖金按战队贡献占比及战队内个人贡献占比分配。"
+                    : "这场活动不设奖金，战队贡献只累计荣誉。"}
                 </p>
               </>
             ) : (
@@ -461,7 +461,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                   ) : (
                     <p className="detail-placeholder">还没有提交过作品。可以反复提交，每次提交都会进入审核队列。</p>
                   )}
-                  <p className="detail-join-note">演示环境：提交记录保存在这台设备的浏览器里。</p>
+                  <p className="detail-join-note">提交记录保存在此设备。</p>
                 </>
               ) : (
                 <>
@@ -523,7 +523,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 <li>产出物 {MECHANISM.review.hours} 小时内审核，按质量计入个人贡献值</li>
                 <li>以个人账户参赛，无需选择阵营；战队由平台统一组织</li>
               </ul>
-              <p className="detail-join-note">演示环境：报名记录保存在这台设备的浏览器里，贡献值不会真实累计。</p>
+              <p className="detail-join-note">报名记录保存在此设备。贡献值将在平台支持后累计。</p>
             </div>
           ) : (
             <div className="detail-join">
@@ -531,7 +531,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <Button className="primary-action" onClick={confirmJoin}>报名参赛</Button>
               <p className="detail-join-note">
                 以个人账户报名参赛，无需选择阵营，正式阶段每天领取算力券。战队由平台统一组织。
-                {isDemo ? "此活动为虚构的演示数据。" : "活动目前只保存在这台设备的浏览器里。"}
+                {isLocalActivity ? "活动记录保存在此设备。" : ""}
               </p>
             </div>
           )}

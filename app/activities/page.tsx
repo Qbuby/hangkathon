@@ -7,7 +7,7 @@ import ActivityBoard from "../activity-board";
 import SiteHeader from "../site-header";
 import { Button } from "@/components/ui/button";
 import { loadActivities, type Activity } from "@/lib/activity";
-import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
+import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import "./activities.css";
 
 export default function ActivitiesPage() {
@@ -26,7 +26,7 @@ export default function ActivitiesPage() {
       <SiteHeader />
       <div className="activities-wrap">
         <ActivityBoard
-          activities={[...created, ...DEMO_ACTIVITIES]}
+          activities={[...PUBLISHED_ACTIVITIES, ...created]}
           localCount={created.length}
           action={<Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>}
         />

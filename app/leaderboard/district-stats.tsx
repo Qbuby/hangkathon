@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { loadActivities, type Activity } from "@/lib/activity";
-import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
+import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import { FACTIONS } from "@/lib/factions";
 
-/** 区的活动数统计：13 个官方区各名下有多少场活动（本机创建 + 演示数据）。区不计入贡献统计。 */
+/** 区的活动数统计：13 个官方区各名下有多少场活动（已发布 + 本机创建）。区不计入贡献统计。 */
 export default function DistrictStats() {
   const [local, setLocal] = useState<Activity[]>([]);
 
@@ -14,7 +14,7 @@ export default function DistrictStats() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const activities = [...local, ...DEMO_ACTIVITIES];
+  const activities = [...PUBLISHED_ACTIVITIES, ...local];
 
   return (
     <div className="district-stats">

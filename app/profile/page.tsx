@@ -5,11 +5,11 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { ArrowLeft, ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { HONOR_LEVELS, honorLevel, loadJoins, platformTotals, type JoinRecord } from "@/lib/contribution";
+import { HONOR_LEVELS, honorLevel, loadJoins, type JoinRecord } from "@/lib/contribution";
 import { inviteCount, loadInviteEvents, type InviteEvent } from "@/lib/invites";
 import { factionById } from "@/lib/factions";
 import { loadActivities, type Activity } from "@/lib/activity";
-import { DEMO_ACTIVITIES } from "@/lib/demo-activities";
+import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import "../activities/[slug]/detail.css";
 import "./profile.css";
 
@@ -55,11 +55,9 @@ export default function ProfilePage() {
   // 真实起点：平台贡献值从 0 开始累计（接入后端后由结算写入）。
   const points = 0;
   const level = honorLevel(points);
-  const demoTop = platformTotals().users[0];
-  const demoTopLevel = demoTop ? honorLevel(demoTop.points) : null;
   const joinedRows = Object.entries(joins)
     .map(([activityId, record]) => {
-      const activity: Activity | undefined = [...loadActivities(), ...DEMO_ACTIVITIES].find(
+      const activity: Activity | undefined = [...PUBLISHED_ACTIVITIES, ...loadActivities()].find(
         (item) => item.id === activityId,
       );
       // 参与者不再选阵营；行内展示活动所属区（发起方在发布时设定）。
@@ -141,27 +139,9 @@ export default function ProfilePage() {
               <p className="medal-progress">已达最高星级。</p>
             )}
             <p className="detail-placeholder">
-              完成活动后按举办身份、个人表现与阵营表现折算平台贡献值，勋章星级只升不降；规则见 docs/prize-mechanism.md。
+              完成活动后按举办身份、个人表现与战队表现折算平台贡献值，勋章星级只升不降；规则见 docs/prize-mechanism.md。
             </p>
           </section>
-
-          {demoTop && demoTopLevel && (
-            <section className="medal-demo" aria-labelledby="medal-demo-title">
-              <p className="detail-eyebrow">DEMO</p>
-              <h2 id="medal-demo-title">数字市民对照</h2>
-              <div className="medal-demo-row">
-                <strong>{demoTop.name}</strong>
-                <span className="medal-demo-faction">
-                  {demoTop.team ? (<><i style={{ background: demoTop.team.color }} />{demoTop.team.name}</>) : "—"}
-                </span>
-                <span>{demoTop.points.toLocaleString("zh-CN")} 平台贡献值</span>
-                <span className="medal-demo-level">★{demoTopLevel.stars} {demoTopLevel.title}</span>
-              </div>
-              <p className="detail-placeholder">
-                演示数据：这位数字市民跨两场活动累计到 2 星。你的勋章将从你参加的第一场活动开始累计。
-              </p>
-            </section>
-          )}
 
           {joinsSection}
         </div>
@@ -171,7 +151,7 @@ export default function ProfilePage() {
             <p className="eyebrow">HONOR · 数字杭州市民</p>
             <h1>登录后查看你的勋章</h1>
             <p>
-              「数字杭州市民」是杭客松的平台唯一荣誉勋章：参加活动、提交产出、代表阵营出战，都会折算成平台贡献值，
+              「数字杭州市民」是杭客松的平台唯一荣誉勋章：参加活动、提交产出、代表战队出战，都会折算成平台贡献值，
               把勋章从 1 星慢慢升到 5 星。
             </p>
             <div className="provider-list">
