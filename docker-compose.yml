@@ -1,0 +1,30 @@
+# 杭客松自托管部署：独立于 Vercel 的那一份，走 IP + 非标端口。
+# 用法：docker compose up -d --build
+services:
+  hangkathon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hangkathon:local
+    container_name: hangkathon
+    restart: unless-stopped
+    # 只映射到宿主机的非标端口，不动这台机器上已有的 80 / 888 / 21077（宝塔、nginx、面板）
+    ports:
+      - "3210:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
