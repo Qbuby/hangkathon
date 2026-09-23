@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, NotebookText, UsersRound } from "lucide-react";
+import { ArrowRight, Box, Cpu, NotebookText, UsersRound } from "lucide-react";
 import BridgeScene from "./scene";
 import SiteHeader from "./site-header";
 
@@ -23,7 +23,9 @@ export default function Home() {
           <BridgeScene />
         </div>
         <div className="hero-bottom" aria-hidden="true">
-          <div className="hero-feature"><NotebookText /><span><strong>发起活动</strong><small>发布真实挑战</small></span></div>
+          <div className="hero-feature"><Cpu /><span><strong>算力与数据</strong><small>探索 AI 计算资源</small></span></div>
+          <div className="hero-feature"><Box /><span><strong>模型与开源</strong><small>连接全球开源生态</small></span></div>
+          <div className="hero-feature"><NotebookText /><span><strong>真实赛题</strong><small>面向产业的实际问题</small></span></div>
           <div className="hero-feature"><UsersRound /><span><strong>共创社区</strong><small>开发者 · 企业 · 创造者</small></span></div>
         </div>
       </section>
