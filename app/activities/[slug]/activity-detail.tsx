@@ -389,36 +389,29 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             )}
           </section>
 
-          {district && (
-            <section className="detail-section" aria-labelledby="detail-leaders">
-              <p className="detail-eyebrow">LEADERS</p>
-              <h2 id="detail-leaders">数字区长结算</h2>
-              {activityEnded ? (
-                districtLeader ? (
-                  <>
-                    <div className="leader-board">
-                      <div className="leader-board-row">
-                        <span className="join-badge-dot" style={{ background: district.color }} />
-                        <strong>{district.name}</strong>
-                        <span className="leader-board-name">{districtLeader.name}</span>
-                        <span>邀请 {districtLeader.invites} 人</span>
-                      </div>
-                    </div>
-                    <p className="detail-placeholder">
-                      以上为本场活动所属区（{district.name}）结算出的数字区长（成功邀请人数最多，并列时以最早受邀加入者胜）。区长个人贡献值额外 +{Math.round(MECHANISM.leaderBonusPct * 100)}%，结算时计入。
-                    </p>
-                  </>
-                ) : (
-                  <p className="detail-placeholder">本场活动没有受邀报名记录，所属区（{district.name}）暂无结算区长。</p>
-                )
-              ) : (
-                <p className="detail-placeholder">
-                  活动期间只有战队队长可以分享邀请链接邀请新队员，对方接受报名后双方各得 +{MECHANISM.invite.inviteeBonus} / +{MECHANISM.invite.inviterBonus} 贡献值。
-                  活动结束（{activity.endsAt || "日期待定"}）后，成功邀请人数最多的成员将结算为本活动所属区（{district.name}）的数字区长，区长个人贡献值额外 +{Math.round(MECHANISM.leaderBonusPct * 100)}%。
-                </p>
-              )}
-            </section>
+      {district && activityEnded && (
+        <section className="detail-section" aria-labelledby="detail-leaders">
+          <p className="detail-eyebrow">DISTRICT LEADER</p>
+          <h2 id="detail-leaders">所属区区长结算</h2>
+          {districtLeader ? (
+            <>
+              <div className="leader-board">
+                <div className="leader-board-row">
+                  <span className="join-badge-dot" style={{ background: district.color }} />
+                  <strong>{district.name}</strong>
+                  <span className="leader-board-name">{districtLeader.name}</span>
+                  <span>邀请 {districtLeader.invites} 人</span>
+                </div>
+              </div>
+              <p className="detail-placeholder">
+                成功邀请人数最多者结算为本场活动所属区的区长；并列时以最早受邀加入者胜。个人贡献值额外 +{Math.round(MECHANISM.leaderBonusPct * 100)}%。
+              </p>
+            </>
+          ) : (
+            <p className="detail-placeholder">本场活动没有受邀报名记录，所属区（{district.name}）暂无区长。</p>
           )}
+        </section>
+      )}
 
           {submissionTypeLabels.length > 0 && (
             <section className="detail-section" aria-labelledby="detail-submissions">
@@ -505,16 +498,14 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 <p className="join-district">本场活动所属区 · <i style={{ background: district.color }} />{district.name}</p>
               )}
               {joinRecord.invitedBy && (
-                <p className="join-invitedby">由 {joinRecord.invitedBy} 的邀请链接报名 · 邀请激励 +{MECHANISM.invite.inviteeBonus} 贡献值</p>
+                <p className="join-invitedby">由 {joinRecord.invitedBy} 邀请报名 · 获得 +{MECHANISM.invite.inviteeBonus} 贡献值</p>
               )}
               {myTeam && (
                 <div className="leader-invite">
                   <p className="leader-invite-title">邀请链接 · 你是「{myTeam.name}」队长，活动期间随时可邀请新队员</p>
                   {typeof window !== "undefined" && (
                     <div className="leader-invite-row">
-                      <code>{
-                        `${window.location.origin}/activities/${activity.slug}?invite=${activity.district}&by=${encodeURIComponent(accountName)}&team=${myTeam.id}`
-                      }</code>
+                      <code>{`${window.location.origin}/activities/${activity.slug}?invite=${activity.district}&by=${encodeURIComponent(accountName)}&team=${myTeam.id}`}</code>
                       <button type="button" onClick={() => copyInviteLink(
                         `${window.location.origin}/activities/${activity.slug}?invite=${activity.district}&by=${encodeURIComponent(accountName)}&team=${myTeam.id}`,
                       )}>{inviteCopied ? "已复制" : "复制"}</button>
@@ -528,9 +519,9 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               )}
               <ul className="join-rules">
                 <li>正式阶段每天发 ¥{MECHANISM.voucher.base} 算力券，当日有效</li>
-                <li>每邀请 1 位新用户，日面额 +¥{MECHANISM.voucher.perInvite}，封顶 ¥{MECHANISM.voucher.dailyCap}</li>
+                <li>算力券面额上限为 ¥{MECHANISM.voucher.dailyCap}/天</li>
                 <li>产出物 {MECHANISM.review.hours} 小时内审核，按质量计入个人贡献值</li>
-                <li>以个人账户参赛，无需选择阵营；加入战队需由战队队长邀请</li>
+                <li>以个人账户参赛，无需选择阵营；战队由平台统一组织</li>
               </ul>
               <p className="detail-join-note">演示环境：报名记录保存在这台设备的浏览器里，贡献值不会真实累计。</p>
             </div>
@@ -539,7 +530,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <p className="detail-join-title">想参加这场活动？</p>
               <Button className="primary-action" onClick={confirmJoin}>报名参赛</Button>
               <p className="detail-join-note">
-                以个人账户报名参赛，无需选择阵营，正式阶段每天领取算力券。加入战队需由战队队长邀请。
+                以个人账户报名参赛，无需选择阵营，正式阶段每天领取算力券。战队由平台统一组织。
                 {isDemo ? "此活动为虚构的演示数据。" : "活动目前只保存在这台设备的浏览器里。"}
               </p>
             </div>

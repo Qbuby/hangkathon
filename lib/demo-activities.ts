@@ -9,7 +9,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
     id: "demo_midautumn_poetry",
     slug: "midautumn-poetry",
     title: "中秋诗会 · 用 AI 写杭州",
-    subtitle: "全民用 AI 创作与中秋、杭州相关的诗词歌赋",
+    subtitle: "",
     overview:
       "柳永写“钱塘自古繁华”，白居易写“最忆是杭州”，苏轼写“淡妆浓抹总相宜”。这个中秋，借助AI，向千年名家发起挑战——用你的诗、词、歌、赋，写出属于今天杭州的千古名篇。",
     host: "杭客松筹备组",
@@ -45,7 +45,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
     id: "demo_shop_assistant",
     slug: "shop-ai-assistant",
     title: "小店 AI 助手共创",
-    subtitle: "为街边小店做一件真正用得上小工具",
+    subtitle: "",
     overview:
       "杭州有大量一个人经营的小店。这一场把真实店主请到现场，把他们的日常麻烦摊开：进货、记账、回消息、写菜单。两天时间，做出一个店主明天就能用的东西。",
     host: "杭客松 × 本地商户联合",

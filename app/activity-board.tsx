@@ -65,6 +65,7 @@ export default function ActivityBoard({
   const [format, setFormat] = useState<FormatFilter>("all");
   const [cost, setCost] = useState<CostFilter>("all");
   const [sort, setSort] = useState<Sort>("latest");
+  const [expandedIntro, setExpandedIntro] = useState<string | null>(null);
 
   const shown = useMemo(() => {
     const filtered = activities.filter((activity) => {
@@ -98,10 +99,7 @@ export default function ActivityBoard({
         <div>
           <p className="eyebrow">ACTIVITY BOARD</p>
           <h2 id="board-title">活动看板</h2>
-          <p className="board-sub">
-            每一场活动都是一个阵营竞争的赛场：报名加入一个区、提交产出赢贡献值，荣誉在排行榜结算。
-            按类别、奖金、形式和费用筛选，找到你想参加的那一场。
-          </p>
+          <p className="board-sub">每一场活动都欢迎个人参赛，组队信息由平台统一发布。按类别、奖金、形式和费用筛选，找到你想参加的那一场。</p>
         </div>
         <div className="board-head-actions">
           {action}
@@ -166,15 +164,30 @@ export default function ActivityBoard({
       ) : (
         <div className="board-grid">
           {shown.map((activity) => (
-            <Link className="board-card" href={`/activities/${activity.slug}`} key={activity.id} aria-label={`查看${activity.title}详情`}>
+            <article className="board-card" key={activity.id}>
               <div className="board-card-tags">
                 <span className="is-category">{categoryLabel(activity.category)}</span>
                 <span>{formatLabel(activity)}</span>
                 <span>{pricingLabel(activity)}</span>
               </div>
 
-              <h3>{activity.title}</h3>
-              <p className="board-card-sub">{activity.subtitle}</p>
+              <h3 title={activity.title}>{activity.title}</h3>
+              {activity.overview && (
+                <p className={`board-card-intro${expandedIntro === activity.id ? " is-expanded" : ""}`}>
+                  <span>{activity.overview}</span>
+                  {activity.overview.length > 50 && (
+                    <button
+                      type="button"
+                      className="board-card-expand"
+                      aria-expanded={expandedIntro === activity.id}
+                      aria-label={expandedIntro === activity.id ? "收起活动介绍" : "展开活动介绍"}
+                      onClick={() => setExpandedIntro(expandedIntro === activity.id ? null : activity.id)}
+                    >
+                      {expandedIntro === activity.id ? "收起" : "展开"}
+                    </button>
+                  )}
+                </p>
+              )}
 
               <div className="board-prize">
                 <Coins size={16} />
@@ -193,8 +206,10 @@ export default function ActivityBoard({
               </dl>
 
               <p className="board-card-host">主办方 · {activity.host}</p>
-              <span className="board-card-more">查看详情 <ArrowUpRight size={15} /></span>
-            </Link>
+              <Link className="board-card-more" href={`/activities/${activity.slug}`} aria-label={`查看${activity.title}详情`}>
+                查看详情 <ArrowUpRight size={15} />
+              </Link>
+            </article>
           ))}
         </div>
       )}
