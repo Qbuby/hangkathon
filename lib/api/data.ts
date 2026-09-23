@@ -25,7 +25,7 @@ import {
   type InviteEvent,
 } from "../invites";
 import { PUBLISHED_ACTIVITIES } from "../published-activities";
-import { apiFetch, hasServerData } from "./client";
+import { ApiError, apiFetch, hasServerData } from "./client";
 
 /**
  * 页面统一从这里取数：有数据库走 API，没有就回落到 localStorage。
@@ -101,12 +101,27 @@ export async function listMyJoins(): Promise<Record<string, JoinRecord>> {
   return loadLocalJoins();
 }
 
+/**
+ * 未登录时的读接口会返回 401，这里降级成空列表：
+ * 匿名访客本来就没有作品和邀请记录，不该因此让整个详情页加载失败。
+ */
+async function optionalServerRead<T>(run: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return fallback;
+    throw error;
+  }
+}
+
 export async function listMySubmissions(activity: ActivityView): Promise<SubmissionRecord[]> {
   if (await hasServerData()) {
-    const { submissions } = await apiFetch<{ submissions: SubmissionRecord[] }>(
-      `/api/activities/${encodeURIComponent(activity.slug)}/submissions`,
-    );
-    return submissions;
+    return optionalServerRead(async () => {
+      const { submissions } = await apiFetch<{ submissions: SubmissionRecord[] }>(
+        `/api/activities/${encodeURIComponent(activity.slug)}/submissions`,
+      );
+      return submissions;
+    }, []);
   }
   return loadLocalSubmissions(activity.id);
 }
@@ -125,8 +140,10 @@ export async function submitWork(activity: ActivityView, url: string): Promise<S
 
 export async function listMyInviteEvents(): Promise<InviteEvent[]> {
   if (await hasServerData()) {
-    const { events } = await apiFetch<{ events: InviteEvent[] }>("/api/invites");
-    return events;
+    return optionalServerRead(async () => {
+      const { events } = await apiFetch<{ events: InviteEvent[] }>("/api/invites");
+      return events;
+    }, []);
   }
   return loadLocalInviteEvents();
 }
