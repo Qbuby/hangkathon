@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowUpRight, CalendarDays, Coins, MapPin } from "lucide-react";
 import { CATEGORIES, categoryLabel, formatLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
 import "./board.css";
@@ -60,6 +61,7 @@ export default function ActivityBoard({
   localCount?: number;
   action?: ReactNode;
 }) {
+  const router = useRouter();
   const [category, setCategory] = useState<string>("all");
   const [prize, setPrize] = useState<PrizeFilter>("all");
   const [format, setFormat] = useState<FormatFilter>("all");
@@ -164,7 +166,17 @@ export default function ActivityBoard({
       ) : (
         <div className="board-grid">
           {shown.map((activity) => (
-            <article className="board-card" key={activity.id}>
+            <article
+              className="board-card"
+              key={activity.id}
+              role="link"
+              tabIndex={0}
+              aria-label={`查看${activity.title}详情`}
+              onClick={() => router.push(`/activities/${activity.slug}`)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") router.push(`/activities/${activity.slug}`);
+              }}
+            >
               <div className="board-card-tags">
                 <span className="is-category">{categoryLabel(activity.category)}</span>
                 <span>{formatLabel(activity)}</span>
@@ -181,7 +193,10 @@ export default function ActivityBoard({
                       className="board-card-expand"
                       aria-expanded={expandedIntro === activity.id}
                       aria-label={expandedIntro === activity.id ? "收起活动介绍" : "展开活动介绍"}
-                      onClick={() => setExpandedIntro(expandedIntro === activity.id ? null : activity.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setExpandedIntro(expandedIntro === activity.id ? null : activity.id);
+                      }}
                     >
                       {expandedIntro === activity.id ? "收起" : "展开"}
                     </button>
@@ -206,7 +221,12 @@ export default function ActivityBoard({
               </dl>
 
               <p className="board-card-host">主办方 · {activity.host}</p>
-              <Link className="board-card-more" href={`/activities/${activity.slug}`} aria-label={`查看${activity.title}详情`}>
+              <Link
+                className="board-card-more"
+                href={`/activities/${activity.slug}`}
+                aria-label={`查看${activity.title}详情`}
+                onClick={(event) => event.stopPropagation()}
+              >
                 查看详情 <ArrowUpRight size={15} />
               </Link>
             </article>

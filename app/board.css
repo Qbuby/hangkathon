@@ -20,7 +20,8 @@
 .board-reset:hover{color:#fff}
 
 .board-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:22px}
-.board-card{display:flex;flex-direction:column;gap:14px;border:1px solid #b4d8ff2e;border-radius:14px;background:#0b2337;padding:26px;transition:border-color .2s,background .2s,transform .2s}
+.board-card{display:flex;flex-direction:column;gap:14px;border:1px solid #b4d8ff2e;border-radius:14px;background:#0b2337;padding:26px;transition:border-color .2s,background .2s,transform .2s;cursor:pointer}
+.board-card:focus-visible{outline:2px solid #54d7ff;outline-offset:3px}
 .board-card:hover{border-color:#54d7ff55;background:#0d2a41;transform:translateY(-2px)}
 .board-card-tags{display:flex;flex-wrap:wrap;gap:8px}
 .board-card-tags span{font-size:11px;letter-spacing:1px;color:#a9d8f0;border:1px solid #a9d8f040;border-radius:4px;padding:3px 9px}
