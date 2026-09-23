@@ -22,9 +22,9 @@ export default function Home() {
         <div className="sculpture-wrap">
           <BridgeScene />
         </div>
-        <div className="hero-bottom">
-          <Link className="hero-feature" href="/create"><NotebookText /><span><strong>发起活动</strong><small>发布真实挑战</small></span></Link>
-          <Link className="hero-feature" href="/activities"><UsersRound /><span><strong>共创社区</strong><small>开发者 · 企业 · 创造者</small></span></Link>
+        <div className="hero-bottom" aria-hidden="true">
+          <div className="hero-feature"><NotebookText /><span><strong>发起活动</strong><small>发布真实挑战</small></span></div>
+          <div className="hero-feature"><UsersRound /><span><strong>共创社区</strong><small>开发者 · 企业 · 创造者</small></span></div>
         </div>
       </section>
     </main>
