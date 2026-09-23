@@ -1,42 +1,42 @@
-/* 个人主页 —— 复用 detail.css 的二级页骨架（detail-page / detail-top / detail-bar / detail-placeholder）。 */
+/* 个人主页 —— 复用 detail.css 的二级页骨架（detail-page / detail-top / detail-bar / detail-placeholder）。白底明亮主题。 */
 
 .profile-body{display:flex;flex-direction:column;gap:28px;padding:40px 6% 70px;max-width:900px}
 .profile-joins-only{padding-top:6px}
-.profile-body h2{font-size:20px;font-weight:550;letter-spacing:1px;margin:0 0 16px}
+.profile-body h2{font-size:20px;font-weight:600;letter-spacing:1px;margin:0 0 16px;color:#17273a}
 
-.medal-card{border:1px solid #b4d8ff2e;border-radius:16px;background:#0b2337;padding:34px;display:flex;flex-direction:column;gap:13px}
-.medal-card h1{font-size:26px;font-weight:550;letter-spacing:1px;margin:0;color:#eaf3ff}
+.medal-card{border:1px solid #dce7f2;border-radius:16px;background:#ffffff;padding:34px;display:flex;flex-direction:column;gap:13px;box-shadow:0 2px 10px rgba(23,58,102,.05)}
+.medal-card h1{font-size:26px;font-weight:600;letter-spacing:1px;margin:0;color:#17273a}
 .medal-stars{display:flex;gap:9px}
-.medal-stars .is-on{color:#e8d16a}
-.medal-stars .is-off{color:#31465e}
-.medal-title{font-size:15px;letter-spacing:1px;color:#8fd8c4;margin:0}
+.medal-stars .is-on{color:#f0b429}
+.medal-stars .is-off{color:#dce4ee}
+.medal-title{font-size:15px;letter-spacing:1px;color:#c9952a;margin:0}
 .medal-points{display:flex;align-items:baseline;gap:10px}
-.medal-points strong{font-size:32px;font-weight:600;color:#eaf3ff;font-variant-numeric:tabular-nums}
-.medal-points span{font-size:12.5px;color:#8aa4bc;letter-spacing:1px}
+.medal-points strong{font-size:32px;font-weight:600;color:#17273a;font-variant-numeric:tabular-nums}
+.medal-points span{font-size:12.5px;color:#8fa6bb;letter-spacing:1px}
 .medal-progress{display:flex;flex-direction:column;gap:8px}
-.medal-progress p{font-size:12px;color:#8aa4bc;margin:0}
+.medal-progress p{font-size:12px;color:#8fa6bb;margin:0}
 
-.medal-demo{border:1px dashed #b4d8ff33;border-radius:16px;padding:24px 30px;display:flex;flex-direction:column;gap:12px}
-.medal-demo-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;font-size:13.5px;color:#c3d6ea}
-.medal-demo-row strong{font-weight:550;color:#eaf3ff}
+.medal-demo{border:1px dashed #c7d8e8;border-radius:16px;padding:24px 30px;display:flex;flex-direction:column;gap:12px}
+.medal-demo-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;font-size:13.5px;color:#42566b}
+.medal-demo-row strong{font-weight:600;color:#17273a}
 .medal-demo-faction{display:flex;align-items:center;gap:7px}
 .medal-demo-faction i{width:9px;height:9px;border-radius:50%}
-.medal-demo-level{color:#e8d16a}
+.medal-demo-level{color:#c9952a}
 
 .profile-join-list{display:flex;flex-direction:column;gap:10px}
-.profile-join-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto 16px;gap:13px;align-items:center;padding:15px 18px;border:1px solid #b4d8ff22;border-radius:12px;background:#0b2337;font-size:13.5px}
-.profile-join-row:hover{border-color:#54d7ff66}
-.profile-join-row strong{font-weight:550;color:#eaf3ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-join-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto 16px;gap:13px;align-items:center;padding:15px 18px;border:1px solid #dce7f2;border-radius:12px;background:#ffffff;font-size:13.5px;box-shadow:0 1px 6px rgba(23,58,102,.04);transition:border-color .15s}
+.profile-join-row:hover{border-color:#8fd0ff}
+.profile-join-row strong{font-weight:600;color:#17273a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .profile-join-faction{letter-spacing:.5px}
-.profile-join-date{font-size:12px;color:#8aa4bc;font-variant-numeric:tabular-nums}
-.profile-join-row svg{color:#8aa4bc}
-.profile-join-leader{font-style:normal;margin-left:8px;border:1px solid #e8d16a66;color:#e8d16a;border-radius:4px;padding:2px 7px;font-size:10.5px;letter-spacing:1px;vertical-align:1px}
-.profile-link{color:#8deaff}
-.profile-link:hover{color:#fff}
+.profile-join-date{font-size:12px;color:#8fa6bb;font-variant-numeric:tabular-nums}
+.profile-join-row svg{color:#8fa6bb}
+.profile-join-leader{font-style:normal;margin-left:8px;border:1px solid #e6c168;color:#c9952a;background:#fdf8ec;border-radius:5px;padding:2px 7px;font-size:10.5px;letter-spacing:1px;vertical-align:1px}
+.profile-link{color:#0aa2e0}
+.profile-link:hover{color:#1b9cfc}
 
 .profile-card{max-width:520px;width:100%;margin:70px auto;display:flex;flex-direction:column;gap:16px;align-items:flex-start;padding:0 6%}
-.profile-card h1{font-size:24px;font-weight:550;letter-spacing:1px;margin:0}
-.profile-card>p:not(.eyebrow){font-size:13.5px;line-height:1.9;color:#a9c2d9;margin:0}
+.profile-card h1{font-size:24px;font-weight:600;letter-spacing:1px;margin:0;color:#17273a}
+.profile-card>p:not(.eyebrow){font-size:13.5px;line-height:1.9;color:#7c93a8;margin:0}
 .profile-card .primary-action{align-self:flex-start}
 
 @media(max-width:760px){

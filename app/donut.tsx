@@ -38,8 +38,8 @@ export default function Donut({ slices, active, onActive }: DonutProps) {
           {segments.map((slice) => (
             <path key={slice.id} d={segmentPath(slice.start, slice.end, layout.radius, 0)}
               fill={slice.color}
-              stroke={active === slice.id ? "#eaf6ff" : "rgba(7,26,48,0.45)"}
-              strokeWidth={active === slice.id ? 1.5 : 1}
+              stroke={active === slice.id ? "#1b9cfc" : "#ffffff"}
+              strokeWidth={active === slice.id ? 2 : 1.5}
               className="donut-segment"
               style={{ opacity: active && active !== slice.id ? 0.35 : 1 }}
               role="button" tabIndex={0} aria-pressed={active === slice.id}

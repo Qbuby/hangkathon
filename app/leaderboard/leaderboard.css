@@ -1,41 +1,40 @@
-/* 排行榜 —— 复用 detail.css 的二级页骨架（detail-page / detail-top / detail-eyebrow / detail-bar）。 */
+/* 排行榜 —— 复用 detail.css 的二级页骨架（detail-page / detail-top / detail-eyebrow / detail-bar）。白底明亮主题。 */
 
-.lb-hero{padding:132px 6% 34px;border-bottom:1px solid #b4d8ff22}
-.lb-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:550;letter-spacing:1px;margin:0}
-.lb-hero-sub{font-size:14px;line-height:1.9;color:#b6cde2;margin:14px 0 0;max-width:640px}
+.lb-hero{padding:132px 6% 34px;border-bottom:1px solid #e2ecf6}
+.lb-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:600;letter-spacing:1px;margin:0;color:#17273a}
+.lb-hero-sub{font-size:14px;line-height:1.9;color:#7c93a8;margin:14px 0 0;max-width:640px}
 .lb-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:28px}
-.lb-stat{border:1px solid #b4d8ff2e;border-radius:14px;background:#0b2337;padding:20px 22px;display:flex;flex-direction:column;gap:7px}
-.lb-stat strong{font-size:clamp(20px,2vw,27px);font-weight:600;letter-spacing:.5px;color:#eaf3ff;font-variant-numeric:tabular-nums}
-.lb-stat span{font-size:12px;letter-spacing:1px;color:#8aa4bc}
+.lb-stat{border:1px solid #dce7f2;border-radius:16px;background:#ffffff;padding:20px 22px;display:flex;flex-direction:column;gap:7px;box-shadow:0 2px 10px rgba(23,58,102,.05)}
+.lb-stat strong{font-size:clamp(20px,2vw,27px);font-weight:600;letter-spacing:.5px;color:#17273a;font-variant-numeric:tabular-nums}
+.lb-stat span{font-size:12px;letter-spacing:1px;color:#8fa6bb}
 
 .lb-section{padding:36px 6% 8px}
-.lb-section h2{font-size:20px;font-weight:550;letter-spacing:1px;margin:0 0 18px}
+.lb-section h2{font-size:20px;font-weight:600;letter-spacing:1px;margin:0 0 18px;color:#17273a}
 
 .lb-faction-list{gap:2px}
 .lb-faction-row{grid-template-columns:12px minmax(0,1fr) auto auto minmax(90px,160px);padding:10px 0}
-.lb-faction-row.is-zero{opacity:.5}
-.lb-faction-row.is-zero .faction-share{color:#8aa4bc}
+.lb-faction-row.is-zero{opacity:.55}
+.lb-faction-row.is-zero .faction-share{color:#8fa6bb}
 .lb-faction-bar{margin-left:10px}
 .lb-faction-bar i{background:none}
 
-.lb-table{display:flex;flex-direction:column;border:1px solid #b4d8ff22;border-radius:14px;background:#0b2337;padding:8px 22px}
-.lb-row{display:grid;grid-template-columns:64px minmax(0,1fr) 130px 64px 100px;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid #b4d8ff18;font-size:13.5px}
+.lb-table{display:flex;flex-direction:column;border:1px solid #dce7f2;border-radius:16px;background:#ffffff;padding:8px 22px;box-shadow:0 2px 10px rgba(23,58,102,.05)}
+.lb-row{display:grid;grid-template-columns:64px minmax(0,1fr) 130px 64px 100px;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid #eef3f8;font-size:13.5px}
 .lb-row:last-child{border-bottom:0}
-.lb-table-head{font-size:11px;letter-spacing:1.5px;color:#8aa4bc;border-bottom:1px solid #b4d8ff2e}
-.lb-rank{color:#8aa4bc;font-variant-numeric:tabular-nums}
-.lb-name{font-weight:550;color:#eaf3ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lb-user-faction{display:flex;align-items:center;gap:8px;color:#c3d6ea}
+.lb-table-head{font-size:11px;letter-spacing:1.5px;color:#8fa6bb;border-bottom:1px solid #dce7f2}
+.lb-rank{color:#8fa6bb;font-variant-numeric:tabular-nums;font-weight:600}
+.lb-name{font-weight:600;color:#17273a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-user-faction{display:flex;align-items:center;gap:8px;color:#42566b}
 .lb-user-faction i{width:9px;height:9px;border-radius:50%;flex:none}
-.lb-acts{color:#8aa4bc;font-variant-numeric:tabular-nums}
-.lb-points{color:#8fd8c4;font-weight:600;font-variant-numeric:tabular-nums;justify-self:end}
+.lb-acts{color:#8fa6bb;font-variant-numeric:tabular-nums}
+.lb-points{color:#c9952a;font-weight:600;font-variant-numeric:tabular-nums;justify-self:end}
 
-
-.lb-you{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:14px;align-items:center;margin-top:12px;border:1px dashed #54d7ff55;border-radius:12px;background:#0b2337;padding:14px 20px;font-size:13.5px}
-.lb-you-tag{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:1px solid #54d7ff66;color:#8deaff;font-size:13px;font-weight:600}
+.lb-you{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:14px;align-items:center;margin-top:12px;border:1px dashed #8fd0ff;border-radius:12px;background:#f6fafd;padding:14px 20px;font-size:13.5px}
+.lb-you-tag{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:1px solid #b9dcf5;color:#0b6fa8;background:#e3f4ff;font-size:13px;font-weight:600}
 .lb-you-main{display:flex;flex-direction:column;gap:5px;min-width:0}
-.lb-you-main strong{font-weight:550;color:#eaf3ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lb-you-main span{font-size:12px;color:#8aa4bc}
-.lb-you-state{font-size:11px;letter-spacing:1px;color:#8aa4bc;border:1px solid #b4d8ff30;border-radius:4px;padding:5px 9px;white-space:nowrap}
+.lb-you-main strong{font-weight:600;color:#17273a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-you-main span{font-size:12px;color:#8fa6bb}
+.lb-you-state{font-size:11px;letter-spacing:1px;color:#8fa6bb;border:1px solid #dce7f2;border-radius:6px;padding:5px 9px;background:#fff;white-space:nowrap}
 
 @media(max-width:1050px){
   .lb-faction-row{grid-template-columns:12px minmax(0,1fr) auto auto;grid-template-areas:"dot name points share" "bar bar bar bar"}
@@ -60,6 +59,6 @@
 
 /* 区的活动数统计 */
 .district-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:0 0 12px}
-.district-stat{display:flex;align-items:center;gap:10px;border:1px solid #b4d8ff1f;border-radius:8px;padding:11px 14px;font-size:13px;color:#c3d6ea}
-.district-stat strong{color:#eaf6ff;font-weight:550}
-.district-stat span:last-child{margin-left:auto;color:#8aa4bc;font-variant-numeric:tabular-nums}
+.district-stat{display:flex;align-items:center;gap:10px;border:1px solid #e6eef6;border-radius:12px;padding:11px 14px;font-size:13px;color:#42566b;background:#fff}
+.district-stat strong{color:#17273a;font-weight:600}
+.district-stat span:last-child{margin-left:auto;color:#8fa6bb;font-variant-numeric:tabular-nums}

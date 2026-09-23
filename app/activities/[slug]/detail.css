@@ -1,106 +1,106 @@
-/* 活动详情二级页 —— 与 /create 同一套二级页骨架。 */
+/* 活动详情二级页 —— 与 /create 同一套二级页骨架。白底明亮主题：白卡 + 淡蓝 + 金点缀。 */
 
-.detail-page{min-height:100svh;background:linear-gradient(180deg,#071a30 0%,#0a2137 45%,#081c30 100%)}
-.detail-top{display:flex;align-items:center;gap:20px;padding:22px 6%;border-bottom:1px solid #b4d8ff22}
-.detail-back{display:flex;align-items:center;gap:9px;font-size:14px;color:#bcd6ee}
-.detail-back:hover{color:#fff}
-.detail-top-title{font-size:17px;letter-spacing:2px;color:#eaf3ff}
-.detail-top-note{margin-left:auto;font-size:11px;color:#a4c5df;border:1px solid #b2d9ff30;border-radius:4px;padding:6px 10px}
+.detail-page{min-height:100svh;background:linear-gradient(180deg,#ffffff 0%,#f4f9fe 45%,#eef5fc 100%)}
+.detail-top{display:flex;align-items:center;gap:20px;padding:22px 6%;border-bottom:1px solid #e2ecf6}
+.detail-back{display:flex;align-items:center;gap:9px;font-size:14px;color:#0aa2e0}
+.detail-back:hover{color:#1b9cfc}
+.detail-top-title{font-size:17px;letter-spacing:2px;color:#17273a}
+.detail-top-note{margin-left:auto;font-size:11px;color:#7c93a8;border:1px solid #dce7f2;border-radius:6px;padding:6px 10px;background:#f6fafd}
 
-.detail-hero{padding:132px 6% 34px;border-bottom:1px solid #b4d8ff22}
+.detail-hero{padding:132px 6% 34px;border-bottom:1px solid #e2ecf6}
 .detail-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
-.detail-tags span{font-size:11px;letter-spacing:1px;color:#a9d8f0;border:1px solid #a9d8f040;border-radius:4px;padding:3px 9px}
-.detail-tags .is-category{color:#8fd8c4;border-color:#8fd8c455}
-.detail-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:550;letter-spacing:1px;line-height:1.45;margin:0}
-.detail-sub{font-size:15px;line-height:1.9;color:#b6cde2;margin:14px 0 0}
-.detail-host{font-size:12.5px;letter-spacing:.5px;color:#8aa4bc;margin:16px 0 0}
-.detail-contact{font-size:12.5px;letter-spacing:.5px;color:#8aa4bc;margin:8px 0 0}
+.detail-tags span{font-size:11px;letter-spacing:1px;color:#0b6fa8;border:1px solid #b9dcf5;background:#e3f4ff;border-radius:6px;padding:3px 9px}
+.detail-tags .is-category{color:#0c7a5b;border-color:#a7e3cd;background:#e4f8f0}
+.detail-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:600;letter-spacing:1px;line-height:1.45;margin:0;color:#17273a}
+.detail-sub{font-size:15px;line-height:1.9;color:#5b6b7d;margin:14px 0 0}
+.detail-host{font-size:12.5px;letter-spacing:.5px;color:#7c93a8;margin:16px 0 0}
+.detail-contact{font-size:12.5px;letter-spacing:.5px;color:#7c93a8;margin:8px 0 0}
 
 .detail-body{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:44px;padding:40px 6% 70px;align-items:start}
 .detail-main{display:flex;flex-direction:column;gap:36px;min-width:0}
-.detail-section h2{font-size:20px;font-weight:550;letter-spacing:1px;margin:0 0 16px}
-.detail-eyebrow{font-size:10px;letter-spacing:2px;color:#8aa4bc;margin:0 0 8px}
-.detail-text{font-size:14.5px;line-height:2.05;color:#c3d6ea;margin:0;white-space:pre-wrap}
-.detail-placeholder{font-size:13px;line-height:1.85;color:#8aa4bc;margin:0 0 14px}
+.detail-section h2{font-size:20px;font-weight:600;letter-spacing:1px;margin:0 0 16px;color:#17273a}
+.detail-eyebrow{font-size:10px;letter-spacing:2px;color:#0aa2e0;margin:0 0 8px}
+.detail-text{font-size:14.5px;line-height:2.05;color:#42566b;margin:0;white-space:pre-wrap}
+.detail-placeholder{font-size:13px;line-height:1.85;color:#8fa6bb;margin:0 0 14px}
 
 .detail-criteria{display:flex;flex-direction:column;gap:14px;margin-top:14px}
 .detail-criterion{display:flex;flex-direction:column;gap:7px}
-.detail-criterion-top{display:flex;justify-content:space-between;gap:16px;font-size:13.5px;color:#dce9f8}
-.detail-criterion-top strong{font-weight:550}
-.detail-criterion-top span{color:#8fd8c4;font-size:12.5px}
-.detail-bar{height:5px;border-radius:3px;background:#b4d8ff1c;overflow:hidden}
-.detail-bar i{display:block;height:100%;background:linear-gradient(90deg,#54d7ff,#8fd8c4);border-radius:3px}
+.detail-criterion-top{display:flex;justify-content:space-between;gap:16px;font-size:13.5px;color:#42566b}
+.detail-criterion-top strong{font-weight:600;color:#17273a}
+.detail-criterion-top span{color:#c9952a;font-size:12.5px}
+.detail-bar{height:6px;border-radius:3px;background:#e3edf6;overflow:hidden}
+.detail-bar i{display:block;height:100%;background:linear-gradient(90deg,#54d7ff,#1b9cfc);border-radius:3px}
 
-.detail-awards{display:flex;flex-direction:column;border-top:1px solid #b4d8ff22;margin-bottom:14px}
-.detail-award{display:flex;align-items:baseline;gap:18px;padding:15px 0;border-bottom:1px solid #b4d8ff18;font-size:13.5px}
-.detail-award strong{font-weight:550;color:#eaf3ff;min-width:120px}
-.detail-award span{color:#8aa4bc;font-size:12.5px;flex:none}
-.detail-award p{margin:0;color:#c3d6ea}
+.detail-awards{display:flex;flex-direction:column;border-top:1px solid #e6eef6;margin-bottom:14px}
+.detail-award{display:flex;align-items:baseline;gap:18px;padding:15px 0;border-bottom:1px solid #eef3f8;font-size:13.5px}
+.detail-award strong{font-weight:600;color:#17273a;min-width:120px}
+.detail-award span{color:#c9952a;font-size:12.5px;flex:none}
+.detail-award p{margin:0;color:#42566b}
 
 .detail-chips{display:flex;flex-wrap:wrap;gap:9px}
-.detail-chips span{display:flex;align-items:center;height:32px;padding:0 15px;border:1px solid #b4d8ff2e;border-radius:20px;color:#cfe0f2;font-size:13px}
+.detail-chips span{display:flex;align-items:center;height:32px;padding:0 15px;border:1px solid #dce7f2;border-radius:20px;background:#fff;color:#42566b;font-size:13px}
 
 .detail-side{position:sticky;top:24px;display:flex;flex-direction:column;gap:18px}
-.detail-facts,.detail-join{border:1px solid #b4d8ff2e;border-radius:14px;background:#0b2337;padding:24px;display:flex;flex-direction:column;gap:14px}
-.detail-facts h2{font-size:13px;letter-spacing:2px;color:#8aa4bc;font-weight:500;margin:0}
+.detail-facts,.detail-join{border:1px solid #dce7f2;border-radius:16px;background:#ffffff;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 2px 10px rgba(23,58,102,.05)}
+.detail-facts h2{font-size:13px;letter-spacing:2px;color:#8fa6bb;font-weight:500;margin:0}
 .detail-facts dl{display:flex;flex-direction:column;gap:13px;margin:0}
 .detail-facts dl div{display:flex;justify-content:space-between;gap:14px;font-size:13px}
-.detail-facts dt{display:flex;align-items:center;gap:7px;color:#8aa4bc;flex:none}
+.detail-facts dt{display:flex;align-items:center;gap:7px;color:#8fa6bb;flex:none}
 .detail-facts dt svg{opacity:.8}
-.detail-facts dd{margin:0;color:#dce9f8;text-align:right}
-.detail-join-title{font-size:15px;font-weight:550;letter-spacing:1px;margin:0;color:#eaf3ff}
+.detail-facts dd{margin:0;color:#42566b;text-align:right}
+.detail-join-title{font-size:15px;font-weight:600;letter-spacing:1px;margin:0;color:#17273a}
 .detail-join .primary-action{width:100%;justify-content:center}
-.detail-join-note{font-size:12px;line-height:1.85;color:#8aa4bc;margin:0}
+.detail-join-note{font-size:12px;line-height:1.85;color:#8fa6bb;margin:0}
 
 .detail-notfound{padding:150px 6%;display:flex;justify-content:center}
-.detail-notfound-card{max-width:520px;width:100%;border:1px dashed #b4d8ff33;border-radius:14px;padding:48px 34px;text-align:center;display:flex;flex-direction:column;gap:16px;align-items:center}
-.detail-notfound-card h1{font-size:26px;font-weight:550;letter-spacing:1px;margin:0}
-.detail-notfound-card p:not(.eyebrow){font-size:13.5px;line-height:1.9;color:#a9c2d9;margin:0}
+.detail-notfound-card{max-width:520px;width:100%;border:1px dashed #c7d8e8;border-radius:16px;padding:48px 34px;text-align:center;display:flex;flex-direction:column;gap:16px;align-items:center;background:#fff}
+.detail-notfound-card h1{font-size:26px;font-weight:600;letter-spacing:1px;margin:0}
+.detail-notfound-card p:not(.eyebrow){font-size:13.5px;line-height:1.9;color:#7c93a8;margin:0}
 .detail-notfound-card .eyebrow{margin:0}
 
-/* 阵营贡献区块 */
+/* 战队贡献区块 */
 .faction-panel{container-type:inline-size;display:flex;flex-wrap:wrap;gap:24px;min-width:0;width:100%;align-items:center;justify-content:center}
 .faction-list{display:flex;flex-direction:column;flex:1 1 260px;min-width:min(100%,260px);max-width:100%}
 .faction-row,.faction-list-header{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(0,.7fr) 56px;gap:12px;align-items:center;width:100%;padding:10px 8px}
-.faction-list-header{border-bottom:1px solid #b4d8ff38;color:#bfd2e5;font-size:12px;text-align:right}
+.faction-list-header{border-bottom:1px solid #dce7f2;color:#8fa6bb;font-size:12px;text-align:right}
 .faction-name-heading{grid-column:1/3;text-align:left}
-.faction-row{min-height:44px;border:0;border-bottom:1px solid #b4d8ff28;background:transparent;color:#eaf3ff;text-align:left;font:inherit;font-size:13.5px;cursor:pointer}
+.faction-row{min-height:44px;border:0;border-bottom:1px solid #eef3f8;background:transparent;color:#17273a;text-align:left;font:inherit;font-size:13.5px;cursor:pointer;border-radius:8px}
 .faction-row strong,.faction-points,.faction-prize{min-width:0;overflow-wrap:anywhere}
-.faction-row:focus-visible{outline:2px solid #fff;outline-offset:2px}
-.faction-row .faction-prize{grid-column:2/-1;color:#bfd2e5}
+.faction-row:focus-visible{outline:2px solid #1b9cfc;outline-offset:2px}
+.faction-row .faction-prize{grid-column:2/-1;color:#8fa6bb}
 .faction-row:last-child{border-bottom:0}
 .faction-dot{width:10px;height:10px;border-radius:50%}
-.faction-row strong{font-weight:550;color:#dce9f8}
-.faction-points{color:#c3d6ea;font-variant-numeric:tabular-nums;justify-self:end}
-.faction-share{color:#8fd8c4;font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
-.faction-prize{color:#8aa4bc;font-size:12px;font-variant-numeric:tabular-nums;justify-self:end}
+.faction-row strong{font-weight:600;color:#17273a}
+.faction-points{color:#42566b;font-variant-numeric:tabular-nums;justify-self:end}
+.faction-share{color:#0aa2e0;font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+.faction-prize{color:#c9952a;font-size:12px;font-variant-numeric:tabular-nums;justify-self:end}
 
-/* 报名与阵营徽标 */
-.join-badge{display:flex;align-items:center;gap:9px;align-self:flex-start;border:1px solid #b4d8ff55;color:#dce9f8;border-radius:20px;padding:7px 15px;font-size:13.5px;font-weight:550}
-.join-badge-dot{width:9px;height:9px;border-radius:50%;background:#8deaff}
-.join-rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:1.7;color:#c3d6ea}
+/* 报名徽标 */
+.join-badge{display:flex;align-items:center;gap:9px;align-self:flex-start;border:1px solid #b9dcf5;color:#0b6fa8;background:#e3f4ff;border-radius:20px;padding:7px 15px;font-size:13.5px;font-weight:600}
+.join-badge-dot{width:9px;height:9px;border-radius:50%;background:#1b9cfc}
+.join-rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:1.7;color:#5b6b7d}
 
 /* 已报名面板：区长徽标、邀请链接、邀请来源 */
-.join-invitedby{font-size:12px;color:#8fd8c4;margin:0}
-.leader-invite{border:1px dashed #e8d16a55;border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:9px}
-.leader-invite-title{font-size:11px;letter-spacing:1.5px;color:#e8d16a;margin:0}
+.join-invitedby{font-size:12px;color:#c9952a;margin:0}
+.leader-invite{border:1px dashed #e6c168;border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;gap:9px;background:#fdf8ec}
+.leader-invite-title{font-size:11px;letter-spacing:1.5px;color:#c9952a;margin:0}
 .leader-invite-row{display:flex;gap:8px;align-items:stretch}
-.leader-invite-row code{flex:1;min-width:0;font-size:11px;line-height:1.6;color:#c3d6ea;background:#071a30;border:1px solid #b4d8ff22;border-radius:7px;padding:7px 10px;word-break:break-all}
-.leader-invite-row button{flex:none;border:1px solid #e8d16a66;border-radius:7px;background:transparent;color:#e8d16a;font-size:12px;letter-spacing:1px;padding:0 14px;cursor:pointer}
-.leader-invite-row button:hover{background:#e8d16a14}
-.leader-invite-note{font-size:11.5px;line-height:1.7;color:#8aa4bc;margin:0}
+.leader-invite-row code{flex:1;min-width:0;font-size:11px;line-height:1.6;color:#42566b;background:#fff;border:1px solid #e6dcae;border-radius:8px;padding:7px 10px;word-break:break-all}
+.leader-invite-row button{flex:none;border:1px solid #e6c168;border-radius:8px;background:transparent;color:#c9952a;font-size:12px;letter-spacing:1px;padding:0 14px;cursor:pointer}
+.leader-invite-row button:hover{background:#f7ecd2}
+.leader-invite-note{font-size:11.5px;line-height:1.7;color:#8a7a55;margin:0}
 
 /* 邀请横幅 */
-.invite-banner{margin:0 6%;margin-top:26px;border:1px solid #e8d16a55;border-radius:14px;background:linear-gradient(180deg,#1a2c1a00,#e8d16a0a),#0b2337;padding:22px 26px;display:flex;flex-direction:column;gap:10px}
-.invite-banner-title{font-size:16px;color:#eaf3ff;margin:0}
-.invite-banner-title strong{color:#e8d16a}
-.invite-banner-sub{font-size:12.5px;line-height:1.8;color:#a9c2d9;margin:0}
+.invite-banner{margin:0 6%;margin-top:26px;border:1px solid #e6c168;border-radius:16px;background:linear-gradient(180deg,#fffdf5,#fdf8ec);padding:22px 26px;display:flex;flex-direction:column;gap:10px}
+.invite-banner-title{font-size:16px;color:#17273a;margin:0}
+.invite-banner-title strong{color:#c9952a}
+.invite-banner-sub{font-size:12.5px;line-height:1.8;color:#7c93a8;margin:0}
 .invite-banner-actions{display:flex;gap:12px;margin-top:4px}
-.invite-accept{height:44px;padding:0 26px;border:0;border-radius:40px;background:#f1f7ff;color:#082b64;font-size:14.5px;letter-spacing:1px;font-weight:600;cursor:pointer}
-.invite-accept:hover{background:#fff}
-.invite-refuse{height:44px;padding:0 26px;border:1px solid #d7eaffb0;border-radius:40px;background:transparent;color:#f1f7ff;font-size:14.5px;letter-spacing:1px;cursor:pointer}
-.invite-refuse:hover{background:#c7e6ff12}
-.invite-login p{font-size:13px;color:#dce9f8;margin:0 0 10px}
+.invite-accept{height:44px;padding:0 26px;border:0;border-radius:40px;background:linear-gradient(92deg,#3ec2f7,#1b9cfc);color:#fff;font-size:14.5px;letter-spacing:1px;font-weight:600;cursor:pointer;box-shadow:0 3px 12px #1b9cfc33}
+.invite-accept:hover{background:linear-gradient(92deg,#54d7ff,#2fa8f9)}
+.invite-refuse{height:44px;padding:0 26px;border:1px solid #c7e2f5;border-radius:40px;background:#fff;color:#42566b;font-size:14.5px;letter-spacing:1px;cursor:pointer}
+.invite-refuse:hover{background:#f3f9ff}
+.invite-login p{font-size:13px;color:#42566b;margin:0 0 10px}
 .invite-login .provider-list{margin-bottom:0}
 .invite-refuse-quiet{height:38px;margin-top:10px;padding:0 20px;font-size:13px}
 
@@ -124,28 +124,27 @@
   .detail-notfound{padding:56px 6%}
   .faction-panel{flex-direction:column;gap:22px}
   .faction-list{flex-basis:auto;width:100%}
-  .join-dialog .join-factions{grid-template-columns:repeat(2,minmax(0,1fr))}
   .invite-banner{margin:18px 6% 0;padding:18px 20px}
   .invite-banner-actions{flex-direction:column}
   .invite-accept,.invite-refuse{width:100%}
   .leader-invite-row{flex-direction:column}
   .leader-invite-row button{height:36px}
 }
-.faction-row.is-active{background:#b4d8ff14;box-shadow:inset 3px 0 #dce9f8}
+.faction-row.is-active{background:#e3f4ff;box-shadow:inset 3px 0 #1b9cfc}
 .faction-chart{flex:0 0 580px;width:580px;max-width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
 .donut-wrap{position:relative;flex:0 0 auto;margin:0;min-width:0;width:100%}
 .donut-ring{position:absolute;inset:0;display:block;width:100%;height:100%}
 .donut-segment{cursor:pointer;pointer-events:fill;transition:opacity .15s}
-.donut-segment:focus-visible{outline:none;stroke:#eaf6ff;stroke-width:2;filter:drop-shadow(0 0 3px #fff)}
+.donut-segment:focus-visible{outline:none;stroke:#1b9cfc;stroke-width:2;filter:drop-shadow(0 0 3px #1b9cfc66)}
 .donut-leader{pointer-events:none}
-.donut-label{position:absolute;min-height:44px;padding:2px 0;border:0;border-radius:4px;background:transparent;color:#dce9f8;font:inherit;font-size:13px;line-height:20px;text-align:center;cursor:pointer}
+.donut-label{position:absolute;min-height:44px;padding:2px 0;border:0;border-radius:6px;background:transparent;color:#17273a;font:inherit;font-size:13px;line-height:20px;text-align:center;cursor:pointer}
 .donut-label-name{display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
 .donut-label-name i{display:block;width:7px;height:7px;border-radius:50%;flex:none}
-.donut-label-share{display:block;font-variant-numeric:tabular-nums;color:#c3d6ea}
-.donut-label.is-active{background:#b4d8ff20;box-shadow:inset 0 0 0 1px #b4d8ff66;color:#fff}
-.donut-label:focus-visible{outline:2px solid #fff;outline-offset:1px}
-.donut-total{position:static;transform:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:#c3d6ea;font-size:13px;text-align:center;pointer-events:none}
-.donut-total strong{max-width:100%;overflow-wrap:anywhere;color:#f4f8ff;font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
+.donut-label-share{display:block;font-variant-numeric:tabular-nums;color:#7c93a8}
+.donut-label.is-active{background:#e3f4ff;box-shadow:inset 0 0 0 1px #8fd0ff;color:#0b6fa8}
+.donut-label:focus-visible{outline:2px solid #1b9cfc;outline-offset:1px}
+.donut-total{position:static;transform:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:#7c93a8;font-size:13px;text-align:center;pointer-events:none}
+.donut-total strong{max-width:100%;overflow-wrap:anywhere;color:#17273a;font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
 @container(max-width:863px){
   .faction-chart{flex-basis:auto;width:100%}
   .faction-list{flex-basis:100%}
@@ -164,33 +163,31 @@
 
 /* 作品提交：抖音视频分享链接 */
 .submit-form{display:flex;gap:10px;margin:0 0 12px}
-.submit-input{flex:1;min-width:0;height:44px;padding:0 14px;border:1px solid #b4d8ff2e;border-radius:8px;background:#0d2138;color:#eaf6ff;font:inherit;font-size:13.5px;outline:none}
-.submit-input::placeholder{color:#5f7d99}
-.submit-input:focus{border-color:#5eb1ff}
-.submit-input[aria-invalid="true"]{border-color:#ff8f8f}
+.submit-input{flex:1;min-width:0;height:44px;padding:0 14px;border:1px solid #cfe0ef;border-radius:10px;background:#fff;color:#17273a;font:inherit;font-size:13.5px;outline:none;transition:border-color .15s,box-shadow .15s}
+.submit-input::placeholder{color:#9db2c4}
+.submit-input:focus{border-color:#1b9cfc;box-shadow:0 0 0 3px #1b9cfc1f}
+.submit-input[aria-invalid="true"]{border-color:#e5484d}
 .submit-form .primary-action{height:44px;padding:0 20px;white-space:nowrap;flex:none}
-.submit-error{margin:-4px 0 12px;font-size:13px;color:#ff9f9f}
-.submit-ok{margin:-4px 0 12px;font-size:13px;color:#7ee0a3}
+.submit-error{margin:-4px 0 12px;font-size:13px;color:#e5484d}
+.submit-ok{margin:-4px 0 12px;font-size:13px;color:#1e9e5a}
 .submit-list{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:8px}
-.submit-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid #b4d8ff1f;border-radius:8px;font-size:13px}
-.submit-list a{color:#8fd0ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.submit-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid #e6eef6;border-radius:10px;font-size:13px;background:#fff}
+.submit-list a{color:#0aa2e0;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .submit-list a:hover{text-decoration:underline}
-.submit-list span{color:#8aa4bc;flex:none;font-variant-numeric:tabular-nums}
+.submit-list span{color:#8fa6bb;flex:none;font-variant-numeric:tabular-nums}
 @container(max-width:560px){
   .submit-form{flex-direction:column}
   .submit-form .primary-action{width:100%;justify-content:center}
 }
 
-/* 数字区长结算 */
+/* 区长结算 */
 .leader-board{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
-.leader-board-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #b4d8ff1f;border-radius:8px;font-size:13px;color:#c3d6ea}
-.leader-board-row strong{color:#eaf6ff;font-weight:550}
-.leader-board-name{margin-left:auto;color:#8fd0ff}
-
-/* 自建阵营：报名弹窗里的创建输入块 */
+.leader-board-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #e6eef6;border-radius:10px;font-size:13px;color:#42566b;background:#fff}
+.leader-board-row strong{color:#17273a;font-weight:600}
+.leader-board-name{margin-left:auto;color:#0aa2e0}
 
 /* 活动所属区展示 */
 .fact-district{display:inline-flex;align-items:center;gap:6px}
 .fact-district i{display:inline-block;width:8px;height:8px;border-radius:50%}
-.join-district{display:flex;align-items:center;gap:6px;margin:10px 0 0;font-size:13px;color:#c3d6ea}
+.join-district{display:flex;align-items:center;gap:6px;margin:10px 0 0;font-size:13px;color:#42566b}
 .join-district i{display:inline-block;width:8px;height:8px;border-radius:50%}
