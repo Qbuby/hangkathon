@@ -8,7 +8,9 @@ import ts from "typescript";
 // 直接测生产代码，不额外加运行时依赖（与 douyin-url.test.mjs 同一套做法）。
 const source = readFileSync(new URL("../lib/server/douyin.ts", import.meta.url), "utf8");
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
-const { readMetrics } = await import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
+const { readMetrics, fetchWorkMetrics } = await import(
+  `data:text/javascript;base64,${Buffer.from(js).toString("base64")}`
+);
 
 const SCRIPT_DIR = fileURLToPath(new URL("./douyin/", import.meta.url));
 
@@ -71,6 +73,20 @@ test("counts are real numbers or absent; 0 is kept", () => {
   assert.equal(metrics.shareCount, undefined);
   assert.equal(metrics.caption, undefined, "空文案当缺席，页面才不用判断空字符串");
   assert.ok(metrics.fetchedAt, "缺 fetchedAt 时补当前时间");
+});
+
+// 没有脚本（没装 python、或这个部署根本没放脚本）必须是一条 error，不是异常：
+// 提交路由在它之后才返回 201，抛出去就等于「抓不到数据所以提交失败」。
+test("a missing fetch script is a missing feature, not a crash", async () => {
+  const previous = process.env.DOUYIN_FETCH_SCRIPT;
+  process.env.DOUYIN_FETCH_SCRIPT = "/nonexistent/fetch.py";
+  try {
+    const result = await fetchWorkMetrics("https://www.douyin.com/video/7301234567890123456");
+    assert.equal(result.error, "这个部署没有启用作品数据抓取");
+  } finally {
+    if (previous === undefined) delete process.env.DOUYIN_FETCH_SCRIPT;
+    else process.env.DOUYIN_FETCH_SCRIPT = previous;
+  }
 });
 
 // 跨语言的那一半：脚本 shape() 吐出来的字段名必须和 readMetrics 读的字段名一致。
