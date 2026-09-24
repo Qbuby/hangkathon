@@ -26,7 +26,10 @@ ENV HOSTNAME=0.0.0.0
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 # 作品数据抓取是 scripts/douyin/fetch.py 起的子进程，所以要一个 python3。
 # 只用标准库（签名实现是 vendor 进来的），所以不需要 pip、不需要装任何包。
-RUN apk add --no-cache python3
+# apk 必须换阿里云源：这台机器直连 dl-cdn.alpinelinux.org 每个请求要 4 秒，
+# 装 python3 会卡到十几分钟（实测），换源后是秒级。
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories \
+ && apk add --no-cache python3
 # standalone 不会自带 public 与 static，必须手动搬过来
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
