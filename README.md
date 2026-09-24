@@ -101,7 +101,7 @@ Project → Settings → Environment Variables，把上面几个变量加到 Pro
 
 用户最新提供的蓝金色杭州参考图（hangzhou-upgrade-reference.png）用于桥体投影材质及局部背景。`public/assets/hangzhou-upgrade-background.png` 为基于同一参考图清除界面与桥体后的背景图。桥为实时三维网格；远景为图片；水面交互为实时着色器。
 
-导航品牌图与浏览器图标来自用户单独提供的「杭客松 Hangkathon」Logo，派生为 `public/brand/` 下的独立透明资源，不再从参考图坐标裁片。
+导航品牌图与浏览器图标来自用户单独提供的「杭客松 Hangkathon」Logo，派生为 `public/brand/` 下的独立透明资源，不再从参考图坐标裁片。顶栏用两版：首页顶栏透明、叠在深色 hero 上，用银色原稿 `hangkathon-logo.png`；二级页是白底，用深墨绿版 `hangkathon-logo-teal.png`（由 `scripts/derive-header-wordmark.py` 从 `hangkathon-logo-teal-source.png` 紧裁派生，白底对比度约 5.7）。
 
 ## 范围
 

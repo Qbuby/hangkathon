@@ -1,5 +1,12 @@
 # 杭客松首页升级 — Design QA
 
+## 二级页 wordmark 换成深墨绿新稿 — 2026-09-24
+
+- The user supplied a new artwork and asked for it on every non-homepage page. The file is 1536 × 1024 RGBA with a **fully transparent** plate (the white I first saw was the composite), holding a dark-teal lockup — typography and outlines in `#002020` over a pale-mint gradient bridge — plus a water reflection below the mark.
+- Added `scripts/derive-header-wordmark.py`, which stores the supplied plate as `public/brand/hangkathon-logo-teal-source.png` and derives the header wordmark `public/brand/hangkathon-logo-teal.png`: it zeroes the alpha=1 compression halo, crops just above the reflection, and resizes through premultiplied alpha with the colour untouched (the artwork is already dark ink, so the luminance remap that produced the old navy twin would have been wrong).
+- **The reflection was the one real judgement call.** Measured on the mark's column band, alpha holds ~240 down to the water line at y≈745 then decays 224 → 196 → 154 → 96 into the mirror below, and the text block ends at y≈728 — so the reflection is a half-height copy of the mark. Three crops were rendered at the real 68px header height side by side: the current navy twin (203 × 68), the new artwork without the reflection (212 × 68), and with it (170 × 68, leaving the mark about 34px). The middle one wins on legibility, and its 3.11 ratio sits close enough to the old 2.99 that the header does not move. The comparison variant is written to the OS temp dir, not into the repo.
+- Verified: the derived file is 1400 × 450, median composited colour `(63,112,87)` at a **5.71** contrast ratio against white (the silver original it replaces sat at 1.42, and the navy twin at 4.52); it renders 212 × 68 in the header, within 4% of the previous width, so nothing shifts. The homepage keeps the silver original over the hero, unchanged. ESLint 0/0, tsc clean, both build targets passed.
+
 ## 阿里云自托管部署与 CI — 2026-09-24
 
 - 在用户那台轻量应用服务器（cn-shanghai，Alibaba Cloud Linux 3，2C2G/40G）上做了一份**独立于 Vercel** 的部署：`Dockerfile` 多阶段构建出 Next.js standalone，`docker-compose.yml` 以 `3210:3000` 暴露、`restart: unless-stopped`、带容器级健康检查。`next.config.ts` 只在 `DOCKER_BUILD=1` 时开 `output: "standalone"`，所以 Vercel 与 Cloudflare 两个构建目标完全不受影响。该机器上原本跑着宝塔面板(21077)、nginx(80/888)、PostgreSQL(5432)，部署只占用 3210。

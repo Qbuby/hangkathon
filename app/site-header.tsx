@@ -15,16 +15,17 @@ export default function SiteHeader({ transparent = false }: { transparent?: bool
     { href: "/activities", label: "活动" },
     { href: "/leaderboard", label: "排行榜" },
   ];
-  // 两版 wordmark 同尺寸同 alpha：银色原稿是给深色 hero 画的，压在白底上只有 1.4 的
-  // 对比度，所以二级页用深色版（派生方式见 scripts/derive-dark-wordmark.py）。
-  const logoSrc = transparent ? "/brand/hangkathon-logo.png" : "/brand/hangkathon-logo-dark.png";
+  // 两版 wordmark：首页用银色原稿（叠在深色 hero 上，二级页用它会糊）；二级页用深墨绿版，
+  // 它在白底上对比度约 5.7，派生方式见 scripts/derive-header-wordmark.py。
+  const logoSrc = transparent ? "/brand/hangkathon-logo.png" : "/brand/hangkathon-logo-teal.png";
+  const logoHeight = transparent ? 468 : 450;
 
   return (
     <header
       className={transparent ? "site-header is-transparent" : "site-header"}
       style={transparent ? { background: "transparent", backdropFilter: "none", borderBottomColor: "transparent", mixBlendMode: "lighten" } : undefined}
     >
-      <Link href="/" className="wordmark" aria-label="杭客松首页"><Image className="wordmark-image" src={logoSrc} alt="杭客松 Hangkathon" width={1400} height={468} priority draggable={false} /></Link>
+      <Link href="/" className="wordmark" aria-label="杭客松首页"><Image className="wordmark-image" src={logoSrc} alt="杭客松 Hangkathon" width={1400} height={logoHeight} priority draggable={false} /></Link>
       <nav aria-label="主导航">
         {navItems.map((item) => (
           <Link key={item.href} href={item.href}>{item.label}</Link>
