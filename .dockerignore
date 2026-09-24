@@ -10,3 +10,6 @@ docs
 tsconfig.tsbuildinfo
 .env
 .env.*
+# python 字节码：抓取脚本在镜像里由 python3 现解释，带上编译产物没有意义
+__pycache__
+*.pyc

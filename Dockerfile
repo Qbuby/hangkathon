@@ -24,6 +24,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+# 作品数据抓取是 scripts/douyin/fetch.py 起的子进程，所以要一个 python3。
+# 只用标准库（签名实现是 vendor 进来的），所以不需要 pip、不需要装任何包。
+RUN apk add --no-cache python3
 # standalone 不会自带 public 与 static，必须手动搬过来
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -32,6 +35,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/db/migrate.mjs ./db/migrate.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/deploy/entrypoint.sh ./entrypoint.sh
+# 抓取脚本由服务端按路径起子进程调用，不进 bundle，必须显式搬。
+# 路径与 lib/server/douyin.ts 的默认值一致（process.cwd() 就是 /app）。
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/douyin ./scripts/douyin
 # 应用自身把驱动内联进了 server chunk，但迁移脚本是独立 node 进程，需要真实的包
 # （这两个包都没有任何运行时依赖，拷贝代价很小）
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/drizzle-orm ./node_modules/drizzle-orm

@@ -3,8 +3,10 @@
 目标：用户在杭客松提交一条抖音作品分享链接后，平台能显示这条作品的**文案**与
 **点赞 / 评论 / 转发 / 收藏数**。
 
-**现状（2026-09-24）**：抓取已经跑通，代码在 `scripts/douyin/`（见该目录的 `vendor/README.md`）。
-**还没有接进产品** —— 提交表单目前只存链接，不存指标。接入点见本文最后。
+**现状（2026-09-24）**：抓取已跑通并**已接进产品**，代码在 `scripts/douyin/`（见该目录的
+`vendor/README.md`）。提交作品时服务端顺手抓一次，详情页显示文案与互动数，**只有提交者本人
+能看到**（沿用提交记录本身的隐私语义）。Vercel 那份没有数据库、也没有 python，所以那边
+提交照旧只存链接、不显示指标。
 
 ## 结论（先看这段）
 
@@ -113,26 +115,36 @@ B 组全过说明**不需要身份池**——每次请求现造一个身份就�
    已知链接的健康检查。
 5. **留一条下架通道**。如果被要求删除某条作品的数据，要能一条命令删掉。
 
-## 代码接入点（真正动手时改这些地方）
+## 已经接入的部分（2026-09-24）
 
-1. `lib/submission.ts`：`SubmissionRecord` 扩成
-   `{ url, submittedAt, caption?, diggCount?, commentCount?, shareCount?, collectCount?, fetchedAt? }`，
-   容错读老记录（老记录没有这些字段也要能读，现在 localStorage 里已经有数据了）。
-2. `db/schema.ts` 的 `submissions` 表加同名可空列 + 一条 drizzle 迁移。
-3. 提交路由 `app/api/activities/[slug]/submissions/route.ts`：入库后起子进程抓一次，
-   抓到就写指标，抓不到就留空并**照常返回 201**（抓取失败不该让用户提交不了）。
-4. 新增 `app/api/activities/[slug]/submissions/refresh/route.ts`：手动刷新单条。
-   **不要自动轮询**，省调用也省风控。
-5. 详情页「作品提交」列表：每条行内显示文案摘要 + 点赞/评论/转发，加「刷新数据」按钮。
-   注意现在提交是**只有本人可见**（`listSubmissions(activityId, userId)`），
-   指标默认也就只有本人可见——要变成评审/榜单可见，得先决定这件事（见下）。
-6. 保留手动填写作为兜底：抓取失败时允许用户自己填数字并附截图。
-7. 统一 `README.md` 的口径：`README.md` 写着「创建流程里没有任何要求填写外部网址的字段」，
-   但详情页已经有抖音链接提交表单了。这条要么改文档、要么改产品，不能两存。
+1. `lib/submission.ts`：`SubmissionRecord` 加了可选指标字段，`loadSubmissions` 的校验仍只要求
+   `url` + `submittedAt`，所以 localStorage 里的老记录照旧能读。
+2. `db/schema.ts` 的 `submissions` 表加了 9 个可空列（`aweme_id`、`caption`、`author_name`、
+   四个 count、`fetched_at`、`metrics_error`），迁移是 `drizzle/0001_slim_shinko_yamashiro.sql`
+   ——**纯新增可空列**，对已有数据无影响。
+3. `lib/server/douyin.ts`：起子进程跑 `scripts/douyin/fetch.py`（12 秒上限），把 stdout 的 JSON
+   读成指标。**没有 python 或没有脚本不是错误**，只是返回 error，让提交照常成立。
+4. `lib/server/work-metrics.ts`：`captureMetrics()` **永不抛异常**。作品在抓取之前就已经入库，
+   抓不到、写不进去都只该让这条记录少几个字段。
+5. 提交路由入库后调 `captureMetrics`，成功就把带指标的记录返回，**失败也照常 201**。
+6. 新增 `POST /api/activities/[slug]/submissions/refresh`，按 `url` 手动刷新。
+   **刻意不做自动轮询**。这个接口只允许刷新「自己的、已经提交过的」链接——否则它就是一个
+   拿我们的服务器去抓任意抖音链接的代理。
+7. 详情页每条提交显示作者、文案（两行截断）、点赞/评论/转发/收藏（过万折成「万」），
+   加「刷新数据」按钮与抓取时间；抓取失败时显示原因而不是空白。
+8. `Dockerfile`：runner 阶段 `apk add --no-cache python3` 并把 `scripts/douyin` 搬进镜像
+   （`process.cwd()` 在 standalone 里就是 `/app`，与 `lib/server/douyin.ts` 的默认路径一致）。
+9. 测试 `scripts/douyin-metrics.test.mjs`：读指标的失败路径，外加一条**跨语言契约测试**——
+   真的跑一遍 `fetch.py` 的 `shape()`，把它的输出喂给 `readMetrics`，两边字段名对不上就红。
+
+仍然没做的：**手动填写 + 截图佐证**这条兜底路径（第 6 条原来提的）。现在抓取失败只显示原因，
+用户没法自己补数字。要做的话是另一件事。
 
 ## 待你决定
 
-- **指标给谁看**：现在提交记录是「只有本人可见」。作品指标要不要给评审 / 榜单看？
-  这件事会决定第 5 步怎么改（也牵动现在还是空的贡献/榜单那条线）。
+- **指标要不要给评审 / 榜单看**：现在**暂时按本人可见**做的（沿用提交记录本身的隐私语义）。
+  要改成评审/榜单可见，得先想清楚这是不是「流量逻辑带偏评审」——这也牵动现在还是空的
+  贡献/榜单那条线。
 - **是否接受「绕过反爬」这一法律前提**；若不接受，就只能走**手动填写 + 截图**或**官方 OAuth**。
-- **抓取放在哪**：进应用镜像（`apk add python3`，简单）还是放宿主机（镜像不变，多一层调用）。
+- 统一 `README.md` 的口径：`README.md` 写着「创建流程里没有任何要求填写外部网址的字段」，
+  但详情页已经有抖音链接提交表单了。这条要么改文档、要么改产品，不能两存。

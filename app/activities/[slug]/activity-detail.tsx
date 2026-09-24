@@ -39,6 +39,7 @@ import {
   listMyInviteEvents,
   listMySubmissions,
   recordInvite,
+  refreshSubmission,
   submitWork as submitWorkRemote,
 } from "@/lib/api/data";
 import { hasServerData } from "@/lib/api/client";
@@ -71,6 +72,11 @@ function shortenUrl(url: string) {
   return text.length > 52 ? `${text.slice(0, 52)}…` : text;
 }
 
+/** 抖音的互动数动辄六位，用「万」比一串数字好读。 */
+function formatCount(value: number): string {
+  return value >= 10000 ? `${(value / 10000).toFixed(1)}万` : String(value);
+}
+
 export default function ActivityDetail({ slug, initial }: { slug: string; initial: Activity | null }) {
   const [activity, setActivity] = useState<Activity | null>(initial);
   const [resolved, setResolved] = useState(false);
@@ -86,6 +92,8 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  /** 正在刷新的那条作品链接（一次只刷一条，按钮上转圈用）。 */
+  const [refreshingUrl, setRefreshingUrl] = useState<string | null>(null);
   const [mode, setMode] = useState<"local" | "server">("local");
 
   // 入场动效：标签行 → 标题 → 各区块依次淡入上移。活动数据要等 effect 读出来再播。
@@ -290,6 +298,19 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       setSubmitError(error instanceof Error ? error.message : "提交失败，请稍后重试。");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  /** 刷新一条作品的数据。抖音的数字会变，所以给手动按钮而不是轮询。 */
+  async function refreshWork(url: string) {
+    if (!activity || refreshingUrl) return;
+    setRefreshingUrl(url);
+    try {
+      setSubmissions(await refreshSubmission(activity, url));
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "刷新失败，请稍后重试。");
+    } finally {
+      setRefreshingUrl(null);
     }
   }
 
@@ -515,8 +536,41 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                     <ul className="submit-list" ref={submitListRef}>
                       {submissions.map((record, index) => (
                         <li key={`${record.submittedAt}-${index}`}>
-                          <a href={record.url} target="_blank" rel="noopener noreferrer">{shortenUrl(record.url)}</a>
-                          <span>{new Date(record.submittedAt).toLocaleString("zh-CN")}</span>
+                          <div className="submit-head">
+                            <a href={record.url} target="_blank" rel="noopener noreferrer">{shortenUrl(record.url)}</a>
+                            <span>{new Date(record.submittedAt).toLocaleString("zh-CN")}</span>
+                          </div>
+                          {record.caption && (
+                            <p className="submit-caption">
+                              {record.authorName && <strong>{record.authorName}</strong>}
+                              {record.caption}
+                            </p>
+                          )}
+                          {(record.diggCount !== undefined || record.commentCount !== undefined) && (
+                            <p className="submit-metrics">
+                              {record.diggCount !== undefined && <span>点赞 <b>{formatCount(record.diggCount)}</b></span>}
+                              {record.commentCount !== undefined && <span>评论 <b>{formatCount(record.commentCount)}</b></span>}
+                              {record.shareCount !== undefined && <span>转发 <b>{formatCount(record.shareCount)}</b></span>}
+                              {record.collectCount !== undefined && <span>收藏 <b>{formatCount(record.collectCount)}</b></span>}
+                            </p>
+                          )}
+                          {mode === "server" && (
+                            <p className="submit-foot">
+                              <span>
+                                {record.fetchedAt
+                                  ? `数据抓取于 ${new Date(record.fetchedAt).toLocaleString("zh-CN")}`
+                                  : record.metricsError ?? "还没有抓到作品数据"}
+                              </span>
+                              <button
+                                type="button"
+                                className="submit-refresh"
+                                disabled={refreshingUrl !== null}
+                                onClick={() => void refreshWork(record.url)}
+                              >
+                                {refreshingUrl === record.url ? "刷新中…" : "刷新数据"}
+                              </button>
+                            </p>
+                          )}
                         </li>
                       ))}
                     </ul>

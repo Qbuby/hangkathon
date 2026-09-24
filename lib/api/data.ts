@@ -138,6 +138,21 @@ export async function submitWork(activity: ActivityView, url: string): Promise<S
   return list[list.length - 1];
 }
 
+/**
+ * 手动刷新一条提交的作品数据，返回刷新后的整份列表。
+ * localStorage 那份没有抓取（也就没有指标），原样返回即可。
+ */
+export async function refreshSubmission(activity: ActivityView, url: string): Promise<SubmissionRecord[]> {
+  if (await hasServerData()) {
+    const { submissions } = await apiFetch<{ submissions: SubmissionRecord[] }>(
+      `/api/activities/${encodeURIComponent(activity.slug)}/submissions/refresh`,
+      { method: "POST", body: JSON.stringify({ url }) },
+    );
+    return submissions;
+  }
+  return loadLocalSubmissions(activity.id);
+}
+
 export async function listMyInviteEvents(): Promise<InviteEvent[]> {
   if (await hasServerData()) {
     return optionalServerRead(async () => {

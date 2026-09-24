@@ -1,9 +1,24 @@
 /**
- * 作品提交：本机存储的抖音视频分享链接，按活动分组。
+ * 作品提交：抖音视频分享链接，按活动分组。
  * 校验只认抖音系域名；提交入口在活动接受「演示视频」时出现。
+ * 作品数据（文案与互动数）由服务端抓取，抓不到时这几个字段就缺席。
  */
 
-export type SubmissionRecord = { url: string; submittedAt: string };
+export type SubmissionRecord = {
+  url: string;
+  submittedAt: string;
+  /** 抓到的作品数据；没抓到就没有这些字段，页面要按缺席渲染。 */
+  awemeId?: string;
+  caption?: string;
+  authorName?: string;
+  diggCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  collectCount?: number;
+  fetchedAt?: string;
+  /** 抓取失败的一句话原因，给用户看。 */
+  metricsError?: string;
+};
 
 const SUBMISSIONS_KEY = "hangkathon.submissions.v1";
 

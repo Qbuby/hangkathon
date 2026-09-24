@@ -72,6 +72,19 @@ export const submissions = pgTable("submissions", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+  /**
+   * 作品数据由 scripts/douyin/fetch.py 抓取，全部可空：
+   * 抓取失败（或这个部署没装 python）只写 metricsError，提交本身照样成立。
+   */
+  awemeId: text("aweme_id"),
+  caption: text("caption"),
+  authorName: text("author_name"),
+  diggCount: integer("digg_count"),
+  commentCount: integer("comment_count"),
+  shareCount: integer("share_count"),
+  collectCount: integer("collect_count"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }),
+  metricsError: text("metrics_error"),
 }, (table) => [index("submissions_activity_user_idx").on(table.activityId, table.userId)]);
 
 export const inviteEvents = pgTable("invite_events", {

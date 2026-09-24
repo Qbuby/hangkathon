@@ -4,6 +4,7 @@ import { getActivityBySlug } from "@/lib/server/activities";
 import { databaseRequired, handleRouteError, jsonError } from "@/lib/server/http";
 import { addSubmission, listSubmissions } from "@/lib/server/submissions";
 import { requireUser } from "@/lib/server/users";
+import { captureMetrics } from "@/lib/server/work-metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
       return jsonError(400, "请输入有效的抖音视频分享链接，如 https://v.douyin.com/xxxx 或 https://www.douyin.com/video/数字ID");
     }
     const submission = await addSubmission(activity.id, user.id, normalizeUrl(url));
-    return NextResponse.json({ submission }, { status: 201 });
+    // 入库之后再抓数据，所以抓取失败不影响这次提交的成功。
+    const withMetrics = await captureMetrics(activity.id, user.id, submission.url);
+    return NextResponse.json({ submission: withMetrics ?? submission }, { status: 201 });
   } catch (error) {
     return handleRouteError(error);
   }
