@@ -47,3 +47,7 @@ next-env.d.ts
 /work/
 
 *.tsbuildinfo
+
+# python bytecode (scripts/douyin runs python, nothing else does)
+__pycache__/
+*.pyc
