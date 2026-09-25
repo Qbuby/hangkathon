@@ -1,4 +1,5 @@
 import { and, asc, gte, lt, lte, or, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/db";
 import {
   WINDOW_FUTURE_DAYS,
@@ -94,8 +95,7 @@ export async function listExternalEvents(): Promise<ExternalEvent[]> {
   const now = new Date();
   const past = new Date(now.getTime() - WINDOW_PAST_DAYS * DAY_MS);
   const future = new Date(now.getTime() + WINDOW_FUTURE_DAYS * DAY_MS);
-  const endsSoon = (column: typeof schema.externalEvents.endsAt) =>
-    and(gte(column, now), lte(column, future));
+  const endsSoon = (column: AnyPgColumn) => and(gte(column, now), lte(column, future));
   const rows = await db
     .select()
     .from(schema.externalEvents)
