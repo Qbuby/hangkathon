@@ -114,7 +114,8 @@ export async function listExternalEvents(): Promise<ExternalEvent[]> {
 /** 过期清理：整场活动（结束/截止/开始取最晚的）过去两周、或两周没被任何一轮抓取再见到，删掉。 */
 export async function cleanupExternalEvents(): Promise<number> {
   const db = getDb();
-  const cutoff = new Date(Date.now() - 14 * DAY_MS);
+  // raw sql 模板里的参数要走 ISO 字符串：Date 直接绑定会被驱动序列化成不可比较的格式
+  const cutoff = new Date(Date.now() - 14 * DAY_MS).toISOString();
   const staleSeen = new Date(Date.now() - 14 * DAY_MS);
   const gone = await db
     .delete(schema.externalEvents)
