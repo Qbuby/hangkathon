@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import type { Activity, Award, Category, Criterion, JoinPolicy, Judging, Visibility } from "@/lib/activity";
@@ -92,7 +92,36 @@ export async function ensureSeed() {
         emailDomain: activity.emailDomain,
         seeded: true,
       })
-      .onConflictDoNothing({ target: schema.activities.slug });
+      // 预置活动是平台内容：部署时以代码为准覆盖同名 slug 的行，文案修正会随
+      // 部署自动生效（owner 保持不变）；用户自己建的活动 slug 不同，永远不会被碰。
+      .onConflictDoUpdate({
+        target: schema.activities.slug,
+        set: {
+          title: sql`excluded.title`,
+          subtitle: sql`excluded.subtitle`,
+          overview: sql`excluded.overview`,
+          host: sql`excluded.host`,
+          contact: sql`excluded.contact`,
+          district: sql`excluded.district`,
+          format: sql`excluded.format`,
+          venue: sql`excluded.venue`,
+          pricing: sql`excluded.pricing`,
+          fee: sql`excluded.fee`,
+          category: sql`excluded.category`,
+          prizePool: sql`excluded.prize_pool`,
+          startsAt: sql`excluded.starts_at`,
+          endsAt: sql`excluded.ends_at`,
+          submissionTypes: sql`excluded.submission_types`,
+          judging: sql`excluded.judging`,
+          criteria: sql`excluded.criteria`,
+          awardsEnabled: sql`excluded.awards_enabled`,
+          awards: sql`excluded.awards`,
+          visibility: sql`excluded.visibility`,
+          joinPolicy: sql`excluded.join_policy`,
+          emailDomain: sql`excluded.email_domain`,
+          seeded: sql`excluded.seeded`,
+        },
+      });
   }
 }
 
