@@ -13,7 +13,7 @@ export default function SiteHeader({ transparent = false }: { transparent?: bool
   const navItems = [
     { href: "/", label: "首页" },
     { href: "/activities", label: "活动" },
-    { href: "/leaderboard", label: "荣誉榜" },
+    { href: "/leaderboard", label: "排行榜" },
   ];
   // 两版 wordmark：首页用银色原稿（叠在深色 hero 上，二级页用它会糊）；二级页用深墨绿版，
   // 它在白底上对比度约 5.7，派生方式见 scripts/derive-header-wordmark.py。

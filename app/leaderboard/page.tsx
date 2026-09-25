@@ -10,7 +10,7 @@ import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
 
-export const metadata: Metadata = { title: "荣誉榜 · 杭客松" };
+export const metadata: Metadata = { title: "排行榜 · 杭客松" };
 
 export default function LeaderboardPage() {
   const totals = platformTotals();
@@ -22,8 +22,8 @@ export default function LeaderboardPage() {
       <PageMotion page="leaderboard" />
 
       <section className="lb-hero">
-        <p className="eyebrow" data-reveal="block">HONOR BOARD</p>
-        <h1 data-reveal="block">杭客松荣誉榜</h1>
+        <p className="eyebrow" data-reveal="block">LEADERBOARD</p>
+        <h1 data-reveal="block">排行榜</h1>
         <p className="lb-hero-sub" data-reveal="block">
           在杭客松<Link href="/activities">参加活动</Link>、完成作品、获得认可，就会积累你的荣誉 ——
           平台里把它叫作「贡献值」。榜单上的数字越高，说明这位参与者做的事情越多、越被认可。
