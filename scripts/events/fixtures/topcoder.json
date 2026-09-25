@@ -3,7 +3,7 @@
   "name": "Scan-to-3D Factory Layout Automation",
   "description": "**Register for the challenge to view the full specification.** Build a proof of concept that converts industrial point-cloud scans into native assemblies.",
   "status": "ACTIVE",
-  "task": false,
+  "task": {"isTask": false, "isAssigned": false},
   "startDate": "2026-09-07T12:17:24.500Z",
   "endDate": "2026-09-21T16:17:59.967Z",
   "registrationStartDate": "2026-09-07T12:17:24.502Z",

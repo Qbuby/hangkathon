@@ -186,7 +186,11 @@ def parse_topcoder(data: list | dict) -> list[dict]:
     items = data if isinstance(data, list) else data.get("challenges") or []
     out = []
     for d in items:
-        if d.get("task"):
+        # task 字段早期是布尔、现在是 {isTask: bool, ...} 对象 —— 两种都兼容
+        task = d.get("task")
+        if isinstance(task, dict):
+            task = task.get("isTask")
+        if task:
             continue
         legacy = d.get("legacy") or {}
         cid = legacy.get("legacyId") or d.get("id")
@@ -300,30 +304,30 @@ def source_drivendata() -> list[dict]:
     return parse_drivendata(http_get("https://www.drivendata.org/competitions/"))
 
 
-CW_DENY = ("expire-", "/category/", "/tag/", "/page/", "/feed", "/author/", "/about", "/contact",
-           "/advertise", "/submit", "/calendar", "/privacy", "/terms", "/disclaimer", "/latest-contests")
+CW_DENY = ("expire", "latest", "category", "page", "feed", "author", "about", "contact",
+           "advertise", "submit", "calendar", "privacy", "terms", "disclaimer")
 
 
 def parse_contestwatchers(html: str) -> list[dict]:
-    """首页卡片：<a href=permalink><h2 class="cw_fresh_title">标题</h2>…</a>，
-    截止日期在卡片附近的正文里，抓不到日期就跳过。"""
+    """/latest-contests/ 的条目：<a href=permalink>标题(+缩略图/介绍)</a>，
+    截止日期在卡片相邻文本里，抓不到日期的跳过。首页的 cw_fresh 卡片也是这个锚点结构。"""
     out = []
     seen: set[str] = set()
-    for m in re.finditer(r'<a\b[^>]*href="(https://www\.contestwatchers\.com/[a-z0-9-]{12,}/)"[^>]*>(.*?)</a>', html, re.S):
-        url, inner = m.group(1), m.group(2)
-        title_m = re.search(r'<h2 class="cw_fresh_title">(.*?)</h2>', inner, re.S)
-        title = strip_tags(title_m.group(1)) if title_m else strip_tags(inner)
-        if len(title) < 15 or any(part in url for part in CW_DENY):
+    for m in re.finditer(r'<a\b[^>]*href="(https://www\.contestwatchers\.com/([a-z0-9-]{12,})/)"[^>]*>(.*?)</a>', html, re.S):
+        url, slug, inner = m.group(1), m.group(2), m.group(3)
+        if any(part in slug for part in CW_DENY):
             continue
-        if url.rstrip("/") in seen:
+        h2 = re.search(r"<h2[^>]*>(.*?)</h2>", inner, re.S)
+        title = strip_tags(h2.group(1)) if h2 else strip_tags(re.sub(r"<img[^>]*>", " ", inner))
+        if len(title) < 15 or url.rstrip("/") in seen:
             continue
-        window_text = strip_tags(html[m.end():m.end() + 1500])
+        window_text = strip_tags(html[m.end():m.end() + 1200])
         dates = find_dates(window_text)
         if not dates:
             continue
         seen.add(url.rstrip("/"))
         out.append(ev(
-            "contestwatchers", url.rstrip("/").rsplit("/", 1)[-1], title,
+            "contestwatchers", slug, title,
             url=url, category="award",
             starts=dates[0], ends=dates[1] if len(dates) > 1 else None,
             prize=find_prize(window_text),
@@ -332,7 +336,12 @@ def parse_contestwatchers(html: str) -> list[dict]:
 
 
 def source_contestwatchers() -> list[dict]:
-    return parse_contestwatchers(http_get("https://www.contestwatchers.com/"))
+    items = parse_contestwatchers(http_get("https://www.contestwatchers.com/latest-contests/"))
+    try:
+        items += parse_contestwatchers(http_get("https://www.contestwatchers.com/"))
+    except Exception:  # noqa: BLE001 —— 首页拿不到就用列表页
+        pass
+    return items
 
 
 def parse_xprize(html: str) -> list[dict]:
