@@ -382,12 +382,56 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       <div className="detail-body">
         <div className="detail-main">
           <section data-reveal="block" className="detail-section" aria-labelledby="detail-overview">
-            <p className="detail-eyebrow">OVERVIEW</p>
-            <h2 id="detail-overview">活动介绍</h2>
+            <p className="detail-eyebrow">WHAT YOU DO</p>
+            <h2 id="detail-overview">你要做什么</h2>
             {activity.overview ? (
               <p className="detail-text">{activity.overview}</p>
             ) : (
-              <p className="detail-placeholder">主办方还没有填写详细介绍。</p>
+              <p className="detail-placeholder">主办方还没有填写任务说明。可以先报名，任务公布后再开工。</p>
+            )}
+          </section>
+
+          <section data-reveal="block" className="detail-section" aria-labelledby="detail-how">
+            <p className="detail-eyebrow">HOW TO JOIN</p>
+            <h2 id="detail-how">怎么参加</h2>
+            <ol className="detail-steps">
+              <li>
+                <strong>报名参赛</strong>
+                <span>点「报名参赛」按钮，个人一键参加，不需要选阵营</span>
+              </li>
+              <li>
+                <strong>完成作品或任务</strong>
+                <span>照上面「你要做什么」的要求做即可</span>
+              </li>
+              <li>
+                <strong>提交作品</strong>
+                <span>报名后在下方「作品提交」粘贴抖音视频链接</span>
+              </li>
+              <li>
+                <strong>获得荣誉</strong>
+                <span>作品审核通过后累计贡献值，优秀作品赢得奖项</span>
+              </li>
+            </ol>
+          </section>
+
+          <section data-reveal="block" className="detail-section" aria-labelledby="detail-awards">
+            <p className="detail-eyebrow">REWARDS</p>
+            <h2 id="detail-awards">能获得什么</h2>
+            {!activity.awardsEnabled || activity.awards.length === 0 ? (
+              <p className="detail-placeholder">这场活动不设奖项（{prizeText(activity)}）；参加并完成作品，同样能积累贡献值与荣誉。</p>
+            ) : (
+              <>
+                <div className="detail-awards">
+                  {activity.awards.map((award) => (
+                    <div className="detail-award" key={award.name}>
+                      <strong>{award.name}</strong>
+                      <span>{award.slots} 位</span>
+                      <p>{award.reward || "奖励待定"}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="detail-placeholder">奖金总额：{prizeText(activity)}。奖项是荣誉头衔；现金按战队贡献、再按队内个人贡献占比分发（见下方「战队贡献」）。</p>
+              </>
             )}
           </section>
 
@@ -412,26 +456,102 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             )}
           </section>
 
-          <section data-reveal="block" className="detail-section" aria-labelledby="detail-awards">
-            <p className="detail-eyebrow">AWARDS</p>
-            <h2 id="detail-awards">奖项</h2>
-            {!activity.awardsEnabled || activity.awards.length === 0 ? (
-              <p className="detail-placeholder">这场活动不设奖项，{prizeText(activity)}。</p>
-            ) : (
-              <>
-                <div className="detail-awards">
-                  {activity.awards.map((award) => (
-                    <div className="detail-award" key={award.name}>
-                      <strong>{award.name}</strong>
-                      <span>{award.slots} 位</span>
-                      <p>{award.reward || "奖励待定"}</p>
-                    </div>
-                  ))}
-                </div>
-                <p className="detail-placeholder">奖金总额：{prizeText(activity)}。奖项名目为荣誉头衔，现金按下方阵营贡献占比两层分发。</p>
-              </>
-            )}
-          </section>
+          {submissionTypeLabels.length > 0 && (
+            <section data-reveal="block" className="detail-section" aria-labelledby="detail-submissions">
+              <p className="detail-eyebrow">SUBMISSION</p>
+              <h2 id="detail-submissions">提交形式</h2>
+              <div className="detail-chips">
+                {submissionTypeLabels.map((label) => <span key={label}>{label}</span>)}
+              </div>
+            </section>
+          )}
+
+          {activity.submissionTypes.includes("video") && (
+            <section data-reveal="block" className="detail-section" aria-labelledby="detail-submit">
+              <p className="detail-eyebrow">SUBMISSIONS</p>
+              <h2 id="detail-submit">作品提交</h2>
+              {joinRecord ? (
+                <>
+                  <form className="submit-form" onSubmit={(event) => { event.preventDefault(); void submitWork(); }}>
+                    <input
+                      type="text"
+                      inputMode="url"
+                      className="submit-input"
+                      placeholder="粘贴抖音视频分享链接，如 https://v.douyin.com/…"
+                      value={submitUrl}
+                      aria-label="抖音视频分享链接"
+                      aria-invalid={submitError ? true : undefined}
+                      onChange={(event) => {
+                        setSubmitUrl(event.target.value);
+                        if (submitError) setSubmitError(null);
+                      }}
+                    />
+                    <Button type="submit" className="primary-action" disabled={submitting}>
+                      {submitting ? "提交中…" : "提交作品"}
+                    </Button>
+                  </form>
+                  {submitError && <p className="submit-error" role="alert">{submitError}</p>}
+                  {submitDone && (
+                    <p className="submit-ok">已提交。作品将在 {MECHANISM.review.hours} 小时内审核，按质量计入你的贡献值。</p>
+                  )}
+                  {submissions.length > 0 ? (
+                    <ul className="submit-list" ref={submitListRef}>
+                      {submissions.map((record, index) => (
+                        <li key={`${record.submittedAt}-${index}`}>
+                          <div className="submit-head">
+                            <a href={record.url} target="_blank" rel="noopener noreferrer">{shortenUrl(record.url)}</a>
+                            <span>{new Date(record.submittedAt).toLocaleString("zh-CN")}</span>
+                          </div>
+                          {record.caption && (
+                            <p className="submit-caption">
+                              {record.authorName && <strong>{record.authorName}</strong>}
+                              {record.caption}
+                            </p>
+                          )}
+                          {(record.diggCount !== undefined || record.commentCount !== undefined) && (
+                            <p className="submit-metrics">
+                              {record.diggCount !== undefined && <span>点赞 <b>{formatCount(record.diggCount)}</b></span>}
+                              {record.commentCount !== undefined && <span>评论 <b>{formatCount(record.commentCount)}</b></span>}
+                              {record.shareCount !== undefined && <span>转发 <b>{formatCount(record.shareCount)}</b></span>}
+                              {record.collectCount !== undefined && <span>收藏 <b>{formatCount(record.collectCount)}</b></span>}
+                            </p>
+                          )}
+                          {mode === "server" && (
+                            <p className="submit-foot">
+                              <span>
+                                {record.fetchedAt
+                                  ? `数据抓取于 ${new Date(record.fetchedAt).toLocaleString("zh-CN")}`
+                                  : record.metricsError ?? "还没有抓到作品数据"}
+                              </span>
+                              <button
+                                type="button"
+                                className="submit-refresh"
+                                disabled={refreshingUrl !== null}
+                                onClick={() => void refreshWork(record.url)}
+                              >
+                                {refreshingUrl === record.url ? "刷新中…" : "刷新数据"}
+                              </button>
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="detail-placeholder">还没有提交过作品。可以反复提交，每次提交都会进入审核队列。</p>
+                  )}
+                  <p className="detail-join-note">
+                    {mode === "server" ? "提交记录保存在平台，只有你自己能看到。" : "提交记录保存在此设备。"}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="detail-placeholder">报名参赛后，即可在这里提交抖音视频分享链接作为参赛作品。</p>
+                  <Button className="primary-action" onClick={() => void confirmJoin()}>报名参赛</Button>
+                  {joinError && <p className="submit-error" role="alert">{joinError}</p>}
+                </>
+              )}
+            </section>
+          )}
 
           <section data-reveal="block" className="detail-section" aria-labelledby="detail-factions">
             <p className="detail-eyebrow">TEAMS</p>
@@ -493,103 +613,6 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           )}
         </section>
       )}
-
-          {submissionTypeLabels.length > 0 && (
-            <section data-reveal="block" className="detail-section" aria-labelledby="detail-submissions">
-              <p className="detail-eyebrow">SUBMISSION</p>
-              <h2 id="detail-submissions">提交形式</h2>
-              <div className="detail-chips">
-                {submissionTypeLabels.map((label) => <span key={label}>{label}</span>)}
-              </div>
-            </section>
-          )}
-
-          {activity.submissionTypes.includes("video") && (
-            <section data-reveal="block" className="detail-section" aria-labelledby="detail-submit">
-              <p className="detail-eyebrow">SUBMISSIONS</p>
-              <h2 id="detail-submit">作品提交</h2>
-              {joinRecord ? (
-                <>
-                  <form className="submit-form" onSubmit={(event) => { event.preventDefault(); void submitWork(); }}>
-                    <input
-                      type="text"
-                      inputMode="url"
-                      className="submit-input"
-                      placeholder="粘贴抖音视频分享链接，如 https://v.douyin.com/…"
-                      value={submitUrl}
-                      aria-label="抖音视频分享链接"
-                      aria-invalid={submitError ? true : undefined}
-                      onChange={(event) => {
-                        setSubmitUrl(event.target.value);
-                        if (submitError) setSubmitError(null);
-                      }}
-                    />
-                    <Button type="submit" className="primary-action" disabled={submitting}>
-                      {submitting ? "提交中…" : "提交作品"}
-                    </Button>
-                  </form>
-                  {submitError && <p className="submit-error" role="alert">{submitError}</p>}
-                  {submitDone && (
-                    <p className="submit-ok">已提交。作品将在 {MECHANISM.review.hours} 小时内审核，按质量计入你的个人与阵营贡献值。</p>
-                  )}
-                  {submissions.length > 0 ? (
-                    <ul className="submit-list" ref={submitListRef}>
-                      {submissions.map((record, index) => (
-                        <li key={`${record.submittedAt}-${index}`}>
-                          <div className="submit-head">
-                            <a href={record.url} target="_blank" rel="noopener noreferrer">{shortenUrl(record.url)}</a>
-                            <span>{new Date(record.submittedAt).toLocaleString("zh-CN")}</span>
-                          </div>
-                          {record.caption && (
-                            <p className="submit-caption">
-                              {record.authorName && <strong>{record.authorName}</strong>}
-                              {record.caption}
-                            </p>
-                          )}
-                          {(record.diggCount !== undefined || record.commentCount !== undefined) && (
-                            <p className="submit-metrics">
-                              {record.diggCount !== undefined && <span>点赞 <b>{formatCount(record.diggCount)}</b></span>}
-                              {record.commentCount !== undefined && <span>评论 <b>{formatCount(record.commentCount)}</b></span>}
-                              {record.shareCount !== undefined && <span>转发 <b>{formatCount(record.shareCount)}</b></span>}
-                              {record.collectCount !== undefined && <span>收藏 <b>{formatCount(record.collectCount)}</b></span>}
-                            </p>
-                          )}
-                          {mode === "server" && (
-                            <p className="submit-foot">
-                              <span>
-                                {record.fetchedAt
-                                  ? `数据抓取于 ${new Date(record.fetchedAt).toLocaleString("zh-CN")}`
-                                  : record.metricsError ?? "还没有抓到作品数据"}
-                              </span>
-                              <button
-                                type="button"
-                                className="submit-refresh"
-                                disabled={refreshingUrl !== null}
-                                onClick={() => void refreshWork(record.url)}
-                              >
-                                {refreshingUrl === record.url ? "刷新中…" : "刷新数据"}
-                              </button>
-                            </p>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="detail-placeholder">还没有提交过作品。可以反复提交，每次提交都会进入审核队列。</p>
-                  )}
-                  <p className="detail-join-note">
-                    {mode === "server" ? "提交记录保存在平台，只有你自己能看到。" : "提交记录保存在此设备。"}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="detail-placeholder">报名参赛后，即可在这里提交抖音视频分享链接作为参赛作品。</p>
-                  <Button className="primary-action" onClick={() => void confirmJoin()}>报名参赛</Button>
-                  {joinError && <p className="submit-error" role="alert">{joinError}</p>}
-                </>
-              )}
-            </section>
-          )}
         </div>
 
         <aside className="detail-side" aria-label="活动关键信息">
@@ -654,7 +677,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <Button className="primary-action" onClick={() => void confirmJoin()}>报名参赛</Button>
               {joinError && <p className="submit-error" role="alert">{joinError}</p>}
               <p className="detail-join-note">
-                以个人账户报名参赛，无需选择阵营，正式阶段每天领取算力券。战队由平台统一组织。
+                个人一键报名，不用选阵营。报名后照着「怎么参加」四步走就行；正式阶段每天可领算力券，想组队的话平台会统一组织。
                 {isLocalActivity ? "活动记录保存在此设备。" : ""}
               </p>
             </div>

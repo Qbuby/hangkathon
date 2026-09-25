@@ -3,7 +3,13 @@
 .board{padding:90px 6% 70px;background:transparent;position:relative;z-index:5}
 .board-head{display:flex;align-items:stretch;justify-content:space-between;gap:28px;margin-bottom:36px}
 .board-head h2{font-size:34px;font-weight:600;margin:12px 0 0;letter-spacing:1px;color:#17273a}
-.board-sub{font-size:14px;color:#7c93a8;margin:10px 0 0}
+.board-sub{font-size:14px;color:#7c93a8;margin:10px 0 0;max-width:620px}
+/* 参加流程四步：第一次来的用户 5 秒内看懂怎么玩 */
+.board-flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 0;list-style:none;margin:18px 0 0;padding:0}
+.board-flow li{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#17273a;white-space:nowrap}
+.board-flow li i{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#e3f4ff;border:1px solid #b9dcf5;color:#0b6fa8;font-size:11.5px;font-weight:650;font-style:normal}
+.board-flow li:not(:last-child)::after{content:"→";margin:0 14px;color:#b7c9da;font-weight:400}
+@media(max-width:760px){.board-flow li:not(:last-child)::after{margin:0 8px}}
 /* 右列撑满标题块高度：发起活动按钮与「活动看板」标题行同高，角标沉底对齐副文案 */
 .board-head-actions{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:16px;flex:none;padding-top:19px}
 
@@ -60,6 +66,7 @@
 .feed-more{padding:0;border:0;background:none;color:#0aa2e0;font:inherit;font-size:13.5px;cursor:pointer}
 .feed-more:hover{color:#1b9cfc;text-decoration:underline;text-underline-offset:3px}
 .feed-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0 0;font-size:12.5px;color:#9fb2c4}
+.feed-cta{margin-left:auto;color:#0b6fa8;font-weight:600;letter-spacing:.5px}
 .feed-prize{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#c9952a}
 .feed-prize svg{flex:none;color:#d99b2c}
 .feed-prize em{font-style:normal;font-weight:400}

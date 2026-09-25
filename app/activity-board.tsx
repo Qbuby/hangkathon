@@ -44,6 +44,9 @@ const GROUPS: { id: GroupId; title: string }[] = [
   { id: "past", title: "已结束" },
 ];
 
+/** 参加流程四步：第一次来的人不读任何说明也能看懂怎么玩。 */
+const FLOW_STEPS = ["发现活动", "报名参加", "完成作品/任务", "获得荣誉"];
+
 function todayKey() {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -179,7 +182,7 @@ export default function ActivityBoard({
     setTo("");
   }
 
-  function renderItem(activity: Activity) {
+  function renderItem(activity: Activity, groupId: GroupId) {
     const badge = dateBadge(activity.startsAt);
     const isExpanded = expandedCard === activity.id;
     const clamped = !isExpanded && activity.overview.length > INTRO_CLAMP;
@@ -249,6 +252,7 @@ export default function ActivityBoard({
           </span>
           <span className="feed-sep" aria-hidden="true">·</span>
           <span className="feed-host">主办方 {activity.host}</span>
+          <span className="feed-cta" aria-hidden="true">{groupId === "past" ? "查看详情 →" : "报名参加 →"}</span>
         </p>
       </article>
     );
@@ -260,7 +264,12 @@ export default function ActivityBoard({
         <div>
           <p className="eyebrow" data-reveal="block">ACTIVITY BOARD</p>
           <h2 id="board-title" data-reveal="block">活动看板</h2>
-          <p className="board-sub" data-reveal="block">每一场活动都欢迎个人参赛，组队信息由平台统一发布。按类别、奖金、形式和费用筛选，找到你想参加的那一场。</p>
+          <p className="board-sub" data-reveal="block">所有活动都对个人开放：看到感兴趣的，点进去报名，按活动要求完成作品或任务，就能积累荣誉、赢取奖励。</p>
+          <ol className="board-flow" data-reveal="block" aria-label="参加流程：发现活动，报名参加，完成作品或任务，获得荣誉">
+            {FLOW_STEPS.map((step, index) => (
+              <li key={step}><i aria-hidden="true">{index + 1}</i>{step}</li>
+            ))}
+          </ol>
         </div>
         <div className="board-head-actions">
           {action}
@@ -283,7 +292,7 @@ export default function ActivityBoard({
                   <span>{grouped[group.id].length} 场</span>
                 </div>
                 <div className="feed-list">
-                  {grouped[group.id].map(renderItem)}
+                  {grouped[group.id].map((item) => renderItem(item, group.id))}
                 </div>
               </div>
             ))
