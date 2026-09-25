@@ -7,13 +7,10 @@ import { ArrowRight, CalendarDays, Coins, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   categoryLabel,
-  formatLabel,
   joinPolicyLabel,
   judgingLabel,
-  pricingLabel,
   prizeText,
   submissionLabels,
-  visibilityLabel,
   type Activity,
 } from "@/lib/activity";
 import { factionById } from "@/lib/factions";
@@ -320,13 +317,6 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       <div className="detail-top-tags" data-reveal="block">{isLocalActivity && <span className="detail-top-note">仅保存在此设备</span>}</div>
 
       <section className="detail-hero">
-        <div className="detail-tags" data-reveal="block">
-          <span className="is-category">{categoryLabel(activity.category)}</span>
-          {district && <span style={{ borderColor: `${district.color}55`, color: district.color }}>{district.name}</span>}
-          <span>{formatLabel(activity)}</span>
-          <span>{pricingLabel(activity)}</span>
-          <span>{visibilityLabel(activity.visibility)}</span>
-        </div>
         <h1 data-reveal="block">{activity.title}</h1>
         {activity.subtitle && <p className="detail-sub" data-reveal="block">{activity.subtitle}</p>}
         <p className="detail-host" data-reveal="block">主办方 · {activity.host || "未填写"}</p>
@@ -619,6 +609,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           <div className="detail-facts" data-reveal="block">
             <h2>关键信息</h2>
             <dl>
+              <div><dt>类别</dt><dd>{categoryLabel(activity.category)}</dd></div>
               <div><dt><CalendarDays size={14} />时间</dt><dd>{activity.startsAt && activity.endsAt ? `${activity.startsAt} 至 ${activity.endsAt}` : "待定"}</dd></div>
               <div><dt>所属区</dt><dd>{district ? <span className="fact-district"><i style={{ background: district.color }} />{district.name}</span> : "未设置"}</dd></div>
               <div><dt><MapPin size={14} />地点</dt><dd>{activity.format === "offline" ? activity.venue || "待定" : "线上"}</dd></div>

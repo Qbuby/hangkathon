@@ -8,9 +8,6 @@
 .detail-top-note{margin-left:auto;font-size:11px;color:#7c93a8;border:1px solid #dce7f2;border-radius:6px;padding:6px 10px;background:#f6fafd}
 
 .detail-hero{padding:132px 6% 34px;border-bottom:1px solid #e2ecf6}
-.detail-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
-.detail-tags span{font-size:11px;letter-spacing:1px;color:#0b6fa8;border:1px solid #b9dcf5;background:#e3f4ff;border-radius:6px;padding:3px 9px}
-.detail-tags .is-category{color:#0c7a5b;border-color:#a7e3cd;background:#e4f8f0}
 .detail-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:600;letter-spacing:1px;line-height:1.45;margin:0;color:#17273a}
 .detail-sub{font-size:15px;line-height:1.9;color:#5b6b7d;margin:14px 0 0}
 .detail-host{font-size:12.5px;letter-spacing:.5px;color:#7c93a8;margin:16px 0 0}
