@@ -35,8 +35,8 @@ function runFetch(args) {
 test("self-check：每个适配器都能从自己的 fixture 解析出条目", () => {
   const probe = spawnSync(python, [SCRIPT, "--self-check"], { encoding: "utf8" });
   assert.equal(probe.status, 0, probe.stderr);
-  // 7 个源都要有 fixture（有 fixture 才测得到解析器）
-  assert.equal(EVENT_SOURCES.length, 7);
+  // 6 个源都要有 fixture（有 fixture 才测得到解析器）
+  assert.equal(EVENT_SOURCES.length, 6);
   for (const { id } of EVENT_SOURCES) {
     assert.match(probe.stderr, new RegExp(`${id}: [1-9]\\d*/`), `${id} 的 fixture 应至少解析出 1 条`);
   }
@@ -101,7 +101,7 @@ test("normalizeEventInput：坏数据被丢弃，好数据被清洗", () => {
   });
 });
 
-test("filterByWindow：与 fetch.py 的窗口口径一致", () => {
+test("filterByWindow：与 fetch.py 的窗口口径一致（开始日期在窗口内，或结束/截止日期在未来 90 天内）", () => {
   const now = new Date("2026-09-25T00:00:00Z");
   const event = (fields) => normalizeEventInput({ source: "topcoder", sourceId: "1", title: "t", url: "https://x", tags: [], ...fields });
 
@@ -110,8 +110,12 @@ test("filterByWindow：与 fetch.py 的窗口口径一致", () => {
   const tooNew = event({ sourceId: "new", startsAt: "2027-01-01T00:00:00Z" });
   const deadlineOnly = event({ sourceId: "ddl", endsAt: "2026-10-01T00:00:00Z" });
   const deadlinePast = event({ sourceId: "ddp", endsAt: "2026-09-01T00:00:00Z" });
-  assert.ok(inside && tooOld && tooNew && deadlineOnly && deadlinePast);
+  // 两周前开始、下个月结束：正在进行的赛事要收
+  const ongoing = event({ sourceId: "run", startsAt: "2026-09-10T00:00:00Z", endsAt: "2026-10-20T00:00:00Z" });
+  // 两周前开始、明年才结束：长期赛事不收
+  const marathon = event({ sourceId: "mar", startsAt: "2026-09-10T00:00:00Z", endsAt: "2027-06-01T00:00:00Z" });
+  assert.ok(inside && tooOld && tooNew && deadlineOnly && deadlinePast && ongoing && marathon);
 
-  const kept = filterByWindow([inside, tooOld, tooNew, deadlineOnly, deadlinePast], now).map((item) => item.sourceId);
-  assert.deepEqual(kept, ["in", "ddl"]);
+  const kept = filterByWindow([inside, tooOld, tooNew, deadlineOnly, deadlinePast, ongoing, marathon], now).map((item) => item.sourceId);
+  assert.deepEqual(kept, ["in", "ddl", "run"]);
 });

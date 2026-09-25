@@ -1,4 +1,4 @@
-import { and, asc, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, gte, lt, lte, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import {
   WINDOW_FUTURE_DAYS,
@@ -86,27 +86,24 @@ export async function upsertExternalEvents(rawEvents: unknown[]): Promise<{ rece
 }
 
 /**
- * 展示口径与抓取窗口一致：开始日期在 [now-7d, now+90d]；
- * 没有开始日期但截止日期在 [now, now+90d] 的（Deadline 驱动的目录站）也展示。
+ * 展示口径与抓取窗口一致：开始日期在 [now-7d, now+90d]；或已在进行、
+ * 结束/截止日期在 [now, now+90d]（Deadline 驱动的目录站与长期进行中的赛事）。
  */
 export async function listExternalEvents(): Promise<ExternalEvent[]> {
   const db = getDb();
   const now = new Date();
   const past = new Date(now.getTime() - WINDOW_PAST_DAYS * DAY_MS);
   const future = new Date(now.getTime() + WINDOW_FUTURE_DAYS * DAY_MS);
+  const endsSoon = (column: typeof schema.externalEvents.endsAt) =>
+    and(gte(column, now), lte(column, future));
   const rows = await db
     .select()
     .from(schema.externalEvents)
     .where(
       or(
         and(gte(schema.externalEvents.startsAt, past), lte(schema.externalEvents.startsAt, future)),
-        and(
-          isNull(schema.externalEvents.startsAt),
-          or(
-            and(gte(schema.externalEvents.endsAt, now), lte(schema.externalEvents.endsAt, future)),
-            and(gte(schema.externalEvents.deadlineAt, now), lte(schema.externalEvents.deadlineAt, future)),
-          ),
-        ),
+        endsSoon(schema.externalEvents.endsAt),
+        endsSoon(schema.externalEvents.deadlineAt),
       ),
     )
     .orderBy(sql`${schema.externalEvents.startsAt} asc nulls last`, asc(schema.externalEvents.endsAt))
@@ -114,15 +111,19 @@ export async function listExternalEvents(): Promise<ExternalEvent[]> {
   return rows.map(toEvent);
 }
 
-/** 过期清理：超出窗口 30 天、或两周没被任何一轮抓取再见到的，删掉。 */
+/** 过期清理：整场活动（结束/截止/开始取最晚的）过去两周、或两周没被任何一轮抓取再见到，删掉。 */
 export async function cleanupExternalEvents(): Promise<number> {
   const db = getDb();
-  const now = new Date();
-  const staleSeen = new Date(now.getTime() - 14 * DAY_MS);
-  const staleStart = new Date(now.getTime() - (WINDOW_PAST_DAYS + 30) * DAY_MS);
+  const cutoff = new Date(Date.now() - 14 * DAY_MS);
+  const staleSeen = new Date(Date.now() - 14 * DAY_MS);
   const gone = await db
     .delete(schema.externalEvents)
-    .where(or(lt(schema.externalEvents.lastSeenAt, staleSeen), lt(schema.externalEvents.startsAt, staleStart)))
+    .where(
+      or(
+        sql`coalesce(${schema.externalEvents.endsAt}, ${schema.externalEvents.deadlineAt}, ${schema.externalEvents.startsAt}) < ${cutoff}`,
+        lt(schema.externalEvents.lastSeenAt, staleSeen),
+      ),
+    )
     .returning({ id: schema.externalEvents.id });
   return gone.length;
 }

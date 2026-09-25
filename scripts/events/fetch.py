@@ -152,13 +152,12 @@ def ev(source: str, source_id: str, title: str, *, url: str, category: str,
 
 
 def in_window(item: dict, now: datetime) -> bool:
+    """近期口径：开始日期落在 [-7d, +90d]；或已在进行、结束/截止日期在 [now, +90d]。"""
+    hi = now + timedelta(days=WINDOW_FUTURE_DAYS)
     start = item.get("starts")
-    if start:
-        return (now - timedelta(days=WINDOW_PAST_DAYS)) <= start <= (now + timedelta(days=WINDOW_FUTURE_DAYS))
-    end = item.get("ends") or item.get("deadline")
-    if end:
-        return now <= end <= (now + timedelta(days=WINDOW_FUTURE_DAYS))
-    return False
+    if start and (now - timedelta(days=WINDOW_PAST_DAYS)) <= start <= hi:
+        return True
+    return any(end and now <= end <= hi for end in (item.get("ends"), item.get("deadline")))
 
 
 def finalize(item: dict) -> dict:
@@ -226,26 +225,40 @@ def _parse_iso(value: str | None) -> datetime | None:
 
 
 MLH_CARD_RE = re.compile(r'href="(https://events\.mlh\.io/events/(\d+)[^"]*)"[^>]*>(.*?)</a>', re.S)
-LOCATION_RE = re.compile(r"\b([A-Z][A-Za-z .'-]{2,40},\s*(?:[A-Z]{2}|[A-Z][a-z]{2,}))\b")
+
+
+def _meta(block: str, prop: str) -> str | None:
+    m = re.search(rf'itemProp="{prop}" content="([^"]+)"', block, re.I)
+    return m.group(1) if m else None
 
 
 def parse_mlh(html: str, year: int | None = None) -> list[dict]:
-    year = year or datetime.now(timezone.utc).year
+    """MLH 赛季页的卡片带 schema.org Event 微数据，日期/线上线下/地点直接从微数据拿。"""
+    from urllib.parse import unquote_plus
     out = []
     for m in MLH_CARD_RE.finditer(html):
         url, external_id, inner = m.group(1), m.group(2), m.group(3)
-        text = strip_tags(inner)
-        dates = find_dates(text, default_year=year)
-        if not dates:
+        starts = _parse_iso(_meta(inner, "startDate"))
+        if not starts:
             continue
-        head = text[:MONTH_DAY_RE.search(text).start()].strip(" ·|-–,") if MONTH_DAY_RE.search(text) else text[:80]
-        location_m = LOCATION_RE.search(text)
+        ends = _parse_iso(_meta(inner, "endDate"))
+        attendance = _meta(inner, "eventAttendanceMode") or ""
+        online = True if "OnlineEventAttendanceMode" in attendance else (False if "OfflineEventAttendanceMode" in attendance else None)
+        name = _meta(inner, "name")
+        if not name:
+            utm = re.search(r"utm_content=([^\"&]+)", url)
+            if utm:
+                name = unquote_plus(utm.group(1))
+        if not name:
+            h = re.search(r"<h\d[^>]*>(.*?)</h\d>", inner, re.S)
+            name = strip_tags(h.group(1)) if h else f"MLH event {external_id}"
+        location_m = re.search(r'itemProp="location"[^>]*>(.*?)</div>', inner, re.S)
+        location = strip_tags(location_m.group(1))[:120] if location_m else None
         out.append(ev(
-            "mlh", external_id, head or text[:80],
-            url=url, category="hackathon",
-            starts=dates[0], ends=dates[1] if len(dates) > 1 else None,
-            location=location_m.group(1) if location_m else None,
-            online=True if "online" in text.lower() else (None if location_m else True),
+            "mlh", external_id, name,
+            url=unescape(url.split("?")[0]), category="hackathon",
+            starts=starts, ends=ends,
+            location=location, online=online,
         ))
     return out
 
@@ -288,19 +301,24 @@ def source_drivendata() -> list[dict]:
 
 
 CW_DENY = ("expire-", "/category/", "/tag/", "/page/", "/feed", "/author/", "/about", "/contact",
-           "/advertise", "/submit", "/calendar", "/privacy", "/terms", "/disclaimer")
+           "/advertise", "/submit", "/calendar", "/privacy", "/terms", "/disclaimer", "/latest-contests")
 
 
 def parse_contestwatchers(html: str) -> list[dict]:
+    """首页卡片：<a href=permalink><h2 class="cw_fresh_title">标题</h2>…</a>，
+    截止日期在卡片附近的正文里，抓不到日期就跳过。"""
     out = []
     seen: set[str] = set()
-    for m in re.finditer(r'<a\b[^>]*href="(https://www\.contestwatchers\.com/[^"]+)"[^>]*>(.*?)</a>', html, re.S):
-        url, title = m.group(1), strip_tags(m.group(2))
+    for m in re.finditer(r'<a\b[^>]*href="(https://www\.contestwatchers\.com/[a-z0-9-]{12,}/)"[^>]*>(.*?)</a>', html, re.S):
+        url, inner = m.group(1), m.group(2)
+        title_m = re.search(r'<h2 class="cw_fresh_title">(.*?)</h2>', inner, re.S)
+        title = strip_tags(title_m.group(1)) if title_m else strip_tags(inner)
         if len(title) < 15 or any(part in url for part in CW_DENY):
             continue
         if url.rstrip("/") in seen:
             continue
-        dates = find_dates(strip_tags(html[m.end():m.end() + 420]))
+        window_text = strip_tags(html[m.end():m.end() + 1500])
+        dates = find_dates(window_text)
         if not dates:
             continue
         seen.add(url.rstrip("/"))
@@ -308,50 +326,13 @@ def parse_contestwatchers(html: str) -> list[dict]:
             "contestwatchers", url.rstrip("/").rsplit("/", 1)[-1], title,
             url=url, category="award",
             starts=dates[0], ends=dates[1] if len(dates) > 1 else None,
-            prize=find_prize(strip_tags(html[m.end():m.end() + 420])),
-        ))
-    return out
-
-
-def source_contestwatchers() -> list[dict]:
-    return parse_contestwatchers(http_get("https://www.contestwatchers.com/category/submit-before-deadline/"))
-
-
-def parse_reedsy(html: str) -> list[dict]:
-    out = []
-    seen: set[str] = set()
-    for m in re.finditer(r'href="(/resources/writing-contests/([a-z0-9-]+))"[^>]*>(.*?)</a>', html, re.S):
-        path, slug, inner = m.group(1), m.group(2), m.group(3)
-        if slug in ("page", "how-it-works", "about"):
-            continue
-        title = strip_tags(inner)
-        if len(title) < 8:
-            continue
-        url = f"https://reedsy.com{path}"
-        if url in seen:
-            continue
-        window_text = strip_tags(html[m.end():m.end() + 520])
-        dates = find_dates(window_text)
-        if not dates:
-            continue
-        seen.add(url)
-        out.append(ev(
-            "reedsy", slug, title,
-            url=url, category="award",
-            starts=dates[0], ends=dates[1] if len(dates) > 1 else None,
             prize=find_prize(window_text),
         ))
     return out
 
 
-def source_reedsy() -> list[dict]:
-    items: list[dict] = []
-    for page in ("", "page/2/"):
-        try:
-            items.extend(parse_reedsy(http_get(f"https://reedsy.com/resources/writing-contests/{page}")))
-        except Exception:  # noqa: BLE001 —— 第二页拿不到就用第一页
-            pass
-    return items
+def source_contestwatchers() -> list[dict]:
+    return parse_contestwatchers(http_get("https://www.contestwatchers.com/"))
 
 
 def parse_xprize(html: str) -> list[dict]:
@@ -413,7 +394,6 @@ ADAPTERS = {
     "mlh": (source_mlh, parse_mlh, ".html"),
     "drivendata": (source_drivendata, parse_drivendata, ".html"),
     "contestwatchers": (source_contestwatchers, parse_contestwatchers, ".html"),
-    "reedsy": (source_reedsy, parse_reedsy, ".html"),
     "xprize": (source_xprize, parse_xprize, ".html"),
     "studentcompetitions": (source_studentcompetitions, parse_studentcompetitions, ".html"),
 }

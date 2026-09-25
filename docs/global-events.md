@@ -5,30 +5,29 @@
 
 ## 窗口口径（用户定的）
 
-- **开始日期**落在 `[今天-7天, 今天+90天]` 的才收录；
-- 没有开始日期、但**截止日期**在 `[今天, +90天]` 的也收录（Deadline 驱动的目录站），页面显示「截止 x月x日 前报名」；
+- **开始日期**落在 `[今天-7天, 今天+90天]` 的收录；
+- 已在进行、**结束/截止日期**在 `[今天, +90天]` 的也收录（Deadline 驱动的目录站、以及开始更早但临近截止的赛事），页面显示「截止 x月x日 前报名」；
 - 解析不出任何日期的条目一律丢弃；`lib/external-events.ts` 与 `scripts/events/fetch.py` 两端同口径过滤。
 
 ## 源清单实测结论（2026-09-25，从大陆服务器实测）
 
-**能自动化的 7 个**（`scripts/events/fetch.py` 里的适配器）：
+**能自动化的 6 个**（`scripts/events/fetch.py` 里的适配器）：
 
 | 源 | 取数方式 | 说明 |
 | --- | --- | --- |
-| Topcoder | `GET api.topcoder.com/v6/challenges?status=Active`（公开 JSON） | v5 端点已 404，v6 直接可用；奖金从 prizeSets 求和 |
-| MLH | `www.mlh.com/seasons/{年}/events` 服务端渲染 HTML | 卡片链接指 events.mlh.io，日期在卡片文本里 |
+| Topcoder | `GET api.topcoder.com/v6/challenges?status=Active`（公开 JSON） | v5 端点已 404，v6 直接可用；奖金从 prizeSets 求和；当前 Active 的挑战很少 |
+| MLH | `www.mlh.com/seasons/{年}/events` 服务端渲染 HTML | 卡片带完整 schema.org Event 微数据（startDate/endDate/attendanceMode/location），日期精确 |
 | DrivenData | `drivendata.org/competitions/` HTML | 卡片有奖金与结束日期；开始日期多半已过 → 走「截止日期」口径 |
-| Contest Watchers | `/category/submit-before-deadline/` HTML | WordPress 服务端渲染，日期/奖金从卡片文本抠 |
-| Reedsy | `reedsy.com/resources/writing-contests/`（前 2 页）HTML | 写作比赛目录 |
+| Contest Watchers | 首页 `cw_fresh_title` 卡片 HTML | 截止日期在卡片附近正文，抓不到日期的跳过 |
 | XPRIZE | `xprize.org/competitions` HTML | 大奖赛周期以年计，多数没有近期日期，**当前大概率产出 0 条**，保留适配器等新赛事 |
 | StudentCompetitions | `studentcompetitions.com/competitions` HTML | 卡片不一定带日期，产出不稳定 |
 
-**做不了的 23 个**（原因实测，不要反复重试）：
+**做不了的 24 个**（原因实测，不要反复重试）：
 
 | 原因 | 源 |
 | --- | --- |
 | 反爬 WAF（浏览器头也一样 403 / 人机验证页） | Devpost、Eventbrite（AWS WAF）、HackerEarth、AllEvents、10times、Global Game Jam、FilmFreeway、LensCulture、Architizer、HeroX |
-| 纯 SPA 壳，列表数据走私有接口 | Kaggle、Zindi、DoQ（doq.world）、MIT Solve |
+| 纯 SPA 壳，列表数据走私有接口 | Kaggle、Zindi、DoQ（doq.world）、MIT Solve、Reedsy（目录 133KB 里没有任何比赛卡片的链接） |
 | 公开 API 存在但列表路径不可得 | Unstop（`/api/public/competition` 返回 `[]`，参数没破解）、DoraHacks（Nuxt 404）、Devfolio（api.devfolio.co 路径 404） |
 | 大陆服务器直连超时（疑似被墙） | Meetup、Luma、AIcrowd |
 | 页面上没有可解析的日期 | OpenIDEO（Webflow 落地页）、A' Design（dates 页无年份文本）、Unsigned Only（年度赛，无 deadline 文本） |

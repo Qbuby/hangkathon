@@ -8,7 +8,6 @@ export const EVENT_SOURCES = [
   { id: "mlh", label: "MLH" },
   { id: "drivendata", label: "DrivenData" },
   { id: "contestwatchers", label: "Contest Watchers" },
-  { id: "reedsy", label: "Reedsy" },
   { id: "xprize", label: "XPRIZE" },
   { id: "studentcompetitions", label: "StudentCompetitions" },
 ] as const;
@@ -111,21 +110,19 @@ export function eventWindowBounds(now: Date = new Date()) {
 }
 
 /**
- * 与 fetch.py 的 in_window() 同一口径的兜底过滤（服务端已经滤过，这里主要挡缓存里的旧数据）。
- * 没有 startsAt 但截止日期落在 [now, +90d] 的也收（Deadline 驱动的目录站）。
+ * 与 fetch.py 的 in_window() 同口径的兜底过滤（服务端已经滤过，这里主要挡缓存里的旧数据）：
+ * 开始日期落在 [now-7d, now+90d]；或已在进行、结束/截止日期落在 [now, now+90d]。
  */
 export function filterByWindow(events: ExternalEvent[], now: Date = new Date()): ExternalEvent[] {
-  const { past, future } = eventWindowBounds(now);
+  const past = new Date(now.getTime() - WINDOW_PAST_DAYS * DAY_MS);
+  const future = new Date(now.getTime() + WINDOW_FUTURE_DAYS * DAY_MS);
+  const between = (value: string | undefined, lo: Date, hi: Date) => {
+    if (!value) return false;
+    const date = new Date(value);
+    return date >= lo && date <= hi;
+  };
   return events.filter((event) => {
-    if (event.startsAt) {
-      const start = new Date(event.startsAt);
-      return start >= past && start <= future;
-    }
-    const end = event.endsAt ?? event.deadlineAt;
-    if (end) {
-      const endAt = new Date(end);
-      return endAt >= now && endAt <= future;
-    }
-    return false;
+    if (event.startsAt && between(event.startsAt, past, future)) return true;
+    return between(event.endsAt, now, future) || between(event.deadlineAt, now, future);
   });
 }
