@@ -25,6 +25,10 @@ import {
   type InviteEvent,
 } from "../invites";
 import { PUBLISHED_ACTIVITIES } from "../published-activities";
+import {
+  filterByWindow,
+  type ExternalEvent,
+} from "../external-events";
 import { ApiError, apiFetch, hasServerData } from "./client";
 
 /**
@@ -169,4 +173,20 @@ export async function recordInvite(event: InviteEvent): Promise<void> {
     return;
   }
   recordLocalInviteEvent(event);
+}
+
+/**
+ * 全球赛事：只有服务端部署才有（每日抓取入库）。localStorage 模式没有这个数据源，
+ * 返回空列表，页面整块不渲染。抓一把失败也返回空 —— 这个板块不该把活动页拖挂。
+ */
+export async function listGlobalEvents(): Promise<ExternalEvent[]> {
+  if (await hasServerData()) {
+    try {
+      const { events } = await apiFetch<{ events: ExternalEvent[] }>("/api/events");
+      return filterByWindow(events);
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }

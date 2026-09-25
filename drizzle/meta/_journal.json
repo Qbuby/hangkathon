@@ -15,6 +15,13 @@
       "when": 1790240862002,
       "tag": "0001_slim_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790340000000,
+      "tag": "0002_daily_global_events",
+      "breakpoints": true
     }
   ]
 }

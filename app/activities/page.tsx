@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import ActivityBoard from "../activity-board";
+import GlobalEvents from "../global-events";
 import SiteHeader from "../site-header";
 import { Button } from "@/components/ui/button";
 import { listActivities, type ActivityView } from "@/lib/api/data";
@@ -51,6 +52,7 @@ export default function ActivitiesPage() {
           loaded={loaded}
           action={<Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>}
         />
+        <GlobalEvents />
       </div>
     </main>
   );

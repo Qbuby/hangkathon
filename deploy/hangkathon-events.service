@@ -1,0 +1,12 @@
+[Unit]
+Description=杭客松每日全球赛事抓取并入库
+Documentation=file:/opt/hangkathon/deploy/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/hangkathon
+EnvironmentFile=/opt/hangkathon/.env
+ExecStart=/bin/sh /opt/hangkathon/deploy/events-fetch.sh
+TimeoutStartSec=900
+Nice=5

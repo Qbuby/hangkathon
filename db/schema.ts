@@ -97,6 +97,33 @@ export const inviteEvents = pgTable("invite_events", {
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("invite_events_activity_idx").on(table.activityId)]);
 
+/**
+ * 全球赛事：scripts/events/fetch.py 每日在宿主机抓取，经 /api/events/ingest（令牌）upsert 进来。
+ * (source, external_id) 唯一；starts_at 可空（Deadline 驱动的目录站只有截止日期）。
+ */
+export const externalEvents = pgTable("external_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  source: text("source").notNull(),
+  externalId: text("external_id").notNull(),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  category: text("category").notNull().default("competition"),
+  location: text("location"),
+  online: boolean("online"),
+  startsAt: timestamp("starts_at", { withTimezone: true }),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
+  deadlineAt: timestamp("deadline_at", { withTimezone: true }),
+  prize: text("prize"),
+  description: text("description"),
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  /** 最后一轮抓取（含失败轮之外的成功 upsert）见到它的时间，清理以两周没再见为准。 */
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("external_events_source_external_unique").on(table.source, table.externalId),
+  index("external_events_starts_idx").on(table.startsAt),
+]);
+
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   owner: one(users, { fields: [activities.ownerId], references: [users.id] }),
   joins: many(joins),

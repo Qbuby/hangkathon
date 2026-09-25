@@ -53,14 +53,14 @@ docker exec -it hangkathon-postgres psql -U hangkathon -d hangkathon
 ## 登录（OAuth）
 
 写操作（发起活动 / 报名 / 提交作品 / 邀请）要求登录，凭据放在 `.env`：
-`AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` / `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`。
+`AUTH_SECRET`（必须）/ `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` / `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`，
+以及 **`AUTH_URL=http://106.14.92.106:3210`** —— 没有它 Auth.js 会把 Dockerfile 里的
+`HOSTNAME=0.0.0.0:3000` 当成回调 origin，GitHub 那边直接报 redirect_uri 不匹配（2026-09-24 踩过）。
 
-回调地址是**按访问地址推导**的（`trustHost: true`），所以这份部署的回调是：
-
-- Google：`http://106.14.92.106:3210/api/auth/callback/google` —— Google 客户端支持多个重定向 URI，
-  把它加进「已授权的重定向 URI」即可，不影响 Vercel。
-- GitHub：`http://106.14.92.106:3210/api/auth/callback/github` —— 但 **GitHub OAuth App 只能填一个回调地址**，
-  与 `hangkathon.net` 冲突。要么给这份部署新建一个 OAuth App，要么这份就用 Google 登录。
+- GitHub：这台机器用的是**专用的 GitHub OAuth App**（一个 App 可配最多 10 个回调地址，
+  所以一份凭据同时服务多个部署也行），回调是 `http://106.14.92.106:3210/api/auth/callback/github`。
+- Google：**在裸 IP + HTTP 的 origin 上用不了**——Google 要求重定向 URI 必须是 HTTPS 且禁止裸 IP
+  （localhost 除外）。等站点有 HTTPS 域名后再启用；`.env` 里的 Google 凭据目前是闲置状态。
 
 ## 健康检查
 
@@ -154,11 +154,36 @@ systemctl disable --now hangkathon-ci.timer   # 暂停自动更新
 - 想改成"push 后秒级触发"，可以在 GitHub 加 webhook + 服务器上放一个校验签名的接收端点；
   当前轮询方案不需要 GitHub 额外配置，也不用多开端口。
 
+## 全球赛事抓取（每日）
+
+活动页底部的「全球赛事」来自每日一次的自动抓取：宿主机 `python3` 跑 `scripts/events/fetch.py`
+（7 个可自动化源），结果 POST 给应用的 `/api/events/ingest` 入库，页面经 `/api/events` 读取。
+源清单与取舍见 `docs/global-events.md`。
+
+一次性设置（.env 已配 `EVENTS_INGEST_TOKEN` 的前提下）：
+
+```sh
+cd /opt/hangkathon
+cp deploy/hangkathon-events.service deploy/hangkathon-events.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now hangkathon-events.timer
+```
+
+日常查看：
+
+```sh
+systemctl list-timers hangkathon-events.timer      # 下次抓取时间
+systemctl status hangkathon-events.service         # 上次抓取结果
+journalctl -u hangkathon-events.service -n 50      # 抓取日志（失败源会列在 stderr）
+systemctl start hangkathon-events.service          # 手动抓一轮
+```
+
 ## 环境变量
 
 `/opt/hangkathon/.env`（权限 600，不进版本库）：
 
 - `AUTH_SECRET`：首次部署时随机生成，用于签名会话 cookie。
+- `AUTH_URL`：对外访问的 origin（这台是 `http://106.14.92.106:3210`），OAuth 回调靠它推导。
+- `EVENTS_INGEST_TOKEN`：全球赛事抓取入库口的持有者令牌（`deploy/events-fetch.sh` 与 ingest 路由各持一半），换令牌时两处同步改。
 - 可选：`AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` / `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`。不配就只是登录不可用，站点其余功能正常（与本地预览一致）。
 
 ## 更新代码

@@ -1,0 +1,14 @@
+[{
+  "id": "ce0647a1-e1d4-40ab-a9e3-92c5abdf0ddc",
+  "name": "Scan-to-3D Factory Layout Automation",
+  "description": "**Register for the challenge to view the full specification.** Build a proof of concept that converts industrial point-cloud scans into native assemblies.",
+  "status": "ACTIVE",
+  "task": false,
+  "startDate": "2026-09-07T12:17:24.500Z",
+  "endDate": "2026-09-21T16:17:59.967Z",
+  "registrationStartDate": "2026-09-07T12:17:24.502Z",
+  "registrationEndDate": "2026-09-21T12:18:00.011Z",
+  "prizeSets": [{"type": "placement", "prizes": [{"value": 1500}, {"value": 750}, {"value": 250}]}],
+  "legacy": {"legacyId": 30109999},
+  "tags": ["python", "computer vision"]
+}]

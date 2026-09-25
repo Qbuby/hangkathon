@@ -1,0 +1,11 @@
+[Unit]
+Description=每天早上 07:30 抓取一次全球赛事
+
+[Timer]
+OnCalendar=*-*-* 07:30:00
+RandomizedDelaySec=600
+Persistent=true
+Unit=hangkathon-events.service
+
+[Install]
+WantedBy=timers.target
