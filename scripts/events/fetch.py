@@ -26,6 +26,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from html import unescape
 from pathlib import Path
+from urllib.parse import urljoin
 
 WINDOW_PAST_DAYS = 7
 WINDOW_FUTURE_DAYS = 90
@@ -285,7 +286,9 @@ DRIVENDATA_CARD_RE = re.compile(
 def parse_drivendata(html: str) -> list[dict]:
     out = []
     for m in DRIVENDATA_CARD_RE.finditer(html):
-        url, title, block = m.group(1), m.group(2), m.group(3)
+        # 卡片链接有两种写法：合作方站的绝对地址、自家站的相对地址（/competitions/306/...）
+        url = urljoin("https://www.drivendata.org/", m.group(1))
+        title, block = m.group(2), m.group(3)
         text = strip_tags(block)
         dates = find_dates(block)
         if not dates:
