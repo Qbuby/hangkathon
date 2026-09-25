@@ -14,6 +14,8 @@
 结果由 deploy/events-fetch.sh POST 到应用的 /api/events/ingest 入库。
 """
 
+from __future__ import annotations
+
 import argparse
 import gzip
 import json
