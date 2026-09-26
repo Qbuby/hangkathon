@@ -324,3 +324,14 @@ final result: passed
 - [x] Source-versus-render comparison and correction loop
 - [x] Demo/placeholder labeling
 - [x] Type and production-build checks
+
+## 2026-09-26 · 移除首页桥面标签
+
+- 用户要求去掉桥上的「算力汇聚 / 开源生态 / 人才共创 / 产业场景」四个标签。
+- 标签有两层来源：`scene.tsx` 里的四块 labelPatch 贴片 + 参考图贴图里烙的字
+  （hangzhou-upgrade-background.png 在桥面区域同样带字，不能当无字版用）。
+- 处理：删除 labelPatch 及其 resize/dispose 引用；新增
+  `scripts/derive-clean-bridge-texture.py`，从留档的
+  `hangzhou-upgrade-reference-source.png`（原始带字海报）按亮度掩膜
+  （min(r,g)>132，膨胀+羽化，模糊回填）派生无字版 reference.png。
+- 验证：本地 WebGL 渲染 scene ready，桥面无字、无接缝；底部功能条不受影响。

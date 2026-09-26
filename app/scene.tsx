@@ -27,12 +27,6 @@ function sculptedBridge(detail:number){
  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));g.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();return g;
 }
 function bridgeMaterial(texture:THREE.Texture){return new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false});}
-function labelPatch(texture:THREE.Texture,x:number,y:number,w:number,h:number){
- const geometry=new THREE.PlaneGeometry(w*UNIT,h*UNIT);const uv=geometry.getAttribute("uv");
- for(let i=0;i<uv.count;i++)uv.setXY(i,(x+uv.getX(i)*w)/WIDTH,1-(y+(1-uv.getY(i))*h)/HEIGHT);
- const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uMap:{value:texture}},vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,fragmentShader:`uniform sampler2D uMap;varying vec2 vUv;void main(){vec3 c=texture2D(uMap,vUv).rgb;float a=smoothstep(.24,.68,min(c.r,c.g));gl_FragColor=vec4(c,a);#include <colorspace_fragment>}`.replace(';#include',';\n#include')});
- const mesh=new THREE.Mesh(geometry,material);mesh.position.set((x+w/2-WIDTH/2)*UNIT-PIVOT.x,(HEIGHT/2-y-h/2)*UNIT-PIVOT.y,1);return mesh;
-}
 function backgroundMaterial(reference:THREE.Texture,clean:THREE.Texture){
  return new THREE.ShaderMaterial({depthTest:false,depthWrite:false,uniforms:{uRef:{value:reference},uClean:{value:clean},uMobile:{value:0},uTime:{value:0},uRipples:{value:Array.from({length:12},()=>new THREE.Vector4(0,0,-100,0))}},
  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
@@ -94,7 +88,6 @@ export default function BridgeScene(){
   reference.colorSpace=clean.colorSpace=THREE.SRGBColorSpace;reference.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   const geometry=sculptedBridge(mobile?96:224),material=bridgeMaterial(reference);
   const sculpture=new THREE.Group();sculpture.position.copy(PIVOT);sculpture.add(new THREE.Mesh(geometry,material));scene.add(sculpture);
-  const labels=[[548,428,111,66],[737,355,102,54],[968,334,106,42],[1170,378,115,59]].map(r=>labelPatch(reference,...r as [number,number,number,number]));labels.forEach(l=>sculpture.add(l));
   const bgGeometry=new THREE.PlaneGeometry(WIDTH*UNIT,HEIGHT*UNIT),bgMaterial=backgroundMaterial(reference,clean),bg=new THREE.Mesh(bgGeometry,bgMaterial);bg.position.z=-8;bg.renderOrder=-100;scene.add(bg);
   let waterPointer:THREE.Vector2|null=null,lastSpawn=-100,rippleIndex=0,rippleCount=0;
   const ripplePositions=bgMaterial.uniforms.uRipples.value as THREE.Vector4[];
@@ -108,7 +101,7 @@ export default function BridgeScene(){
    const worldW=aspect>=WIDTH/HEIGHT?WIDTH*UNIT:HEIGHT*UNIT*aspect,worldH=aspect>=WIDTH/HEIGHT?WIDTH*UNIT/aspect:HEIGHT*UNIT;
    camera.left=-worldW/2;camera.right=worldW/2;camera.top=worldH/2;camera.bottom=-worldH/2;camera.updateProjectionMatrix();
    if(mobile){sculpture.scale.setScalar(Math.min(.43,worldW/14.8));sculpture.position.set(-.24,-1.895+1.19*sculpture.scale.x,0);}else{sculpture.scale.setScalar(1);sculpture.position.copy(PIVOT);}
-   bgMaterial.uniforms.uMobile.value=mobile?1:0;labels.forEach(l=>l.visible=!mobile);canvas.dataset.quality=mobile?"mobile-30fps-dpr1.25":"desktop-60fps-dpr1.75";dirty=true;
+   bgMaterial.uniforms.uMobile.value=mobile?1:0;canvas.dataset.quality=mobile?"mobile-30fps-dpr1.25":"desktop-60fps-dpr1.75";dirty=true;
   };
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   const visibility=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;dirty=true;},{threshold:.01});visibility.observe(host);
@@ -129,7 +122,7 @@ export default function BridgeScene(){
    bgMaterial.uniforms.uTime.value=time;renderer.render(scene,camera);
    canvas.dataset.engine="three-webgl-textured-geometry";canvas.dataset.bridgeRotation="fixed";canvas.dataset.frames=String(renderer.info.render.frame);canvas.dataset.triangles=String(renderer.info.render.triangles);canvas.dataset.paused=String(c.paused);dirty=false;
   };frame=requestAnimationFrame(render);
-  return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();visibility.disconnect();reduced.removeEventListener("change",motionChange);document.removeEventListener("visibilitychange",visibleChange);canvas.removeEventListener("pointerdown",down);canvas.removeEventListener("pointermove",move);canvas.removeEventListener("pointerleave",leave);canvas.removeEventListener("pointerup",up);canvas.removeEventListener("pointercancel",leave);canvas.removeEventListener("keydown",keydown);canvas.removeEventListener("webglcontextlost",lost);canvas.removeEventListener("webglcontextrestored",restored);geometry.dispose();material.dispose();labels.forEach(l=>{l.geometry.dispose();l.material.dispose();});reference.dispose();clean.dispose();bgGeometry.dispose();bgMaterial.dispose();renderer.dispose();canvas.remove();};
+  return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();visibility.disconnect();reduced.removeEventListener("change",motionChange);document.removeEventListener("visibilitychange",visibleChange);canvas.removeEventListener("pointerdown",down);canvas.removeEventListener("pointermove",move);canvas.removeEventListener("pointerleave",leave);canvas.removeEventListener("pointerup",up);canvas.removeEventListener("pointercancel",leave);canvas.removeEventListener("keydown",keydown);canvas.removeEventListener("webglcontextlost",lost);canvas.removeEventListener("webglcontextrestored",restored);geometry.dispose();material.dispose();reference.dispose();clean.dispose();bgGeometry.dispose();bgMaterial.dispose();renderer.dispose();canvas.remove();};
  },[]);
  return <div ref={mount} className="scene-mount" data-scene-state={status}>{status==="loading"&&<div className="scene-message" role="status">正在加载杭州的暮色…</div>}{status==="error"&&<div className="scene-message" role="alert"><strong>当前环境无法显示实时 3D</strong><span>请使用支持 WebGL 的浏览器，开启硬件加速后刷新。下方活动仍可浏览。</span></div>}</div>;
 }
