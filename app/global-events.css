@@ -1,7 +1,6 @@
 /* 全球赛事区块：视觉语言沿用活动看板（board.css）的白卡 + 浅蓝描边。 */
 
-/* 区块现在排在活动看板之前，上边距要给固定顶栏（100-116px）留足空隙 */
-.global-events{margin:150px auto 0;padding:0 20px;max-width:1080px}
+.global-events{margin:64px auto 0;padding:0 20px;max-width:1080px}
 .ge-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
 .ge-head .eyebrow{font-size:12px;letter-spacing:3px;color:#1b9cfc;font-weight:600;margin:0 0 6px}
 .ge-head h2{font-size:30px;font-weight:700;margin:0;color:#0f2b43}
@@ -21,11 +20,13 @@
 .ge-list li{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid #e3edf6;border-radius:14px;padding:14px 16px;transition:border-color .15s,box-shadow .15s}
 .ge-list li:hover{border-color:#8fd0ff;box-shadow:0 2px 12px #1b9cfc14}
 
-.ge-date{flex:none;min-width:64px;text-align:center;font-size:12px;font-weight:600;color:#0b6fa8;background:#e3f4ff;border-radius:8px;padding:6px 8px;letter-spacing:.5px}
+.ge-date{flex:none;min-width:58px;text-align:center;color:#0b6fa8;background:#e3f4ff;border-radius:10px;padding:7px 8px;display:flex;flex-direction:column;justify-content:center}
+.ge-date span{font-size:10.5px;letter-spacing:1px;opacity:.92}
+.ge-date strong{font-size:19px;font-weight:650;line-height:1.1}
 .ge-date.is-deadline{color:#8a5a00;background:#ffefc7}
 
 .ge-body{min-width:0}
-.ge-title{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;color:#0f2b43;text-decoration:none;word-break:break-word}
+.ge-title{display:inline-block;font-size:15px;font-weight:600;color:#0f2b43;text-decoration:none;word-break:break-word}
 .ge-title:hover{color:#0b6fa8;text-decoration:underline}
 .ge-title svg{flex:none;opacity:.55}
 
@@ -38,8 +39,13 @@
 .ge-note{margin:18px 0 0;font-size:12.5px;color:#7a8fa3;text-align:center}
 
 @media (max-width:640px){
-  .global-events{margin-top:132px}
+  .global-events{margin-top:48px}
   .ge-head h2{font-size:24px}
   .ge-list li{padding:12px}
   .ge-date{min-width:56px}
 }
+
+/* 全球赛事详情页（复用 detail.css 骨架） */
+.ge-official{display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 22px;border-radius:12px;background:#e3f4ff;border:1px solid #b9dcf5;color:#0b6fa8;font-size:14.5px;font-weight:600;text-decoration:none;transition:background .18s,border-color .18s}
+.ge-official:hover{background:#d5efff;border-color:#8fd0ff}
+.ge-back{padding:0 6% 60px}

@@ -190,3 +190,16 @@ export async function listGlobalEvents(): Promise<ExternalEvent[]> {
   }
   return [];
 }
+
+/** 单条全球赛事（详情页用）。localStorage 模式或查询失败返回 null。 */
+export async function getGlobalEvent(id: string): Promise<ExternalEvent | null> {
+  if (await hasServerData()) {
+    try {
+      const { event } = await apiFetch<{ event: ExternalEvent | null }>(`/api/events/${encodeURIComponent(id)}`);
+      return event ?? null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, MapPin } from "lucide-react";
+import Link from "next/link";
+import { MapPin } from "lucide-react";
 import {
   categoryLabel,
   EVENT_CATEGORIES,
@@ -31,14 +32,14 @@ function dayLabel(iso: string) {
 }
 
 /** 日期口径：有开始日期显示区间；只有截止日期的目录站条目显示「截止 x月x日」。 */
-function dateText(event: ExternalEvent): { badge: string; range: string } {
+function dateText(event: ExternalEvent): { month: string; day: string; range: string; deadline: boolean } {
   if (!event.startsAt) {
     const end = event.endsAt ?? event.deadlineAt ?? "";
-    return { badge: "截止", range: `${dayLabel(end)} 前报名` };
+    return { month: "截止", day: dayLabel(end), range: `${dayLabel(end)} 前报名`, deadline: true };
   }
   const start = dayLabel(event.startsAt);
   const end = event.endsAt ? dayLabel(event.endsAt) : null;
-  return { badge: start, range: end && end !== start ? `${start} – ${end}` : start };
+  return { month: dayLabel(event.startsAt).split("/")[0] + "月", day: dayLabel(event.startsAt).split("/")[1], range: end && end !== start ? `${start} – ${end}` : start, deadline: false };
 }
 
 function monthKey(event: ExternalEvent): string {
@@ -89,9 +90,9 @@ export default function GlobalEvents() {
     <section className="global-events" aria-labelledby="global-events-title">
       <div className="ge-head">
         <div>
-          <p className="eyebrow">GLOBAL EVENTS</p>
-          <h2 id="global-events-title">全球赛事</h2>
-          <p className="ge-sub">每日自动抓取全球竞赛、黑客松与创意赛事：开始日期最早到一周前、最晚到三个月后，信息以主办方页面为准。</p>
+          <p className="eyebrow" data-reveal="block">GLOBAL EVENTS</p>
+          <h2 id="global-events-title" data-reveal="block">全球赛事</h2>
+          <p className="ge-sub" data-reveal="block">每日自动抓取全球竞赛、黑客松与创意赛事：开始日期最早到一周前、最晚到三个月后，信息以主办方页面为准。点击卡片查看中文详情。</p>
         </div>
         <div className="ge-chips" role="group" aria-label="按类别筛选">
           {CATEGORY_FILTERS.map((item) => (
@@ -110,7 +111,7 @@ export default function GlobalEvents() {
 
       {months.map(([key, list]) => (
         <div className="ge-month" key={key}>
-          <div className="ge-month-head">
+          <div className="ge-month-head" data-reveal="item">
             <h3>{monthLabel(list[0].startsAt ?? list[0].endsAt ?? list[0].deadlineAt!)}</h3>
             <span>{list.length} 场</span>
           </div>
@@ -118,15 +119,15 @@ export default function GlobalEvents() {
             {list.map((event) => {
               const when = dateText(event);
               return (
-                <li key={`${event.source}:${event.sourceId}`}>
-                  <span className={`ge-date${when.badge === "截止" ? " is-deadline" : ""}`} aria-hidden="true">
-                    {when.badge}
+                <li key={`${event.source}:${event.sourceId}`} data-reveal="item">
+                  <span className={`ge-date${when.deadline ? " is-deadline" : ""}`} aria-hidden="true">
+                    <span>{when.month}</span>
+                    <strong>{when.day}</strong>
                   </span>
                   <div className="ge-body">
-                    <a href={event.url} target="_blank" rel="noopener noreferrer" className="ge-title">
+                    <Link href={`/activities/global/${event.id}`} className="ge-title">
                       {event.title}
-                      <ExternalLink size={13} aria-hidden="true" />
-                    </a>
+                    </Link>
                     <p className="ge-meta">
                       <span className="ge-when">{when.range}</span>
                       <span className="ge-sep" aria-hidden="true">·</span>
@@ -136,7 +137,7 @@ export default function GlobalEvents() {
                       <span className="ge-sep" aria-hidden="true">·</span>
                       <span className="ge-where">
                         <MapPin size={12} aria-hidden="true" />
-                        {event.online ? "线上" : (event.location ?? "地点见官网")}
+                        {event.online ? "线上" : (event.location || "地点见官网")}
                       </span>
                       {event.prize && (
                         <>

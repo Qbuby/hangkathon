@@ -17,8 +17,9 @@ export type EventSourceId = (typeof EVENT_SOURCES)[number]["id"];
 export const EVENT_CATEGORIES = ["hackathon", "competition", "award"] as const;
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 
-/** 与 fetch.py 的 finalize() 输出一一对应（camelCase，ISO 日期）。 */
+/** 与 fetch.py 的 finalize() 输出一一对应（camelCase，ISO 日期）。id 由入库侧补充（uuid）。 */
 export type ExternalEvent = {
+  id?: string;
   source: EventSourceId;
   sourceId: string;
   title: string;

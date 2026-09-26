@@ -1,4 +1,4 @@
-import { and, asc, gte, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lt, lte, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/db";
 import {
@@ -15,6 +15,7 @@ type Row = typeof schema.externalEvents.$inferSelect;
 
 function toEvent(row: Row): ExternalEvent {
   const event: ExternalEvent = {
+    id: row.id,
     source: row.source as EventSourceId,
     sourceId: row.externalId,
     title: row.title,
@@ -127,4 +128,12 @@ export async function cleanupExternalEvents(): Promise<number> {
     )
     .returning({ id: schema.externalEvents.id });
   return gone.length;
+}
+
+/** 详情页用：按主键取单条全球赛事（窗口过滤不适用——详情页照常展示）。 */
+export async function getExternalEventById(id: string): Promise<ExternalEvent | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const db = getDb();
+  const [row] = await db.select().from(schema.externalEvents).where(eq(schema.externalEvents.id, id)).limit(1);
+  return row ? toEvent(row) : null;
 }
