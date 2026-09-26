@@ -48,6 +48,12 @@ systemd timer (每天 07:30, deploy/hangkathon-events.timer)
 ```
 
 - 抓取跑在**宿主机**（服务器现成 python3.11），不进容器 —— 与抖音取数「纯脚本、不依赖算力」同一条路线。
+- **详情 enrichment（2026-09-26 起）**：ingest 响应带 `needDetail` 清单（还没抓过详情页的赛事），
+  抓取脚本逐个访问赛事自己的页面，提取 og:image 海报与正文段落（stdlib HTMLParser，
+  跳过导航/脚本，段落 ≥50 字去重，上限 4000 字），POST 到令牌保护的 `/api/events/detail`。
+  每条赛事只 enrichment 一次（detail_text 非空即跳过），失败下轮自动重试。
+  详情页展示海报 + 中文摘要（MyMemory 译正文前 380 字）+ 来源原文折叠；标题与简介的
+  机翻存在 `title_zh`/`description_zh`/`detail_text_zh`（迁移 0003/0004）。
 - 入库口按 `(source, external_id)` upsert：同一赛事每天重抓只更新，不重复插入；`last_seen_at`
   两周没更新（源不再产出）或开始日期过期 30 天的行会被清理。
 - localStorage 模式（Vercel 那份）`/api/events` 返回 503，前端 `listGlobalEvents()` 捕获后返回空列表，整块不渲染。
