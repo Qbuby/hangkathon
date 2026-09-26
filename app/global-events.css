@@ -57,3 +57,6 @@
 .ge-back{padding:0 6% 60px}
 .ge-official{display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 22px;border-radius:12px;background:#e3f4ff;border:1px solid #b9dcf5;color:#0b6fa8;font-size:14.5px;font-weight:600;text-decoration:none;transition:background .18s,border-color .18s}
 .ge-official:hover{background:#d5efff;border-color:#8fd0ff}
+
+/* 详情页海报 */
+.ge-hero-img{display:block;width:100%;max-height:380px;object-fit:cover;object-position:center top;border-radius:14px;margin:18px 0 0;border:1px solid #e3edf6}

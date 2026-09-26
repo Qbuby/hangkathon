@@ -72,25 +72,42 @@ export default function GlobalEventDetail({ id }: { id: string }) {
               信息来源 · <a href={event.url} target="_blank" rel="noopener noreferrer">{SOURCE_LABEL.get(event.source) ?? event.source}</a>
               （中文为机器翻译，可能有出入）
             </p>
+            {event.imageUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element -- 来源 CDN 域名不固定，直接用 img */
+              <img
+                className="ge-hero-img"
+                src={event.imageUrl}
+                alt={`${event.title} 海报`}
+                referrerPolicy="no-referrer"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+            )}
           </section>
 
           <div className="detail-body">
             <div className="detail-main">
               <section data-reveal="block" className="detail-section" aria-labelledby="ge-overview">
                 <p className="detail-eyebrow">OVERVIEW</p>
-                <h2 id="ge-overview">赛事介绍</h2>
-                {event.descriptionZh ? (
-                  <p className="detail-text">{event.descriptionZh}</p>
-                ) : event.description ? (
-                  <p className="detail-text">{event.description}</p>
-                ) : (
-                  <p className="detail-placeholder">来源平台没有提供简介，参赛要求请见主办方页面。</p>
+                <h2 id="ge-overview">赛事介绍与规则</h2>
+                {event.detailTextZh && <p className="detail-text">{event.detailTextZh}</p>}
+                {event.detailText && (
+                  event.detailTextZh ? (
+                    <details className="ge-original" open>
+                      <summary>查看来源平台原文（完整介绍与规则）</summary>
+                      <p className="detail-text ge-original-text">{event.detailText}</p>
+                    </details>
+                  ) : (
+                    <p className="detail-text">{event.detailText}</p>
+                  )
                 )}
-                {event.descriptionZh && event.description && (
-                  <details className="ge-original">
-                    <summary>查看来源平台原文</summary>
-                    <p className="detail-text ge-original-text">{event.description}</p>
-                  </details>
+                {!event.detailText && (
+                  event.descriptionZh ? (
+                    <p className="detail-text">{event.descriptionZh}</p>
+                  ) : event.description ? (
+                    <p className="detail-text">{event.description}</p>
+                  ) : (
+                    <p className="detail-placeholder">正文还在抓取中，或来源平台没有提供简介。报名要求请见主办方页面。</p>
+                  )
                 )}
               </section>
 

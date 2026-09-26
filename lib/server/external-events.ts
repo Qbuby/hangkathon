@@ -1,7 +1,8 @@
-import { and, asc, eq, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/db";
 import { translateToChinese } from "./translate";
+import { isEventSource } from "../external-events";
 import {
   WINDOW_FUTURE_DAYS,
   WINDOW_PAST_DAYS,
@@ -33,6 +34,9 @@ function toEvent(row: Row): ExternalEvent {
   if (row.description) event.description = row.description;
   if (row.titleZh) event.titleZh = row.titleZh;
   if (row.descriptionZh) event.descriptionZh = row.descriptionZh;
+  if (row.detailText) event.detailText = row.detailText;
+  if (row.detailTextZh) event.detailTextZh = row.detailTextZh;
+  if (row.imageUrl) event.imageUrl = row.imageUrl;
   return event;
 }
 
@@ -150,23 +154,80 @@ export async function getExternalEventById(id: string): Promise<ExternalEvent | 
  * 给还没有中文标题的赛事补机翻（MyMemory 免费接口）。由 ingest 路由在入库后
  * 异步触发（不阻塞抓取脚本的响应）；失败留给明天的入库重试，可自愈。
  */
-export async function translateMissingTranslations(limit = 24): Promise<number> {
+export async function translateMissingTranslations(limit = 16): Promise<number> {
   const db = getDb();
-  const rows = await db
+  let budget = limit;
+  let translated = 0;
+
+  // 标题优先（短、显眼）
+  const untitled = await db
     .select()
     .from(schema.externalEvents)
     .where(isNull(schema.externalEvents.titleZh))
-    .limit(limit);
-  let translated = 0;
-  for (const row of rows) {
+    .limit(budget);
+  for (const row of untitled) {
+    if (budget <= 0) break;
     const titleZh = await translateToChinese(row.title);
-    const descriptionZh = row.description ? await translateToChinese(row.description) : null;
-    if (!titleZh && !descriptionZh) continue;
-    await db
-      .update(schema.externalEvents)
-      .set({ titleZh, descriptionZh })
-      .where(eq(schema.externalEvents.id, row.id));
+    budget -= 1;
+    if (!titleZh && !row.description) continue;
+    const descriptionZh = row.description && !row.detailText ? await translateToChinese(row.description) : null;
+    await db.update(schema.externalEvents).set({ titleZh, descriptionZh }).where(eq(schema.externalEvents.id, row.id));
     if (titleZh) translated += 1;
   }
+
+  // 详情正文：一次请求译不完长文，只译前 380 字符作中文摘要，原文在详情页折叠展示
+  if (budget > 0) {
+    const unexplained = await db
+      .select()
+      .from(schema.externalEvents)
+      .where(and(isNotNull(schema.externalEvents.detailText), isNull(schema.externalEvents.detailTextZh)))
+      .limit(budget);
+    for (const row of unexplained) {
+      if (budget <= 0) break;
+      const summaryZh = await translateToChinese((row.detailText ?? "").slice(0, 380));
+      budget -= 1;
+      await db
+        .update(schema.externalEvents)
+        .set({ detailTextZh: summaryZh ?? "" })
+        .where(eq(schema.externalEvents.id, row.id));
+      if (summaryZh) translated += 1;
+    }
+  }
   return translated;
+}
+
+/** 还没做过详情 enrichment 的赛事（ingest 响应里带给抓取脚本）。 */
+export async function detailNeededRows(limit = 30) {
+  const db = getDb();
+  const rows = await db
+    .select({ source: schema.externalEvents.source, sourceId: schema.externalEvents.externalId, url: schema.externalEvents.url })
+    .from(schema.externalEvents)
+    .where(isNull(schema.externalEvents.detailText))
+    .limit(limit);
+  return rows;
+}
+
+/** 详情 enrichment 入库：按 (source, external_id) 更新海报与正文，并让中文摘要重翻。 */
+export async function updateEventDetails(
+  details: { source: string; sourceId: string; imageUrl?: string; detailText?: string }[],
+): Promise<number> {
+  const db = getDb();
+  let updated = 0;
+  for (const item of details) {
+    if (!isEventSource(item.source)) continue;
+    const patch: Record<string, unknown> = {};
+    if (item.imageUrl) patch.imageUrl = item.imageUrl;
+    if (item.detailText) {
+      patch.detailText = item.detailText;
+      patch.detailTextZh = null;
+    }
+    if (Object.keys(patch).length === 0) continue;
+    const gone = await db
+      .update(schema.externalEvents)
+      .set(patch)
+      .where(and(eq(schema.externalEvents.source, item.source), eq(schema.externalEvents.externalId, item.sourceId)))
+      .returning({ id: schema.externalEvents.id });
+    updated += gone.length;
+  }
+  return updated;
 }

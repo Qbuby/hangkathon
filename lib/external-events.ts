@@ -34,6 +34,9 @@ export type ExternalEvent = {
   prize?: string;
   description?: string;
   descriptionZh?: string;
+  detailText?: string;
+  detailTextZh?: string;
+  imageUrl?: string;
   tags: string[];
 };
 

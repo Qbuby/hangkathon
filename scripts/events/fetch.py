@@ -25,6 +25,7 @@ import time
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from html import unescape
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -399,6 +400,103 @@ def source_studentcompetitions() -> list[dict]:
     return parse_studentcompetitions(http_get("https://studentcompetitions.com/competitions"))
 
 
+
+# ------------------------------------------------- 详情页 enrichment
+
+
+class PageTextExtractor(HTMLParser):
+    """收集详情页的正文段落与 og:image。跳过导航/脚本等噪音，段落 <50 字的丢弃。"""
+
+    SKIP = {"script", "style", "nav", "header", "footer", "aside", "noscript", "form", "button", "select", "svg", "iframe"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.skip_depth = 0
+        self.capture = 0
+        self.buf: list[str] = []
+        self.texts: list[str] = []
+        self.og_image: str | None = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
+        if tag in self.SKIP:
+            self.skip_depth += 1
+            return
+        if tag == "meta":
+            key = (attrs_dict.get("property") or attrs_dict.get("name") or "").lower()
+            if key in ("og:image", "twitter:image") and attrs_dict.get("content"):
+                self.og_image = self.og_image or attrs_dict["content"].strip()
+        if tag in ("p", "li"):
+            self.capture += 1
+            self.buf.append("")
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP:
+            self.skip_depth = max(0, self.skip_depth - 1)
+            return
+        if tag in ("p", "li") and self.capture:
+            self.capture -= 1
+            text = re.sub(r"\s+", " ", "".join(self.buf.pop())).strip()
+            if len(text) >= 50:
+                self.texts.append(text)
+
+    def handle_data(self, d):
+        if self.skip_depth == 0 and self.capture and self.buf:
+            self.buf[-1] += d
+
+
+def extract_detail(html: str, base_url: str) -> tuple[str | None, str | None]:
+    """返回 (海报图 URL, 正文文本)。正文少于 160 字视为提取失败（None）。"""
+    parser = PageTextExtractor()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception:
+        pass
+    seen: set[str] = set()
+    paras: list[str] = []
+    for text in parser.texts:
+        if "cookie" in text.lower() or "javascript" in text.lower():
+            continue
+        key = text[:80]
+        if key in seen:
+            continue
+        seen.add(key)
+        paras.append(text)
+    body = ""
+    for para in paras:
+        if len(body) + len(para) + 2 > 4000:
+            break
+        body = f"{body}{chr(10) * 2}{para}" if body else para
+    image = parser.og_image
+    if image and image.startswith("/"):
+        image = urljoin(base_url, image)
+    return (image or None), (body if len(body) >= 160 else None)
+
+
+def enrich_from(need_path: str) -> int:
+    """读 ingest 响应里的 needDetail 清单，逐个抓来源详情页，输出 details JSON。"""
+    payload = json.loads(Path(need_path).read_text(encoding="utf-8"))
+    details = []
+    for item in payload.get("needDetail", [])[:30]:
+        url = item.get("url")
+        source = item.get("source", "")
+        source_id = item.get("sourceId", "")
+        if not url or not source or not source_id:
+            continue
+        try:
+            page = http_get(url, timeout=15)
+            image, text = extract_detail(page, url)
+            details.append({"source": source, "sourceId": source_id, "imageUrl": image, "detailText": text})
+            print(f"[enrich] {source_id[:40]}: {'正文 ' + str(len(text)) + ' 字' if text else '未提取到正文'}", file=sys.stderr)
+        except Exception as error:  # noqa: BLE001 —— 单页失败不影响其余
+            print(f"[enrich] {source_id[:40]}: {type(error).__name__}: {error}"[:160], file=sys.stderr)
+        time.sleep(0.8)
+    json.dump({"details": details}, sys.stdout, ensure_ascii=False)
+    sys.stdout.write(chr(10))
+    return 0
+
+
 # ---------------------------------------------------------------- 入口
 
 ADAPTERS = {
@@ -469,11 +567,14 @@ def main() -> int:
     parser.add_argument("--fixture", action="store_true", help="离线模式：从 fixtures/ 读样本")
     parser.add_argument("--no-window", action="store_true", help="不做窗口过滤（离线样本日期固定，会过期）")
     parser.add_argument("--self-check", action="store_true", help="对全部 fixture 做离线自检")
+    parser.add_argument("--enrich-from", metavar="FILE", help="读 ingest 响应里的 needDetail 清单，抓来源详情页并输出 details JSON")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     args = parser.parse_args()
 
     if args.self_check:
         return self_check()
+    if args.enrich_from:
+        return enrich_from(args.enrich_from)
     names = args.source or sorted(ADAPTERS)
     result = run(names, fixture=args.fixture, apply_window=not args.no_window)
     json.dump(result, sys.stdout, ensure_ascii=False)

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { databaseRequired, handleRouteError, jsonError } from "@/lib/server/http";
-import { cleanupExternalEvents, translateMissingTranslations, upsertExternalEvents } from "@/lib/server/external-events";
+import {
+  cleanupExternalEvents,
+  detailNeededRows,
+  translateMissingTranslations,
+  upsertExternalEvents,
+} from "@/lib/server/external-events";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +35,9 @@ export async function POST(request: Request) {
     const removed = await cleanupExternalEvents();
     // 机翻缺失的行异步补齐：不阻塞抓取脚本的响应，失败由明天的入库重试
     void translateMissingTranslations().catch(() => {});
-    return NextResponse.json({ ok: true, received, stored, removed });
+    // 还没做过详情 enrichment 的赛事清单，交给抓取脚本补抓正文与海报
+    const needDetail = await detailNeededRows(30);
+    return NextResponse.json({ ok: true, received, stored, removed, needDetail });
   } catch (error) {
     return handleRouteError(error);
   }

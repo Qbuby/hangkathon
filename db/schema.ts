@@ -118,6 +118,10 @@ export const externalEvents = pgTable("external_events", {
   /** 机翻中文（MyMemory），入库时异步补齐；没有就回落到原文。 */
   titleZh: text("title_zh"),
   descriptionZh: text("description_zh"),
+  /** 详情 enrichment：来源详情页的正文与海报图，由每日抓取脚本补齐。 */
+  detailText: text("detail_text"),
+  detailTextZh: text("detail_text_zh"),
+  imageUrl: text("image_url"),
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
   /** 最后一轮抓取（含失败轮之外的成功 upsert）见到它的时间，清理以两周没再见为准。 */
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
