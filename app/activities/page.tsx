@@ -46,13 +46,13 @@ export default function ActivitiesPage() {
     <main className="activities-page">
       <SiteHeader />
       <div className="activities-wrap">
+        <GlobalEvents />
         <ActivityBoard
           activities={activities}
           mode={mode}
           loaded={loaded}
           action={<Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>}
         />
-        <GlobalEvents />
       </div>
     </main>
   );

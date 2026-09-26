@@ -1,6 +1,7 @@
 /* 全球赛事区块：视觉语言沿用活动看板（board.css）的白卡 + 浅蓝描边。 */
 
-.global-events{margin:64px auto 0;padding:0 20px;max-width:1080px}
+/* 区块现在排在活动看板之前，上边距要给固定顶栏（100-116px）留足空隙 */
+.global-events{margin:150px auto 0;padding:0 20px;max-width:1080px}
 .ge-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
 .ge-head .eyebrow{font-size:12px;letter-spacing:3px;color:#1b9cfc;font-weight:600;margin:0 0 6px}
 .ge-head h2{font-size:30px;font-weight:700;margin:0;color:#0f2b43}
@@ -37,7 +38,7 @@
 .ge-note{margin:18px 0 0;font-size:12.5px;color:#7a8fa3;text-align:center}
 
 @media (max-width:640px){
-  .global-events{margin-top:48px}
+  .global-events{margin-top:132px}
   .ge-head h2{font-size:24px}
   .ge-list li{padding:12px}
   .ge-date{min-width:56px}
