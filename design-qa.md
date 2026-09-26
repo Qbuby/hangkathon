@@ -329,9 +329,17 @@ final result: passed
 
 - 用户要求去掉桥上的「算力汇聚 / 开源生态 / 人才共创 / 产业场景」四个标签。
 - 标签有两层来源：`scene.tsx` 里的四块 labelPatch 贴片 + 参考图贴图里烙的字
-  （hangzhou-upgrade-background.png 在桥面区域同样带字，不能当无字版用）。
+  （hangzhou-upgrade-background.png 是无桥版本，桥面区域不能当无字版用）。
 - 处理：删除 labelPatch 及其 resize/dispose 引用；新增
   `scripts/derive-clean-bridge-texture.py`，从留档的
-  `hangzhou-upgrade-reference-source.png`（原始带字海报）按亮度掩膜
-  （min(r,g)>132，膨胀+羽化，模糊回填）派生无字版 reference.png。
-- 验证：本地 WebGL 渲染 scene ready，桥面无字、无接缝；底部功能条不受影响。
+  `hangzhou-upgrade-reference-source.png`（原始带字海报）做几何驱动的修复：
+  天空区按行在左右真实天空间插值（晚霞云带水平走向，同行亮度一致）；
+  玻璃区沿拱桥切向平移到干净区段取供体、局部亮度匹配后羽化贴回
+  （曲线参数来自 scene.tsx 的贝塞尔网格）；亮边核心（min(R,G)>205）恒用原图。
+  期间否决了模糊回填（平斑块）、TELEA/FSR 大掩膜（拉花）、干净底图整块替换
+  （两图云纹不同会穿帮）——最终版为显示比例下最干净的纯处理方案。
+- 验证：本地 WebGL 渲染 scene ready，桥面无字；2× 放大仍可见轻微云雾状痕迹
+  （字的辉光裙边与云霞亮度重叠，纯处理的天花板）。要彻底无痕：向设计侧要
+  无文字的原始渲染图替换 source 重跑脚本，或用修复模型（LaMa venv 已就绪，
+  仅差 200MB 权重从 GitHub 下载）。
+- 底部功能条不受影响。
