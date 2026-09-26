@@ -64,10 +64,13 @@ export default function GlobalEventDetail({ id }: { id: string }) {
         <>
           <section className="detail-hero">
             <p className="detail-eyebrow" data-reveal="block">GLOBAL EVENT · 全球赛事</p>
-            <h1 data-reveal="block">{event.title}</h1>
+            <h1 data-reveal="block">{event.titleZh || event.title}</h1>
+            {event.titleZh && (
+              <p className="detail-host" data-reveal="block">原文标题 · {event.title}</p>
+            )}
             <p className="detail-host" data-reveal="block">
               信息来源 · <a href={event.url} target="_blank" rel="noopener noreferrer">{SOURCE_LABEL.get(event.source) ?? event.source}</a>
-              （标题与简介为来源平台原文）
+              （中文为机器翻译，可能有出入）
             </p>
           </section>
 
@@ -76,10 +79,18 @@ export default function GlobalEventDetail({ id }: { id: string }) {
               <section data-reveal="block" className="detail-section" aria-labelledby="ge-overview">
                 <p className="detail-eyebrow">OVERVIEW</p>
                 <h2 id="ge-overview">赛事介绍</h2>
-                {event.description ? (
+                {event.descriptionZh ? (
+                  <p className="detail-text">{event.descriptionZh}</p>
+                ) : event.description ? (
                   <p className="detail-text">{event.description}</p>
                 ) : (
                   <p className="detail-placeholder">来源平台没有提供简介，参赛要求请见主办方页面。</p>
+                )}
+                {event.descriptionZh && event.description && (
+                  <details className="ge-original">
+                    <summary>查看来源平台原文</summary>
+                    <p className="detail-text ge-original-text">{event.description}</p>
+                  </details>
                 )}
               </section>
 

@@ -1,6 +1,7 @@
-import { and, asc, eq, gte, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/db";
+import { translateToChinese } from "./translate";
 import {
   WINDOW_FUTURE_DAYS,
   WINDOW_PAST_DAYS,
@@ -30,6 +31,8 @@ function toEvent(row: Row): ExternalEvent {
   if (row.online !== null) event.online = row.online;
   if (row.prize) event.prize = row.prize;
   if (row.description) event.description = row.description;
+  if (row.titleZh) event.titleZh = row.titleZh;
+  if (row.descriptionZh) event.descriptionZh = row.descriptionZh;
   return event;
 }
 
@@ -54,6 +57,8 @@ export async function upsertExternalEvents(rawEvents: unknown[]): Promise<{ rece
       title: event.title,
       url: event.url,
       category: event.category,
+      titleZh: null,
+      descriptionZh: null,
       location: event.location ?? null,
       online: event.online ?? null,
       startsAt: event.startsAt ? new Date(event.startsAt) : null,
@@ -79,6 +84,9 @@ export async function upsertExternalEvents(rawEvents: unknown[]): Promise<{ rece
           deadlineAt: sql`excluded.deadline_at`,
           prize: sql`excluded.prize`,
           description: sql`excluded.description`,
+          // 抓取脚本不带翻译：保留库里已有的机翻，缺的由 translateMissingTranslations 异步补
+          titleZh: sql`coalesce(excluded.title_zh, external_events.title_zh)`,
+          descriptionZh: sql`coalesce(excluded.description_zh, external_events.description_zh)`,
           tags: sql`excluded.tags`,
           lastSeenAt: sql`now()`,
         },
@@ -136,4 +144,29 @@ export async function getExternalEventById(id: string): Promise<ExternalEvent | 
   const db = getDb();
   const [row] = await db.select().from(schema.externalEvents).where(eq(schema.externalEvents.id, id)).limit(1);
   return row ? toEvent(row) : null;
+}
+
+/**
+ * 给还没有中文标题的赛事补机翻（MyMemory 免费接口）。由 ingest 路由在入库后
+ * 异步触发（不阻塞抓取脚本的响应）；失败留给明天的入库重试，可自愈。
+ */
+export async function translateMissingTranslations(limit = 24): Promise<number> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(schema.externalEvents)
+    .where(isNull(schema.externalEvents.titleZh))
+    .limit(limit);
+  let translated = 0;
+  for (const row of rows) {
+    const titleZh = await translateToChinese(row.title);
+    const descriptionZh = row.description ? await translateToChinese(row.description) : null;
+    if (!titleZh && !descriptionZh) continue;
+    await db
+      .update(schema.externalEvents)
+      .set({ titleZh, descriptionZh })
+      .where(eq(schema.externalEvents.id, row.id));
+    if (titleZh) translated += 1;
+  }
+  return translated;
 }

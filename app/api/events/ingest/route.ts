@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { databaseRequired, handleRouteError, jsonError } from "@/lib/server/http";
-import { cleanupExternalEvents, upsertExternalEvents } from "@/lib/server/external-events";
+import { cleanupExternalEvents, translateMissingTranslations, upsertExternalEvents } from "@/lib/server/external-events";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +28,8 @@ export async function POST(request: Request) {
 
     const { received, stored } = await upsertExternalEvents(body.events);
     const removed = await cleanupExternalEvents();
+    // 机翻缺失的行异步补齐：不阻塞抓取脚本的响应，失败由明天的入库重试
+    void translateMissingTranslations().catch(() => {});
     return NextResponse.json({ ok: true, received, stored, removed });
   } catch (error) {
     return handleRouteError(error);

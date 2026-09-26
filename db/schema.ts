@@ -115,6 +115,9 @@ export const externalEvents = pgTable("external_events", {
   deadlineAt: timestamp("deadline_at", { withTimezone: true }),
   prize: text("prize"),
   description: text("description"),
+  /** 机翻中文（MyMemory），入库时异步补齐；没有就回落到原文。 */
+  titleZh: text("title_zh"),
+  descriptionZh: text("description_zh"),
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
   /** 最后一轮抓取（含失败轮之外的成功 upsert）见到它的时间，清理以两周没再见为准。 */
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),

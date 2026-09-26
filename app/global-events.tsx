@@ -126,7 +126,7 @@ export default function GlobalEvents() {
                   </span>
                   <div className="ge-body">
                     <Link href={`/activities/global/${event.id}`} className="ge-title">
-                      {event.title}
+                      {event.titleZh || event.title}
                     </Link>
                     <p className="ge-meta">
                       <span className="ge-when">{when.range}</span>
