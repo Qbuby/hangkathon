@@ -31,7 +31,7 @@ curl -fsS --max-time 30 -X POST http://127.0.0.1:3210/api/events/ingest \
 # 详情 enrichment：ingest 响应里带还没抓过详情页的赛事清单，逐个补抓正文与海报
 if grep -q '"needDetail":\[{' "$ing_res"; then
   "$py" "$root/scripts/events/fetch.py" --enrich-from "$ing_res" >"$det_out"
-  if grep -q '"details":\[{' "$det_out"; then
+  if grep -q '"details"' "$det_out"; then
     curl -fsS --max-time 60 -X POST http://127.0.0.1:3210/api/events/detail \
       -H "Authorization: Bearer $EVENTS_INGEST_TOKEN" \
       -H "Content-Type: application/json" --data-binary @"$det_out" \
