@@ -14,19 +14,16 @@ import {
   type Activity,
 } from "@/lib/activity";
 import { factionById } from "@/lib/factions";
-import FactionPanel from "../../faction-panel";
 import SiteHeader from "../../site-header";
 import { revealOnce, usePageMotion } from "../../motion-scope";
 import {
   MECHANISM,
   getContribution,
   teamByCaptain,
-  teamShares,
   type JoinRecord,
 } from "@/lib/contribution";
 import {
   inviteCount,
-  settleFactionLeaders,
   type InviteEvent,
 } from "@/lib/invites";
 import { isValidDouyinUrl, type SubmissionRecord } from "@/lib/submission";
@@ -192,20 +189,14 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
 
   const isLocalActivity = mode === "local" && activity.id.startsWith("a_");
   const submissionTypeLabels = submissionLabels(activity.submissionTypes);
-  const hasPrize = activity.awardsEnabled && activity.prizePool > 0;
-  const shares = teamShares(getContribution(activity.id), hasPrize ? activity.prizePool : 0);
-  const contributionTotal = shares.reduce((sum, row) => sum + row.points, 0);
   const accountName = account?.user?.name ?? account?.user?.email ?? "本机数字市民";
   const district = factionById(activity.district);
   const activityTeams = getContribution(activity.id)?.teams ?? [];
   // 只有战队的队长可以邀请用户加入战队
   const myTeam = teamByCaptain(activityTeams, accountName);
-  const settledLeaders = settleFactionLeaders(inviteEvents, activity.id);
-  const districtLeader = district ? settledLeaders[district.id] : undefined;
   const myInvites = inviteCount(inviteEvents, activity.id, activity.district, accountName);
-  const activityEnded = activity.endsAt ? new Date(activity.endsAt) < new Date() : false;
 
-  /** 个人参赛：无需选择阵营，点击即报名。服务端模式需要先登录。 */
+  /** 个人参赛：点击即报名。服务端模式需要先登录。 */
   async function confirmJoin() {
     if (!activity) return;
     if (mode === "server" && !account?.user) {
@@ -387,7 +378,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
             <ol className="detail-steps">
               <li>
                 <strong>报名参赛</strong>
-                <span>点「报名参赛」按钮，个人一键参加，不需要选阵营</span>
+                <span>点「报名参赛」按钮，个人一键参加</span>
               </li>
               <li>
                 <strong>完成作品或任务</strong>
@@ -420,7 +411,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                     </div>
                   ))}
                 </div>
-                <p className="detail-placeholder">奖金总额：{prizeText(activity)}。奖项是荣誉头衔；现金按战队贡献、再按队内个人贡献占比分发（见下方「战队贡献」）。</p>
+                <p className="detail-placeholder">奖金总额：{prizeText(activity)}。奖项为荣誉头衔，现金在活动结算后按平台规则发放。</p>
               </>
             )}
           </section>
@@ -542,67 +533,6 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               )}
             </section>
           )}
-
-          <section data-reveal="block" className="detail-section" aria-labelledby="detail-factions">
-            <p className="detail-eyebrow">TEAMS</p>
-            <h2 id="detail-factions">战队贡献</h2>
-            {shares.length > 0 ? (
-              <>
-                <FactionPanel
-                  slices={shares.map((row) => ({
-                    id: row.team.id,
-                    label: row.team.name,
-                    value: row.points,
-                    color: row.team.color,
-                  }))}
-                  rows={shares.map((row) => ({
-                    id: row.team.id,
-                    name: row.team.name,
-                    color: row.team.color,
-                    points: row.points,
-                    share: row.share,
-                    prize: row.prize,
-                  }))}
-                  centerValue={contributionTotal.toLocaleString("zh-CN")}
-                  hasPrize={hasPrize}
-                  nameLabel="战队"
-                />
-                <p className="detail-placeholder">
-                  {hasPrize
-                    ? "奖金按战队贡献占比及战队内个人贡献占比分配。"
-                    : "这场活动不设奖金，战队贡献只累计荣誉。"}
-                </p>
-              </>
-            ) : (
-              <p className="detail-placeholder">
-                还没有战队贡献数据。报名开始后，各战队的贡献值将在这里实时汇总（战队贡献 = 战队成员个人贡献之和）。
-              </p>
-            )}
-          </section>
-
-      {district && activityEnded && (
-        <section data-reveal="block" className="detail-section" aria-labelledby="detail-leaders">
-          <p className="detail-eyebrow">DISTRICT LEADER</p>
-          <h2 id="detail-leaders">所属区区长结算</h2>
-          {districtLeader ? (
-            <>
-              <div className="leader-board">
-                <div className="leader-board-row">
-                  <span className="join-badge-dot" style={{ background: district.color }} />
-                  <strong>{district.name}</strong>
-                  <span className="leader-board-name">{districtLeader.name}</span>
-                  <span>邀请 {districtLeader.invites} 人</span>
-                </div>
-              </div>
-              <p className="detail-placeholder">
-                成功邀请人数最多者结算为本场活动所属区的区长；并列时以最早受邀加入者胜。个人贡献值额外 +{Math.round(MECHANISM.leaderBonusPct * 100)}%。
-              </p>
-            </>
-          ) : (
-            <p className="detail-placeholder">本场活动没有受邀报名记录，所属区（{district.name}）暂无区长。</p>
-          )}
-        </section>
-      )}
         </div>
 
         <aside className="detail-side" aria-label="活动关键信息">
@@ -654,7 +584,6 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 <li>正式阶段每天发 ¥{MECHANISM.voucher.base} 算力券，当日有效</li>
                 <li>算力券面额上限为 ¥{MECHANISM.voucher.dailyCap}/天</li>
                 <li>产出物 {MECHANISM.review.hours} 小时内审核，按质量计入个人贡献值</li>
-                <li>以个人账户参赛，无需选择阵营；战队由平台统一组织</li>
               </ul>
               <p className="detail-join-note">
                 {mode === "server"
@@ -668,7 +597,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
               <Button className="primary-action" onClick={() => void confirmJoin()}>报名参赛</Button>
               {joinError && <p className="submit-error" role="alert">{joinError}</p>}
               <p className="detail-join-note">
-                个人一键报名，不用选阵营。报名后照着「怎么参加」四步走就行；正式阶段每天可领算力券，想组队的话平台会统一组织。
+                个人一键报名。报名后照着「怎么参加」四步走就行；正式阶段每天可领算力券。
                 {isLocalActivity ? "活动记录保存在此设备。" : ""}
               </p>
             </div>
