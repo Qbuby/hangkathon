@@ -7,7 +7,7 @@ import SiteHeader from "../../../site-header";
 import { categoryLabel, EVENT_SOURCES, type ExternalEvent } from "@/lib/external-events";
 import { getGlobalEvent } from "@/lib/api/data";
 import "../../[slug]/detail.css";
-import "../../global-events.css";
+import "../../../global-events.css";
 
 const SOURCE_LABEL = new Map(EVENT_SOURCES.map((item) => [item.id, item.label]));
 
