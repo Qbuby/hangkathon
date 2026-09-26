@@ -73,20 +73,20 @@ export default function GlobalEventDetail({ id }: { id: string }) {
               信息来源 · <a href={event.url} target="_blank" rel="noopener noreferrer">{SOURCE_LABEL.get(event.source) ?? event.source}</a>
               （中文为机器翻译，可能有出入）
             </p>
-            {event.imageUrl && (
-              /* eslint-disable-next-line @next/next/no-img-element -- 来源 CDN 域名不固定，直接用 img */
-              <img
-                className="ge-hero-img"
-                src={event.imageUrl}
-                alt={`${event.title} 海报`}
-                referrerPolicy="no-referrer"
-                onError={(e) => { e.currentTarget.style.display = "none"; }}
-              />
-            )}
           </section>
 
           <div className="detail-body">
             <div className="detail-main">
+              {event.imageUrl && (
+                /* eslint-disable-next-line @next/next/no-img-element -- 来源 CDN 域名不固定，直接用 img */
+                <img
+                  className="ge-hero-img"
+                  src={event.imageUrl}
+                  alt={`${event.title} 海报`}
+                  referrerPolicy="no-referrer"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+              )}
               <section data-reveal="block" className="detail-section" aria-labelledby="ge-overview">
                 <p className="detail-eyebrow">OVERVIEW</p>
                 <h2 id="ge-overview">赛事介绍与规则</h2>
