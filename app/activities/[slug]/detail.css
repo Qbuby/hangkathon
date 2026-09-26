@@ -7,7 +7,9 @@
 .detail-top-title{font-size:17px;letter-spacing:2px;color:#17273a}
 .detail-top-note{margin-left:auto;font-size:11px;color:#7c93a8;border:1px solid #dce7f2;border-radius:6px;padding:6px 10px;background:#f6fafd}
 
-.detail-hero{padding:132px 6% 34px;border-bottom:1px solid #e2ecf6}
+# 顶栏是 fixed 且分档高（116/100/116），这里按最高档留足空隙；
+# 旧版靠 hero 里的标签行和 -30px 负 margin 撑位置，标签删除后标题直接顶进导航。
+.detail-hero{padding:168px 6% 34px;border-bottom:1px solid #e2ecf6}
 .detail-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:600;letter-spacing:1px;line-height:1.45;margin:0;color:#17273a}
 .detail-sub{font-size:15px;line-height:1.9;color:#5b6b7d;margin:14px 0 0}
 .detail-host{font-size:12.5px;letter-spacing:.5px;color:#7c93a8;margin:16px 0 0}
@@ -109,7 +111,7 @@
   .detail-top{padding:18px 6%;gap:12px}
   .detail-top-title{font-size:15px}
   .detail-top-note{font-size:10px;padding:5px 7px}
-  .detail-hero{padding:116px 6% 26px}
+  .detail-hero{padding:172px 6% 26px}
   .detail-hero h1{font-size:24px}
   .detail-sub{font-size:13.5px}
   .detail-body{padding:26px 6% 44px}
@@ -155,8 +157,9 @@
   .faction-row{font-size:13px}
   .faction-share{min-width:46px}
 }
-.detail-top-tags{display:flex;justify-content:flex-end;padding:0 6%;margin:0 0 -30px;position:relative;pointer-events:none}
-.detail-top-tags .detail-top-note{pointer-events:auto}
+# 本机活动角标：绝对定位在 hero 的上空隙里，不占布局、也不被顶栏盖住
+.detail-top-tags{height:0;padding:0 6%;position:relative;z-index:5;pointer-events:none}
+.detail-top-tags .detail-top-note{pointer-events:auto;position:absolute;top:132px;right:6%}
 
 /* 作品提交：抖音视频分享链接 */
 .submit-form{display:flex;gap:10px;margin:0 0 12px}
