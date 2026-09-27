@@ -448,6 +448,14 @@ class PageTextExtractor(HTMLParser):
             self.buf[-1] += d
 
 
+# 各来源详情页通用的平台样板文案（出现即整段丢弃）
+BOILERPLATE_MARKERS = (
+    "微信扫码报名", "轻松获取电子票", "购票已达上限", "我要报名 我要报名",
+    "互动吧平台特此说明", "避免相关的经济损失", "如出现相关纠纷", "付费推广",
+    "谨防诈骗", "佐敦网络科技", "国内外受欢迎的活动平台", "活动过程中的相关纠纷",
+)
+
+
 def extract_detail(html: str, base_url: str) -> tuple[str | None, str | None]:
     """返回 (海报图 URL, 正文文本)。正文少于 160 字视为提取失败（None）。"""
     parser = PageTextExtractor()
@@ -463,6 +471,8 @@ def extract_detail(html: str, base_url: str) -> tuple[str | None, str | None]:
             continue
         if "{{" in text or "}}" in text:  # Vue/模板占位符页面的噪音
             continue
+        if any(marker in text for marker in BOILERPLATE_MARKERS):
+            continue  # 平台样板文案（防诈骗声明、平台介绍、按钮组）
         key = text[:80]
         if key in seen:
             continue
