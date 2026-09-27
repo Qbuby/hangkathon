@@ -461,6 +461,8 @@ def extract_detail(html: str, base_url: str) -> tuple[str | None, str | None]:
     for text in parser.texts:
         if "cookie" in text.lower() or "javascript" in text.lower():
             continue
+        if "{{" in text or "}}" in text:  # Vue/模板占位符页面的噪音
+            continue
         key = text[:80]
         if key in seen:
             continue
@@ -530,12 +532,15 @@ def parse_cjk_date(text: str, now: datetime) -> datetime | None:
 def parse_hudongba(html: str, city: str = "杭州", now: datetime | None = None) -> list[dict]:
     now = now or datetime.now(timezone.utc)
     items: list[dict] = []
-    for chunk in html.split("find_main_div")[1:]:
+    positions = [m.start() for m in re.finditer("find_main_div", html)]
+    for idx, start in enumerate(positions):
+        chunk = html[start:start + 1200]
+        pre = html[max(0, start - 900):start]  # 海报锚点在 find_main_div 之前
         url_m = re.search(r'find_main_title">\s*<a href="([^"]+)"', chunk)
         title_m = re.search(r'find_main_title">\s*<a[^>]*>\s*([^<]+?)\s*</a>', chunk)
         time_m = re.search(r'find_main_time">\s*([^<]+?)\s*</div>', chunk)
         addr_m = re.search(r'find_main_address">\s*([^<]+?)\s*</div>', chunk)
-        pic_m = re.search(r'hd_pic[^>]*src="([^"]+)"', chunk)
+        pic_m = re.search(r'hd_pic[^>]*src="([^"]+)"', pre)
         if not url_m or not title_m:
             continue
         starts = parse_cjk_date(time_m.group(1) if time_m else "", now)
