@@ -8,7 +8,7 @@ import SiteHeader from "./site-header";
 export default function Home() {
   return (
     <main id="top">
-      <Link className="skip-link" href="/activities">跳转到活动看板</Link>
+      <Link className="skip-link" href="/activities">跳转到活动列表</Link>
       <SiteHeader transparent />
 
       <section className="hero" aria-labelledby="hero-title">

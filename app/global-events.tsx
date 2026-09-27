@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import {
@@ -10,7 +10,6 @@ import {
   type EventCategory,
   type ExternalEvent,
 } from "@/lib/external-events";
-import { listGlobalEvents } from "@/lib/api/data";
 import { EVENT_SOURCES } from "@/lib/external-events";
 import "./global-events.css";
 
@@ -47,25 +46,9 @@ function monthKey(event: ExternalEvent): string {
   return iso.slice(0, 7);
 }
 
-export default function GlobalEvents() {
-  const [events, setEvents] = useState<ExternalEvent[]>([]);
-  const [loaded, setLoaded] = useState(false);
+export default function GlobalEvents({ events, eventsLoaded }: { events: ExternalEvent[]; eventsLoaded: boolean }) {
   const [category, setCategory] = useState<CategoryFilter>("all");
-
-  useEffect(() => {
-    let cancelled = false;
-    listGlobalEvents()
-      .then((list) => {
-        if (!cancelled) setEvents(list);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const loaded = eventsLoaded;
 
   const shown = useMemo(
     () => filterByWindow(events).filter((event) => category === "all" || event.category === category),

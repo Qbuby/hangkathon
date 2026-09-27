@@ -180,7 +180,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 ? "这个活动代号下没有活动。它可能已被删除，或者是在另一台设备上创建的——目前活动只保存在创建它的浏览器里。"
                 : "正在读取活动信息。"}
             </p>
-            <Button asChild className="primary-action"><Link href="/#activities">回到活动看板 <ArrowRight size={17} /></Link></Button>
+            <Button asChild className="primary-action"><Link href="/#activities">返回活动列表 <ArrowRight size={17} /></Link></Button>
           </div>
         </div>
       </main>

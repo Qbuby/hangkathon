@@ -61,6 +61,7 @@ export async function upsertExternalEvents(rawEvents: unknown[]): Promise<{ rece
       title: event.title,
       url: event.url,
       category: event.category,
+      imageUrl: event.imageUrl ?? null,
       titleZh: null,
       descriptionZh: null,
       location: event.location ?? null,
@@ -91,6 +92,7 @@ export async function upsertExternalEvents(rawEvents: unknown[]): Promise<{ rece
           // 抓取脚本不带翻译：保留库里已有的机翻，缺的由 translateMissingTranslations 异步补
           titleZh: sql`coalesce(excluded.title_zh, external_events.title_zh)`,
           descriptionZh: sql`coalesce(excluded.description_zh, external_events.description_zh)`,
+          imageUrl: sql`coalesce(excluded.image_url, external_events.image_url)`,
           tags: sql`excluded.tags`,
           lastSeenAt: sql`now()`,
         },

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, Coins, ExternalLink, MapPin } from "lucide-react";
 import SiteHeader from "../../../site-header";
-import { categoryLabel, EVENT_SOURCES, type ExternalEvent } from "@/lib/external-events";
+import { categoryLabel, EVENT_SOURCES, eventScope, type ExternalEvent } from "@/lib/external-events";
 import { getGlobalEvent } from "@/lib/api/data";
 import "../../[slug]/detail.css";
 import "../../../global-events.css";
@@ -64,7 +64,7 @@ export default function GlobalEventDetail({ id }: { id: string }) {
       ) : (
         <>
           <section className="detail-hero">
-            <p className="detail-eyebrow" data-reveal="block">GLOBAL EVENT · 全球赛事</p>
+            <p className="detail-eyebrow" data-reveal="block">{eventScope(event.source) === "local" ? "LOCAL EVENT · 本地赛事" : "GLOBAL EVENT · 全球赛事"}</p>
             <h1 data-reveal="block">{event.titleZh || event.title}</h1>
             {event.titleZh && (
               <p className="detail-host" data-reveal="block">原文标题 · {event.title}</p>

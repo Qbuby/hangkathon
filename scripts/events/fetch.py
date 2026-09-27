@@ -135,7 +135,8 @@ def ev(source: str, source_id: str, title: str, *, url: str, category: str,
        starts: datetime | None = None, ends: datetime | None = None,
        deadline: datetime | None = None, location: str | None = None,
        online: bool | None = None, prize: str | None = None,
-       description: str | None = None, tags: list[str] | None = None) -> dict:
+       description: str | None = None, tags: list[str] | None = None,
+       image: str | None = None) -> dict:
     return {
         "source": source,
         "sourceId": str(source_id)[:200],
@@ -150,6 +151,7 @@ def ev(source: str, source_id: str, title: str, *, url: str, category: str,
         "prize": prize,
         "description": description[:280] if description else None,
         "tags": [str(t)[:40] for t in (tags or [])][:10],
+        "image": (image[:1000] if image else None),
     }
 
 
@@ -178,6 +180,7 @@ def finalize(item: dict) -> dict:
         "deadlineAt": iso(item.get("deadline")),
         "prize": item.get("prize"),
         "description": item.get("description"),
+        "imageUrl": (unescape(item["image"]) if item.get("image") else None),
         "tags": item.get("tags") or [],
     }
 
@@ -497,9 +500,82 @@ def enrich_from(need_path: str) -> int:
     return 0
 
 
+
+# ------------------------------------------------- 国内平台（互动吧，江浙沪线下活动）
+
+HUDONGBA_CITIES = [("杭州", "hangzhou"), ("上海", "shanghai"), ("南京", "nanjing"), ("苏州", "suzhou")]
+HUDONGBA_CATEGORIES = (101, 125)  # 101=互联网 125=企业服务
+CJK_DATE = re.compile(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日(?:\s*(\d{1,2}):(\d{2}))?")
+
+
+def parse_cjk_date(text: str, now: datetime) -> datetime | None:
+    """解析「10月17日 09:00 开始」「2026年10月17日」这类中文日期。"""
+    match = CJK_DATE.search(text)
+    if not match:
+        return None
+    year = int(match.group(1)) if match.group(1) else now.year
+    try:
+        value = datetime(year, int(match.group(2)), int(match.group(3)),
+                         int(match.group(4) or 9), int(match.group(5) or 0), tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    if value < now - timedelta(days=WINDOW_PAST_DAYS + 1) and year == now.year:
+        try:
+            value = value.replace(year=year + 1)
+        except ValueError:
+            return None
+    return value
+
+
+def parse_hudongba(html: str, city: str = "杭州", now: datetime | None = None) -> list[dict]:
+    now = now or datetime.now(timezone.utc)
+    items: list[dict] = []
+    for chunk in html.split("find_main_div")[1:]:
+        url_m = re.search(r'find_main_title">\s*<a href="([^"]+)"', chunk)
+        title_m = re.search(r'find_main_title">\s*<a[^>]*>\s*([^<]+?)\s*</a>', chunk)
+        time_m = re.search(r'find_main_time">\s*([^<]+?)\s*</div>', chunk)
+        addr_m = re.search(r'find_main_address">\s*([^<]+?)\s*</div>', chunk)
+        pic_m = re.search(r'hd_pic[^>]*src="([^"]+)"', chunk)
+        if not url_m or not title_m:
+            continue
+        starts = parse_cjk_date(time_m.group(1) if time_m else "", now)
+        if not starts:
+            continue
+        id_m = re.search(r"party/([a-z0-9]+)\.html", url_m.group(1))
+        if not id_m:
+            continue
+        addr = strip_tags(addr_m.group(1)) if addr_m else ""
+        items.append(ev("hudongba", id_m.group(1), title_m.group(1),
+                        url=url_m.group(1).strip().split("?")[0], category="activity",
+                        starts=starts, location=f"{city} · {addr}" if addr else city,
+                        online=False, image=pic_m.group(1) if pic_m else None))
+    return items
+
+
+def source_hudongba() -> list[dict]:
+    now = datetime.now(timezone.utc)
+    items: list[dict] = []
+    seen: set[str] = set()
+    for city, slug in HUDONGBA_CITIES:
+        for cid in HUDONGBA_CATEGORIES:
+            try:
+                html = http_get(f"https://www.hudongba.com/{slug}/{cid}-0-2-0-0-1/", timeout=15)
+            except Exception:  # noqa: BLE001 —— 单页失败不影响其余城市
+                continue
+            for item in parse_hudongba(html, city, now):
+                if item["sourceId"] in seen:
+                    continue
+                seen.add(item["sourceId"])
+                items.append(item)
+            time.sleep(0.5)
+    items.sort(key=lambda item: item["starts"] or datetime.max.replace(tzinfo=timezone.utc))
+    return items[:60]
+
+
 # ---------------------------------------------------------------- 入口
 
 ADAPTERS = {
+    "hudongba": (source_hudongba, parse_hudongba, ".html"),
     "topcoder": (source_topcoder, parse_topcoder, ".json"),
     "mlh": (source_mlh, parse_mlh, ".html"),
     "drivendata": (source_drivendata, parse_drivendata, ".html"),

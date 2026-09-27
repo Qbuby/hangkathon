@@ -4,6 +4,7 @@
  */
 
 export const EVENT_SOURCES = [
+  { id: "hudongba", label: "互动吧" },
   { id: "topcoder", label: "Topcoder" },
   { id: "mlh", label: "MLH" },
   { id: "drivendata", label: "DrivenData" },
@@ -14,7 +15,7 @@ export const EVENT_SOURCES = [
 
 export type EventSourceId = (typeof EVENT_SOURCES)[number]["id"];
 
-export const EVENT_CATEGORIES = ["hackathon", "competition", "award"] as const;
+export const EVENT_CATEGORIES = ["hackathon", "competition", "award", "activity"] as const;
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 
 /** 与 fetch.py 的 finalize() 输出一一对应（camelCase，ISO 日期）。id 与 *Zh 由入库侧补充。 */
@@ -48,7 +49,14 @@ export function isEventSource(value: string): value is EventSourceId {
 }
 
 export function categoryLabel(category: EventCategory): string {
-  return category === "hackathon" ? "黑客松" : category === "competition" ? "竞赛" : "创意大奖";
+  return category === "hackathon" ? "黑客松" : category === "competition" ? "竞赛" : category === "activity" ? "活动" : "创意大奖";
+}
+
+/** 国内平台（江浙沪线下活动）来源——活动页「本地赛事」板块的数据源。 */
+const LOCAL_SOURCES = new Set<string>(["hudongba"]);
+
+export function eventScope(source: string): "local" | "global" {
+  return LOCAL_SOURCES.has(source) ? "local" : "global";
 }
 
 /** 用户定的窗口口径：开始日期最早到一周前，最晚到之后三个月。 */
@@ -103,6 +111,8 @@ export function normalizeEventInput(raw: unknown): ExternalEvent | null {
   if (online !== undefined) event.online = online;
   const prize = asTrimmed(item.prize, 80);
   if (prize) event.prize = prize;
+  const imageUrl = asTrimmed(item.imageUrl, 1000);
+  if (imageUrl && /^https?:\/\//.test(imageUrl)) event.imageUrl = imageUrl;
   const description = asTrimmed(item.description, 280);
   if (description) event.description = description;
   return event;

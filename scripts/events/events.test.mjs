@@ -35,8 +35,8 @@ function runFetch(args) {
 test("self-check：每个适配器都能从自己的 fixture 解析出条目", () => {
   const probe = spawnSync(python, [SCRIPT, "--self-check"], { encoding: "utf8" });
   assert.equal(probe.status, 0, probe.stderr);
-  // 6 个源都要有 fixture（有 fixture 才测得到解析器）
-  assert.equal(EVENT_SOURCES.length, 6);
+  // 7 个源都要有 fixture（有 fixture 才测得到解析器）
+  assert.equal(EVENT_SOURCES.length, 7);
   for (const { id } of EVENT_SOURCES) {
     assert.match(probe.stderr, new RegExp(`${id}: [1-9]\\d*/`), `${id} 的 fixture 应至少解析出 1 条`);
   }
