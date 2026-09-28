@@ -316,29 +316,52 @@ CW_DENY = ("expire", "latest", "category", "page", "feed", "author", "about", "c
 
 
 def parse_contestwatchers(html: str) -> list[dict]:
-    """/latest-contests/ 的条目：<a href=permalink>标题(+缩略图/介绍)</a>，
-    截止日期在卡片相邻文本里，抓不到日期的跳过。首页的 cw_fresh 卡片也是这个锚点结构。"""
-    out = []
-    seen: set[str] = set()
+    """/latest-contests/ 与首页的卡片解析。
+
+    同一赛事会出现两个锚点：缩略图锚（其 figcaption 是「Image source: …」版权行）
+    与标题锚。按永久链接聚合候选，h2 标题优先于锚文本，并剥掉粘在尾部的
+    「N weeks/months remaining」过期元数据。
+    """
+    seen: dict[str, dict] = {}
     for m in re.finditer(r'<a\b[^>]*href="(https://www\.contestwatchers\.com/([a-z0-9-]{12,})/)"[^>]*>(.*?)</a>', html, re.S):
         url, slug, inner = m.group(1), m.group(2), m.group(3)
+        key = url.rstrip("/")
         if any(part in slug for part in CW_DENY):
             continue
+        entry = seen.setdefault(key, {"h2": None, "plain": None, "dates": [], "prize": None})
         h2 = re.search(r"<h2[^>]*>(.*?)</h2>", inner, re.S)
-        title = strip_tags(h2.group(1)) if h2 else strip_tags(re.sub(r"<img[^>]*>", " ", inner))
-        if len(title) < 15 or url.rstrip("/") in seen:
+        if h2:
+            candidate = strip_tags(h2.group(1))
+        else:
+            candidate = strip_tags(re.sub(r"<img[^>]*>", " ", inner))
+        if len(candidate) >= 15:
+            if h2 and not entry["h2"]:
+                entry["h2"] = candidate
+            elif not entry["plain"]:
+                entry["plain"] = candidate
+        if not entry["dates"]:
+            window_text = strip_tags(html[m.end():m.end() + 1200])
+            dates = find_dates(window_text)
+            if dates:
+                entry["dates"] = dates
+                entry["prize"] = find_prize(window_text)
+
+    out = []
+    for url, entry in seen.items():
+        title = entry["h2"] or entry["plain"]
+        if not title or len(title) < 15:
             continue
-        window_text = strip_tags(html[m.end():m.end() + 1200])
-        dates = find_dates(window_text)
-        if not dates:
+        title = re.sub(r"\s*\d+\+?\s*(?:weeks?|months?|days?)\s+remaining\b.*$", "", title, flags=re.I).strip(" ·|-")
+        if len(title) < 15:
             continue
-        seen.add(url.rstrip("/"))
-        out.append(ev(
-            "contestwatchers", slug, title,
-            url=url, category="award",
-            starts=dates[0], ends=dates[1] if len(dates) > 1 else None,
-            prize=find_prize(window_text),
-        ))
+        dates = entry["dates"]
+        item = ev("contestwatchers", url.rstrip("/").rsplit("/", 1)[-1], title,
+                  url=url, category="award",
+                  starts=dates[0] if dates else None,
+                  ends=dates[1] if len(dates) > 1 else None,
+                  prize=entry["prize"])
+        if item["starts"]:
+            out.append(item)
     return out
 
 
