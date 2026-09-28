@@ -11,38 +11,16 @@
 .ge-chip:hover{border-color:#8fd0ff;color:#0b6fa8;background:#f3f9ff}
 .ge-chip.is-active{border-color:#1b9cfc;background:#e3f4ff;color:#0b6fa8;font-weight:600}
 
-.ge-month{max-width:820px;margin-bottom:26px}
-.ge-month-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
-.ge-month-head h3{font-size:17px;font-weight:650;color:#0f2b43;margin:0}
-.ge-month-head span{font-size:12.5px;color:#7a8fa3}
 
-.ge-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
-.ge-list li{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid #e3edf6;border-radius:14px;padding:14px 16px;transition:border-color .15s,box-shadow .15s}
-.ge-list li:hover{border-color:#8fd0ff;box-shadow:0 2px 12px #1b9cfc14}
 
-.ge-date{flex:none;min-width:58px;text-align:center;color:#0b6fa8;background:#e3f4ff;border-radius:10px;padding:7px 8px;display:flex;flex-direction:column;justify-content:center}
-.ge-date span{font-size:10.5px;letter-spacing:1px;opacity:.92}
-.ge-date strong{font-size:19px;font-weight:650;line-height:1.1}
-.ge-date.is-deadline{color:#8a5a00;background:#ffefc7}
 
-.ge-body{min-width:0}
-.ge-title{display:inline-block;font-size:15px;font-weight:600;color:#0f2b43;text-decoration:none;word-break:break-word}
-.ge-title:hover{color:#0b6fa8;text-decoration:underline}
-.ge-title svg{flex:none;opacity:.55}
 
-.ge-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 0;font-size:12.5px;color:#5b7186}
-.ge-when{font-variant-numeric:tabular-nums}
-.ge-source{color:#1b7ec2}
-.ge-where{display:inline-flex;align-items:center;gap:4px}
-.ge-prize{color:#8a5a00;font-weight:600}
 
 .ge-note{max-width:820px;margin:18px 0 0;font-size:12.5px;color:#7a8fa3;text-align:center}
 
 @media (max-width:640px){
   .global-events{padding:0 20px 48px}
   .ge-head h2{font-size:24px}
-  .ge-list li{padding:12px}
-  .ge-date{min-width:56px}
 }
 
 /* 全球赛事详情页（复用 detail.css 骨架） */

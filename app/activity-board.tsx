@@ -71,6 +71,10 @@ function dayLabelCn(iso: string) {
   return `${month}月${day}日`;
 }
 
+function clampIntro(text: string) {
+  return text.length > 92 ? `${text.slice(0, 92).trimEnd()}……` : text;
+}
+
 function whenText(event: ExternalEvent) {
   if (event.startsAt) {
     const start = dayLabelCn(event.startsAt);
@@ -313,7 +317,12 @@ export default function ActivityBoard({
           <span className="feed-sep" aria-hidden="true">·</span>
           来源 {source}
         </p>
+        {event.descriptionZh && <p className="feed-intro">{clampIntro(event.descriptionZh)}</p>}
+        {!event.descriptionZh && event.description && <p className="feed-intro">{clampIntro(event.description)}</p>}
+        {!event.descriptionZh && !event.description && event.detailTextZh && <p className="feed-intro">{clampIntro(event.detailTextZh)}</p>}
+        {!event.descriptionZh && !event.description && !event.detailTextZh && event.detailText && <p className="feed-intro">{clampIntro(event.detailText)}</p>}
         <p className="feed-meta">
+          {event.prize && <span className="feed-prize">{event.prize}</span>}
           <span className="feed-cta">查看详情 →</span>
         </p>
       </article>
