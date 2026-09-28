@@ -48,6 +48,15 @@ systemd timer (每天 07:30, deploy/hangkathon-events.timer)
 ```
 
 - 抓取跑在**宿主机**（服务器现成 python3.11），不进容器 —— 与抖音取数「纯脚本、不依赖算力」同一条路线。
+- **国内平台（2026-09-27 起）**：互动吧（hudongba）作为「本地赛事」数据源接入——城市页
+  /hangzhou、/shanghai、/nanjing、/suzhou × 分类 101(互联网)/125(企业服务) 共 8 页服务端
+  渲染卡片（海报/标题/中文日期/区县全在卡里），解析后按 party id 去重、窗口过滤、上限 60。
+  活动行是 IP 级人机验证、豆瓣同城无响应、AIcrowd 被墙——均不可用，勿重试。
+  互动吧 h5 详情页是 AvalonJS 模板壳（正文走 api.hudongba.com 异步加载），enrichment 对
+  hudongba 走 og:description 分支；平台样板文案（防诈骗声明/类目导航等）有黑名单过滤。
+  本地活动与全球赛事同表（external_events），靠 `eventScope(source)` 区分：hudongba=本地，
+  进活动页「本地赛事」看板的「国内平台活动」分组；其余为全球，进「全球赛事」板块。
+
 - **详情 enrichment（2026-09-26 起）**：ingest 响应带 `needDetail` 清单（还没抓过详情页的赛事），
   抓取脚本逐个访问赛事自己的页面，提取 og:image 海报与正文段落（stdlib HTMLParser，
   跳过导航/脚本，段落 ≥50 字去重，上限 4000 字），POST 到令牌保护的 `/api/events/detail`。
