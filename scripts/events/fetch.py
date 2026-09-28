@@ -419,6 +419,7 @@ class PageTextExtractor(HTMLParser):
         self.buf: list[str] = []
         self.texts: list[str] = []
         self.og_image: str | None = None
+        self.og_description: str | None = None
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
@@ -429,6 +430,8 @@ class PageTextExtractor(HTMLParser):
             key = (attrs_dict.get("property") or attrs_dict.get("name") or "").lower()
             if key in ("og:image", "twitter:image") and attrs_dict.get("content"):
                 self.og_image = self.og_image or attrs_dict["content"].strip()
+            if key == "og:description" and attrs_dict.get("content"):
+                self.og_description = self.og_description or attrs_dict["content"].strip()
         if tag in ("p", "li"):
             self.capture += 1
             self.buf.append("")
@@ -453,11 +456,23 @@ BOILERPLATE_MARKERS = (
     "微信扫码报名", "轻松获取电子票", "购票已达上限", "我要报名 我要报名",
     "互动吧平台特此说明", "避免相关的经济损失", "如出现相关纠纷", "付费推广",
     "谨防诈骗", "佐敦网络科技", "国内外受欢迎的活动平台", "活动过程中的相关纠纷",
+    "互动吧类目", "热门城市",
 )
 
 
 def extract_detail(html: str, base_url: str) -> tuple[str | None, str | None]:
     """返回 (海报图 URL, 正文文本)。正文少于 160 字视为提取失败（None）。"""
+    # 互动吧的 h5 详情页是 AvalonJS 模板壳（正文走 api.hudongba.com 异步加载），
+    # 通用段落提取只会拿到模板噪音；它的 og:description 是真实的活动简介，直接用。
+    if "hudongba.com" in base_url:
+        parser = PageTextExtractor()
+        try:
+            parser.feed(html)
+            parser.close()
+        except Exception:
+            pass
+        desc = parser.og_description
+        return None, (desc if desc and len(desc) >= 30 else None)
     parser = PageTextExtractor()
     try:
         parser.feed(html)

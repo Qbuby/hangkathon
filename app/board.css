@@ -1,6 +1,6 @@
 /* 活动看板 —— 白底明亮主题：pastel 筛选 + 单列信息流（仿 cerebralvalley）+ 金色奖金点缀。 */
 
-.board{padding:90px 6% 70px;background:transparent;position:relative;z-index:5}
+.board{padding:150px 6% 70px;background:transparent;position:relative;z-index:5}
 .board-head{display:flex;align-items:stretch;justify-content:space-between;gap:28px;margin-bottom:36px}
 .board-head h2{font-size:34px;font-weight:600;margin:12px 0 0;letter-spacing:1px;color:#17273a}
 .board-sub{font-size:14px;color:#7c93a8;margin:10px 0 0;max-width:620px}

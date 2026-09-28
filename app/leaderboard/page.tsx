@@ -42,9 +42,46 @@ export default function LeaderboardPage() {
         <YourEntry />
       </section>
 
+      <section className="lb-section" aria-labelledby="lb-districts">
+        <p className="detail-eyebrow" data-reveal="block">DISTRICTS</p>
+        <h2 id="lb-districts" data-reveal="block">各区统计</h2>
+        <p className="lb-explain" data-reveal="block">
+          区是活动的归属标签：这里统计各区名下已发布的活动场数。区不计入贡献值。
+        </p>
+        <DistrictStats />
+      </section>
+
+      <section className="lb-section" aria-labelledby="lb-teams">
+        <p className="detail-eyebrow" data-reveal="block">TEAMS</p>
+        <h2 id="lb-teams" data-reveal="block">战队荣誉</h2>
+        <p className="lb-explain" data-reveal="block">
+          战队是一起参加活动的队伍：战队荣誉 = 队员贡献之和，大家一起参赛、一起分享荣誉。
+        </p>
+        <div className="lb-faction-panel">
+          <FactionPanel
+            slices={totals.teams.map((team) => ({
+              id: team.id,
+              label: team.name,
+              value: team.points,
+              color: team.color,
+            }))}
+            rows={totals.teams.map((team) => ({
+              id: team.id,
+              name: team.name,
+              color: team.color,
+              points: team.points,
+              share: teamTotal > 0 ? team.points / teamTotal : 0,
+            }))}
+            centerValue={teamTotal.toLocaleString("zh-CN")}
+            nameLabel="战队"
+          />
+        </div>
+        {totals.teams.length === 0 && <p className="detail-placeholder">暂无战队荣誉数据。</p>}
+      </section>
+
       <section className="lb-section" aria-labelledby="lb-citizens">
         <p className="detail-eyebrow" data-reveal="block">CITIZENS</p>
-        <h2 id="lb-citizens" data-reveal="block">数字市民榜</h2>
+        <h2 id="lb-citizens" data-reveal="block">个人的贡献</h2>
         <p className="lb-explain" data-reveal="block">
           「贡献值」就是你在杭客松参与活动、完成作品和获得认可所积累的荣誉值。
           它同时决定「数字杭州市民」的星级——只升不降。
@@ -79,38 +116,6 @@ export default function LeaderboardPage() {
           ))}
         </div>
         {totals.users.length === 0 && <p className="detail-placeholder" data-reveal="block">还没有上榜数据。第一场活动结算后，这里会出现第一批名字。</p>}
-      </section>
-
-      <section className="lb-section" aria-labelledby="lb-city">
-        <p className="detail-eyebrow" data-reveal="block">CITY &amp; TEAMS</p>
-        <h2 id="lb-city" data-reveal="block">城市与战队</h2>
-        <p className="lb-explain" data-reveal="block">
-          战队是一起参加活动的队伍：战队荣誉 = 队员贡献之和，大家一起参赛、一起分享荣誉。
-          区是活动的归属标签，只统计活动数，不计入贡献值。
-        </p>
-        <h3 className="lb-sub-title" data-reveal="block">战队荣誉</h3>
-        <div className="lb-faction-panel">
-          <FactionPanel
-            slices={totals.teams.map((team) => ({
-              id: team.id,
-              label: team.name,
-              value: team.points,
-              color: team.color,
-            }))}
-            rows={totals.teams.map((team) => ({
-              id: team.id,
-              name: team.name,
-              color: team.color,
-              points: team.points,
-              share: teamTotal > 0 ? team.points / teamTotal : 0,
-            }))}
-            centerValue={teamTotal.toLocaleString("zh-CN")}
-            nameLabel="战队"
-          />
-        </div>
-        {totals.teams.length === 0 && <p className="detail-placeholder">暂无战队荣誉数据。</p>}
-        <h3 className="lb-sub-title" data-reveal="block">各区活动数</h3>
-        <DistrictStats />
       </section>
     </main>
   );
