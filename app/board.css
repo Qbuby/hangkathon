@@ -55,6 +55,11 @@
 .feed-date.is-city{background:linear-gradient(145deg,#41cf9d,#199b72)}
 .feed-date.is-research{background:linear-gradient(145deg,#f3bd3e,#d99318)}
 .feed-date.is-community{background:linear-gradient(145deg,#f484a3,#d9547a)}
+/* 外部平台活动（全球赛事 + 国内平台）：按事件类别取色，青绿留给国内平台活动 */
+.feed-date.is-hackathon{background:linear-gradient(145deg,#5fc8ff,#2a8de8)}
+.feed-date.is-competition{background:linear-gradient(145deg,#f3bd3e,#d99318)}
+.feed-date.is-award{background:linear-gradient(145deg,#f484a3,#d9547a)}
+.feed-date.is-local{background:linear-gradient(145deg,#54cfc4,#1f9e8a)}
 
 .feed-item-head{min-width:0;flex:1;padding-top:1px}
 .feed-item-head h3{font-size:17px;font-weight:650;line-height:1.5;margin:0;letter-spacing:.3px;color:#17273a;transition:color .15s}
