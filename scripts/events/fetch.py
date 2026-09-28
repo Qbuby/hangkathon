@@ -328,7 +328,7 @@ def parse_contestwatchers(html: str) -> list[dict]:
         key = url.rstrip("/")
         if any(part in slug for part in CW_DENY):
             continue
-        entry = seen.setdefault(key, {"h2": None, "plain": None, "dates": [], "prize": None})
+        entry = seen.setdefault(key, {"h2": None, "plains": [], "dates": [], "prize": None})
         h2 = re.search(r"<h2[^>]*>(.*?)</h2>", inner, re.S)
         if h2:
             candidate = strip_tags(h2.group(1))
@@ -337,8 +337,8 @@ def parse_contestwatchers(html: str) -> list[dict]:
         if len(candidate) >= 15:
             if h2 and not entry["h2"]:
                 entry["h2"] = candidate
-            elif not entry["plain"]:
-                entry["plain"] = candidate
+            elif not entry["h2"]:
+                entry["plains"].append(candidate)
         if not entry["dates"]:
             window_text = strip_tags(html[m.end():m.end() + 1200])
             dates = find_dates(window_text)
@@ -348,7 +348,9 @@ def parse_contestwatchers(html: str) -> list[dict]:
 
     out = []
     for url, entry in seen.items():
-        title = entry["h2"] or entry["plain"]
+        # 标题候选优先级：h2 > 非版权行锚文本 > 版权行锚文本
+        title = entry["h2"] or next((c for c in entry["plains"] if "image source" not in c.lower()), None) \
+            or (entry["plains"][0] if entry["plains"] else None)
         if not title or len(title) < 15:
             continue
         title = re.sub(r"\s*\d+\+?\s*(?:weeks?|months?|days?)\s+remaining\b.*$", "", title, flags=re.I).strip(" ·|-")
