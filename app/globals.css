@@ -23,7 +23,10 @@ html:has(main#top){background:#071a30}
 
 @media(max-width:760px){.hero-feature span{text-shadow:0 1px 5px #03172e,0 2px 9px #03172e}}
 
-/* ICP 备案脚注（全站） */
-.icp-footer{padding:18px 6% 22px;text-align:center;font-size:12px;background:#f4f9fe}
-.icp-footer a{color:#7c93a8;text-decoration:none;letter-spacing:.5px}
+/* ICP 备案脚注（全站）：透明背景，无缝融入各页面正文底部的留白里，不形成独立容器 */
+.icp-footer{padding:14px 6% 18px;text-align:center;font-size:12px;background:transparent}
+.icp-footer a{color:#8fa6bb;text-decoration:none;letter-spacing:.5px}
 .icp-footer a:hover{color:#0b6fa8;text-decoration:underline;text-underline-offset:3px}
+/* 深色收尾的页面（首页 hero 即终屏、关于区深色底）：备案号用浅色文字，避免深底上看不清 */
+html:has(main#top) .icp-footer a,html:has(.about) .icp-footer a{color:#c3d3e4}
+html:has(main#top) .icp-footer a:hover,html:has(.about) .icp-footer a:hover{color:#8fd0ff}
