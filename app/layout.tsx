@@ -18,7 +18,15 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {/* 在应用 JS 之前决定要不要隐藏 [data-reveal] 的初态，避免入场动画先闪一下内容。 */}
         <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* ICP 备案（法规要求全站可见，链接到工信部备案系统） */}
+        <footer className="icp-footer">
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer nofollow">
+            浙ICP备2026082561号
+          </a>
+        </footer>
+      </body>
     </html>
   );
 }

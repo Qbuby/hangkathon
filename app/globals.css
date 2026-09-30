@@ -22,3 +22,8 @@ html:has(main#top){background:#071a30}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 @media(max-width:760px){.hero-feature span{text-shadow:0 1px 5px #03172e,0 2px 9px #03172e}}
+
+/* ICP 备案脚注（全站） */
+.icp-footer{padding:18px 6% 22px;text-align:center;font-size:12px;background:#f4f9fe}
+.icp-footer a{color:#7c93a8;text-decoration:none;letter-spacing:.5px}
+.icp-footer a:hover{color:#0b6fa8;text-decoration:underline;text-underline-offset:3px}
