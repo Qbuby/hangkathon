@@ -30,3 +30,7 @@ html:has(main#top){background:#071a30}
 /* 深色收尾的页面（首页 hero 即终屏、关于区深色底）：备案号用浅色文字，避免深底上看不清 */
 html:has(main#top) .icp-footer a,html:has(.about) .icp-footer a{color:#c3d3e4}
 html:has(main#top) .icp-footer a:hover,html:has(.about) .icp-footer a:hover{color:#8fd0ff}
+/* 首页正文只有满屏 hero：备案号绝对定位叠在首屏底缘，不占文档流——
+   否则文档比首屏高出几十像素，首页能滚动，hero 文案会顶进固定顶栏、hero 下方露出白条 */
+html:has(main#top) .icp-footer{position:absolute;left:0;right:0;bottom:0;padding:10px 6% 12px}
+@media(max-width:760px){html:has(main#top) .icp-footer{padding:6px 6% 8px}}
