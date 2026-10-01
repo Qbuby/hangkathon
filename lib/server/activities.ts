@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import type { Activity, Award, Category, Criterion, JoinPolicy, Judging, Visibility } from "@/lib/activity";
@@ -46,6 +46,7 @@ export function rowToActivity(row: Row, viewerId: string | null, ownerName: stri
     visibility: row.visibility as Visibility,
     joinPolicy: row.joinPolicy as JoinPolicy,
     emailDomain: row.emailDomain,
+    image: row.image ?? undefined,
     createdAt: row.createdAt.toISOString(),
     mine: Boolean(viewerId && row.ownerId === viewerId),
     seeded: row.seeded,
@@ -90,6 +91,7 @@ export async function ensureSeed() {
         visibility: activity.visibility,
         joinPolicy: activity.joinPolicy,
         emailDomain: activity.emailDomain,
+        image: activity.image ?? null,
         seeded: true,
       })
       // 预置活动是平台内容：部署时以代码为准覆盖同名 slug 的行，文案修正会随
@@ -119,9 +121,24 @@ export async function ensureSeed() {
           visibility: sql`excluded.visibility`,
           joinPolicy: sql`excluded.join_policy`,
           emailDomain: sql`excluded.email_domain`,
+          image: sql`excluded.image`,
           seeded: sql`excluded.seeded`,
         },
       });
+  }
+
+  // 种子同步下线：代码里已移除的预置活动（如被替换掉的旧活动）把行一并删掉，
+  // 报名/作品因外键级联随之清理；用户自建活动 seeded=false，永远不受影响。
+  if (PUBLISHED_ACTIVITIES.length > 0) {
+    await db.delete(schema.activities).where(
+      and(
+        eq(schema.activities.seeded, true),
+        notInArray(
+          schema.activities.slug,
+          PUBLISHED_ACTIVITIES.map((activity) => activity.slug),
+        ),
+      ),
+    );
   }
 }
 

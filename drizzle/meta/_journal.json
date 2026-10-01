@@ -36,6 +36,13 @@
       "when": 1790515200000,
       "tag": "0004_event_details",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790827200000,
+      "tag": "0005_activity_image",
+      "breakpoints": true
     }
   ]
 }

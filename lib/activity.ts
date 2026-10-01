@@ -37,7 +37,7 @@ export type Activity = {
   overview: string;
   host: string;
   contact: string;
-  /** 活动所属区：13 个官方区之一，发起方在发布时选择；参与者以个人账户参赛，不再选阵营。 */
+  /** 活动所属区：13 个官方区或「其他」，发起方在发布时选择；参与者以个人账户参赛，不再选阵营。 */
   district: string;
   format: ActivityFormat;
   venue: string;
@@ -55,6 +55,8 @@ export type Activity = {
   visibility: Visibility;
   joinPolicy: JoinPolicy;
   emailDomain: string;
+  /** 海报图（竖版），仅平台预置活动配置；自建活动没有。 */
+  image?: string;
   createdAt: string;
 };
 

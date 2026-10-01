@@ -50,6 +50,8 @@ export const activities = pgTable("activities", {
   visibility: text("visibility").notNull().default("public"),
   joinPolicy: text("join_policy").notNull().default("anyone"),
   emailDomain: text("email_domain").notNull().default(""),
+  /** 海报图（竖版），仅平台预置活动配置。 */
+  image: text("image"),
   /** 平台预置活动（lib/published-activities.ts）为 true，用户创建的为 false。 */
   seeded: boolean("seeded").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

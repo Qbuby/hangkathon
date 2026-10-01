@@ -11,6 +11,8 @@
    旧版靠 hero 里的标签行和 -30px 负 margin 撑位置，标签删除后标题直接顶进导航。 */
 .detail-hero{padding:168px 6% 34px;border-bottom:1px solid #e2ecf6}
 .detail-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:600;letter-spacing:1px;line-height:1.45;margin:0;color:#17273a}
+.detail-poster{margin:0 0 26px;display:flex;justify-content:center}
+.detail-poster img{display:block;width:min(360px,100%);height:auto;border-radius:16px;border:1px solid #e2ecf6;box-shadow:0 10px 34px rgba(12,42,80,.14)}
 .detail-sub{font-size:15px;line-height:1.9;color:#5b6b7d;margin:14px 0 0}
 .detail-host{font-size:12.5px;letter-spacing:.5px;color:#7c93a8;margin:16px 0 0}
 .detail-contact{font-size:12.5px;letter-spacing:.5px;color:#7c93a8;margin:8px 0 0}
