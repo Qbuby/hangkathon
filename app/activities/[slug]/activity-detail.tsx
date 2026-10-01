@@ -360,15 +360,15 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
         );
       })()}
 
-      <div className="detail-body">
+      <div className={`detail-body${activity.image ? " has-poster" : ""}`}>
+        {activity.image && (
+          <figure className="detail-poster">
+            <img src={activity.image} alt={`${activity.title} 海报`} loading="lazy" />
+          </figure>
+        )}
         <div className="detail-main">
           <section data-reveal="block" className="detail-section" aria-labelledby="detail-overview">
             <p className="detail-eyebrow">WHAT YOU DO</p>
-            {activity.image && (
-              <figure className="detail-poster">
-                <img src={activity.image} alt={`${activity.title} 海报`} loading="lazy" />
-              </figure>
-            )}
             <h2 id="detail-overview">你要做什么</h2>
             {activity.overview ? (
               <p className="detail-text">{activity.overview}</p>

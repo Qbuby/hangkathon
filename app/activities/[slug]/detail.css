@@ -11,15 +11,15 @@
    旧版靠 hero 里的标签行和 -30px 负 margin 撑位置，标签删除后标题直接顶进导航。 */
 .detail-hero{padding:168px 6% 34px;border-bottom:1px solid #e2ecf6}
 .detail-hero h1{font-size:clamp(26px,3.2vw,38px);font-weight:600;letter-spacing:1px;line-height:1.45;margin:0;color:#17273a}
-/* 海报：浮在「你要做什么」正文右侧（对齐侧栏留出的空带），窄屏改为整宽居中 */
-.detail-poster{float:right;width:min(320px,44%);margin:4px 0 22px 32px}
-.detail-poster img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid #e2ecf6;box-shadow:0 10px 34px rgba(12,42,80,.16)}
 .detail-sub{font-size:15px;line-height:1.9;color:#5b6b7d;margin:14px 0 0}
 .detail-host{font-size:12.5px;letter-spacing:.5px;color:#7c93a8;margin:16px 0 0}
 .detail-contact{font-size:12.5px;letter-spacing:.5px;color:#7c93a8;margin:8px 0 0}
 
-.detail-body{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:44px;padding:40px 6% 70px;align-items:start}
-.detail-main{display:flex;flex-direction:column;gap:36px;min-width:0}
+.detail-body{display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-areas:"main side";gap:44px;padding:40px 6% 70px;align-items:start}
+.detail-body.has-poster{grid-template-columns:minmax(0,1fr) 300px 330px;grid-template-areas:"main poster side"}
+.detail-main{display:flex;flex-direction:column;gap:36px;min-width:0;grid-area:main}
+.detail-poster{grid-area:poster;margin:0;position:sticky;top:132px}
+.detail-poster img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid #e2ecf6;box-shadow:0 10px 34px rgba(12,42,80,.16)}
 .detail-section h2{font-size:20px;font-weight:600;letter-spacing:1px;margin:0 0 16px;color:#17273a}
 .detail-eyebrow{font-size:10px;letter-spacing:2px;color:#0aa2e0;margin:0 0 8px}
 .detail-text{font-size:14.5px;line-height:2.05;color:#42566b;margin:0;white-space:pre-wrap}
@@ -42,7 +42,7 @@
 .detail-chips{display:flex;flex-wrap:wrap;gap:9px}
 .detail-chips span{display:flex;align-items:center;height:32px;padding:0 15px;border:1px solid #dce7f2;border-radius:20px;background:#fff;color:#42566b;font-size:13px}
 
-.detail-side{position:sticky;top:24px;display:flex;flex-direction:column;gap:18px}
+.detail-side{grid-area:side;position:sticky;top:24px;display:flex;flex-direction:column;gap:18px}
 .detail-facts,.detail-join{border:1px solid #dce7f2;border-radius:16px;background:#ffffff;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 2px 10px rgba(23,58,102,.05)}
 .detail-facts h2{font-size:13px;letter-spacing:2px;color:#8fa6bb;font-weight:500;margin:0}
 .detail-facts dl{display:flex;flex-direction:column;gap:13px;margin:0}
@@ -107,9 +107,9 @@
 .invite-refuse-quiet{height:38px;margin-top:10px;padding:0 20px;font-size:13px}
 
 @media(max-width:1050px){
-  .detail-body{grid-template-columns:1fr;gap:32px;padding:32px 6% 56px}
-  .detail-side{position:static;order:-1}
-  .detail-poster{float:none;width:min(360px,100%);margin:0 0 22px}
+  .detail-body,.detail-body.has-poster{grid-template-columns:1fr;grid-template-areas:"side" "poster" "main";gap:32px;padding:32px 6% 56px}
+  .detail-side{position:static}
+  .detail-poster{position:static;width:min(360px,100%);margin:0 auto}
 }
 @media(max-width:760px){
   .detail-top{padding:18px 6%;gap:12px}
