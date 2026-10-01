@@ -308,11 +308,6 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
       <div className="detail-top-tags" data-reveal="block">{isLocalActivity && <span className="detail-top-note">仅保存在此设备</span>}</div>
 
       <section className="detail-hero">
-        {activity.image && (
-          <figure className="detail-poster" data-reveal="block">
-            <img src={activity.image} alt={`${activity.title} 海报`} loading="lazy" />
-          </figure>
-        )}
         <h1 data-reveal="block">{activity.title}</h1>
         {activity.subtitle && <p className="detail-sub" data-reveal="block">{activity.subtitle}</p>}
         <p className="detail-host" data-reveal="block">主办方 · {activity.host || "未填写"}</p>
@@ -369,6 +364,11 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
         <div className="detail-main">
           <section data-reveal="block" className="detail-section" aria-labelledby="detail-overview">
             <p className="detail-eyebrow">WHAT YOU DO</p>
+            {activity.image && (
+              <figure className="detail-poster">
+                <img src={activity.image} alt={`${activity.title} 海报`} loading="lazy" />
+              </figure>
+            )}
             <h2 id="detail-overview">你要做什么</h2>
             {activity.overview ? (
               <p className="detail-text">{activity.overview}</p>
