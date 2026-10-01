@@ -136,7 +136,7 @@ export const STEPS: Step[] = [
       { name: "slug", label: "活动代号", type: "text", required: true, placeholder: "ai-creators-autumn", help: "给这场活动起一个代号，站内用它来指代这场活动。只能用字母、数字和连字符，中文标题需要自己起一个。" },
       { name: "subtitle", label: "一句话说明", type: "text", required: true, placeholder: "用一个周末，把想法做成能跑的原型" },
       { name: "category", label: "活动类别", type: "radio", required: true, options: CATEGORIES.map((c) => ({ value: c.value, label: c.label })), help: "活动看板会按类别筛选，选一个最贴近的。" },
-      { name: "district", label: "活动所属区", type: "district", required: true, help: "这场活动归属杭州 13 个区中的哪一个。参与者以个人账户报名参赛，不再选择阵营。" },
+      { name: "district", label: "活动所属区", type: "district", required: true, help: "这场活动归属杭州哪个区县；都不属于（线上、跨区、杭州以外）就选「其他」。参与者以个人账户报名参赛，不再选择阵营。" },
       { name: "overview", label: "详细介绍", type: "textarea", placeholder: "背景、面向谁、期待什么样的作品……" },
       { name: "host", label: "主办方", type: "text", required: true, placeholder: "个人、团队或机构名称" },
       { name: "contact", label: "联系方式", type: "text", required: true, placeholder: "例如：微信号 / 邮箱 / 手机号", help: "会公示在活动页，方便参与者有问题时直接联系主办方。" },
