@@ -1,7 +1,7 @@
 /**
- * 杭客松的阵营体系：杭州全部 13 个县级行政区。
+ * 杭客松的阵营体系：杭州全部 13 个县级行政区 + 「其他」。
  * 区由发起方在发布活动时选择（活动归属），参与者以个人账户参赛，不再选阵营。
- * 颜色在环形图、榜单徽标等处共用。
+ * 「其他」用于不属于任何一个区的活动（线上、跨区、杭州以外）；颜色在环形图、榜单徽标等处共用。
  */
 export type Faction = { id: string; name: string; color: string };
 
@@ -19,6 +19,7 @@ export const FACTIONS: Faction[] = [
   { id: "tonglu", name: "桐庐县", color: "#f27fd9" },
   { id: "chunan", name: "淳安县", color: "#ff7a7a" },
   { id: "jiande", name: "建德市", color: "#9b8cff" },
+  { id: "other", name: "其他", color: "#a8b6c6" },
 ];
 
 export function factionById(id: string): Faction | undefined {
