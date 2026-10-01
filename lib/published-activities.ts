@@ -31,7 +31,6 @@ export const PUBLISHED_ACTIVITIES: Activity[] = [
     awards: [
       { name: "最高奖励", slots: 1, reward: "7749 万算力" },
       { name: "优秀作品", slots: 7, reward: "算力奖励" },
-      { name: "获奖者", slots: 0, reward: "受邀出席 10 月下旬杭州颁奖典礼" },
     ],
     visibility: "public",
     joinPolicy: "anyone",
