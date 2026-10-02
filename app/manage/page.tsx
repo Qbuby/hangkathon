@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { ArrowLeft, Check, EyeOff, Globe, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Download, EyeOff, Globe, RefreshCw, ShieldCheck, ShieldOff, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { factionById } from "@/lib/factions";
 import { usePageMotion } from "../motion-scope";
@@ -59,7 +59,36 @@ type AdminSubmission = {
   userName: string | null;
 };
 
-type Tab = "overview" | "activities" | "submissions";
+type AdminUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  createdAt: string;
+  activityCount: number;
+  joinCount: number;
+  submissionCount: number;
+};
+
+type AdminJoin = {
+  userId: string;
+  email: string;
+  name: string | null;
+  joinedAt: string;
+  inviterEmail: string | null;
+};
+
+type AdminExternalEvent = {
+  id: string;
+  source: string;
+  title: string;
+  url: string;
+  startsAt: string | null;
+  deadlineAt: string | null;
+  hidden: boolean;
+};
+
+type Tab = "overview" | "activities" | "submissions" | "users" | "events";
 
 const GUARD = {
   loading: "loading",
@@ -75,6 +104,28 @@ const REVIEW_LABEL: Record<AdminSubmission["reviewStatus"], string> = {
   approved: "已通过",
   rejected: "已驳回",
 };
+
+const SOURCE_LABEL: Record<string, string> = {
+  contest_watchers: "Contest Watchers",
+  chinahpc: "中国高性能计算",
+  ccf: "CCF",
+};
+
+/** 客户端 CSV（带 BOM，Excel 直接打开不乱码）。 */
+function downloadCsv(filename: string, header: string[], rows: (string | number | null)[][]) {
+  const escape = (value: string | number | null | undefined) => {
+    const text = value === null || value === undefined ? "" : String(value);
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const csv = "\uFEFF" + [header, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 function fmtCount(value: number | null) {
   if (value === null) return "—";
@@ -93,6 +144,13 @@ export default function ManagePage() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(null);
   const [busySubmission, setBusySubmission] = useState<string | null>(null);
+  const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [busyUser, setBusyUser] = useState<string | null>(null);
+  const [joins, setJoins] = useState<AdminJoin[] | null>(null);
+  const [joinsSlug, setJoinsSlug] = useState<string | null>(null);
+  const [busyJoin, setBusyJoin] = useState<string | null>(null);
+  const [events, setEvents] = useState<AdminExternalEvent[] | null>(null);
+  const [busyEvent, setBusyEvent] = useState<string | null>(null);
 
   usePageMotion("manage", { ready: guard !== GUARD.loading });
 
@@ -182,6 +240,39 @@ export default function ManagePage() {
     window.setTimeout(() => setNotice(null), 2600);
   }
 
+  // 用户 / 赛事两个标签按需加载：切过去时拉一次。
+  useEffect(() => {
+    if (guard !== GUARD.ok) return;
+    if (tab === "users" && users === null) {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const response = await fetch("/api/admin/users");
+          if (!cancelled && response.ok) setUsers(((await response.json()) as { users: AdminUser[] }).users);
+        } catch {
+          if (!cancelled) setUsers([]);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (tab === "events" && events === null) {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const response = await fetch("/api/admin/events");
+          if (!cancelled && response.ok) setEvents(((await response.json()) as { events: AdminExternalEvent[] }).events);
+        } catch {
+          if (!cancelled) setEvents([]);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [guard, tab, users, events]);
+
   async function toggleVisibility(activity: AdminActivity) {
     setBusySlug(activity.slug);
     try {
@@ -254,6 +345,184 @@ export default function ManagePage() {
     void loadSubmissions(slug);
   }
 
+  async function loadJoins(slug: string) {
+    setJoins(null);
+    try {
+      const response = await fetch(`/api/admin/activities/${encodeURIComponent(slug)}/joins`);
+      if (response.ok) setJoins(((await response.json()) as { joins: AdminJoin[] }).joins);
+      else setJoins([]);
+    } catch {
+      setJoins([]);
+    }
+  }
+
+  function openJoins(slug: string) {
+    setJoinsSlug(slug);
+    void loadJoins(slug);
+  }
+
+  async function removeJoin(activity: AdminActivity, join: AdminJoin) {
+    if (!window.confirm(`把 ${join.name || join.email} 的报名移除？只删报名记录，不影响账号。`)) return;
+    setBusyJoin(join.userId);
+    try {
+      const response = await fetch(`/api/admin/activities/${encodeURIComponent(activity.slug)}/joins`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: join.userId }),
+      });
+      if (response.ok) {
+        setJoins((rows) => (rows ? rows.filter((row) => row.userId !== join.userId) : rows));
+        setActivities((rows) =>
+          rows.map((row) => (row.slug === activity.slug ? { ...row, joinCount: Math.max(0, row.joinCount - 1) } : row)),
+        );
+        void fetch("/api/admin/overview").then(async (response) => {
+          if (response.ok) setOverview((await response.json()) as Overview);
+        });
+        flash("已移除报名");
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "移除失败");
+      }
+    } finally {
+      setBusyJoin(null);
+    }
+  }
+
+  function exportJoinsCsv(activity: AdminActivity, rows: AdminJoin[]) {
+    downloadCsv(
+      `报名名单-${activity.slug}.csv`,
+      ["昵称", "邮箱", "报名时间", "邀请人"],
+      rows.map((row) => [row.name ?? "", row.email, row.joinedAt, row.inviterEmail ?? ""]),
+    );
+  }
+
+  function exportSubmissionsCsv(activity: AdminActivity, rows: AdminSubmission[]) {
+    downloadCsv(
+      `作品列表-${activity.slug}.csv`,
+      ["作者", "邮箱", "链接", "文案", "赞", "评", "转", "藏", "审核状态", "提交时间"],
+      rows.map((row) => [
+        row.userName || row.authorName || "",
+        row.userEmail,
+        row.url,
+        row.caption ?? "",
+        row.diggCount,
+        row.commentCount,
+        row.shareCount,
+        row.collectCount,
+        REVIEW_LABEL[row.reviewStatus],
+        row.submittedAt,
+      ]),
+    );
+  }
+
+  async function refreshSubmission(submission: AdminSubmission) {
+    setBusySubmission(submission.id);
+    try {
+      const response = await fetch(`/api/admin/submissions/${encodeURIComponent(submission.id)}/refresh`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const data = (await response.json()) as { submission: AdminSubmission | null };
+        if (data.submission) {
+          setSubmissions((rows) =>
+            rows ? rows.map((row) => (row.id === submission.id ? data.submission! : row)) : rows,
+          );
+          flash("数据已刷新");
+        } else {
+          flash("这个部署没有启用作品数据抓取");
+        }
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "刷新失败");
+      }
+    } finally {
+      setBusySubmission(null);
+    }
+  }
+
+  async function toggleUserRole(user: AdminUser) {
+    if (!window.confirm(`${user.role === "admin" ? "收回" : "授予"} ${user.email} 的管理员角色？`)) return;
+    setBusyUser(user.id);
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: user.role === "admin" ? "user" : "admin" }),
+      });
+      if (response.ok) {
+        setUsers((rows) =>
+          rows ? rows.map((row) => (row.id === user.id ? { ...row, role: row.role === "admin" ? "user" : "admin" } : row)) : rows,
+        );
+        flash("角色已更新");
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "操作失败");
+      }
+    } finally {
+      setBusyUser(null);
+    }
+  }
+
+  async function removeUser(user: AdminUser) {
+    if (!window.confirm(`确定删除 ${user.email}？其发起的活动、报名与作品记录都会一并删除，且无法恢复。`)) return;
+    setBusyUser(user.id);
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}`, { method: "DELETE" });
+      if (response.ok) {
+        setUsers((rows) => (rows ? rows.filter((row) => row.id !== user.id) : rows));
+        flash("用户已删除");
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "删除失败");
+      }
+    } finally {
+      setBusyUser(null);
+    }
+  }
+
+  async function toggleEventHidden(event: AdminExternalEvent) {
+    setBusyEvent(event.id);
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: event.id, hidden: !event.hidden }),
+      });
+      if (response.ok) {
+        setEvents((rows) =>
+          rows ? rows.map((row) => (row.id === event.id ? { ...row, hidden: !event.hidden } : row)) : rows,
+        );
+        flash(event.hidden ? "已恢复显示" : "已隐藏");
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "操作失败");
+      }
+    } finally {
+      setBusyEvent(null);
+    }
+  }
+
+  async function removeEvent(event: AdminExternalEvent) {
+    if (!window.confirm(`确定删除「${event.title}」？抓取脚本下次若再抓到会重新入库。`)) return;
+    setBusyEvent(event.id);
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: event.id }),
+      });
+      if (response.ok) {
+        setEvents((rows) => (rows ? rows.filter((row) => row.id !== event.id) : rows));
+        flash("已删除");
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "删除失败");
+      }
+    } finally {
+      setBusyEvent(null);
+    }
+  }
+
   const selectedActivity = activities.find((row) => row.slug === selectedSlug) ?? null;
 
   return (
@@ -323,6 +592,8 @@ export default function ManagePage() {
             <button className={`manage-tab${tab === "overview" ? " is-on" : ""}`} onClick={() => setTab("overview")}>总览</button>
             <button className={`manage-tab${tab === "activities" ? " is-on" : ""}`} onClick={() => setTab("activities")}>活动</button>
             <button className={`manage-tab${tab === "submissions" ? " is-on" : ""}`} onClick={() => setTab("submissions")}>作品</button>
+            <button className={`manage-tab${tab === "users" ? " is-on" : ""}`} onClick={() => setTab("users")}>用户</button>
+            <button className={`manage-tab${tab === "events" ? " is-on" : ""}`} onClick={() => setTab("events")}>全球赛事</button>
           </nav>
 
           {notice && <p className="manage-notice" role="status">{notice}</p>}
@@ -378,7 +649,15 @@ export default function ManagePage() {
                             </td>
                             <td>{activity.ownerName || activity.ownerEmail || "—"}</td>
                             <td className="manage-act-date">{activity.startsAt} ~ {activity.endsAt}</td>
-                            <td className="num">{activity.joinCount}</td>
+                            <td className="num">
+                              {activity.joinCount > 0 ? (
+                                <button className="manage-link" onClick={() => openJoins(activity.slug)}>
+                                  {activity.joinCount}
+                                </button>
+                              ) : (
+                                0
+                              )}
+                            </td>
                             <td className="num">
                               {activity.submissionCount > 0 ? (
                                 <button className="manage-link" onClick={() => openSubmissions(activity.slug)}>
@@ -420,6 +699,66 @@ export default function ManagePage() {
                   </table>
                 </div>
               )}
+
+              {joinsSlug && (
+                <div className="manage-joins-panel">
+                  <div className="manage-joins-head">
+                    <h3>报名名单 · {activities.find((row) => row.slug === joinsSlug)?.title ?? joinsSlug}</h3>
+                    <div className="manage-actions">
+                      <button
+                        className="manage-link"
+                        onClick={() => {
+                          const activity = activities.find((row) => row.slug === joinsSlug);
+                          if (activity && joins) exportJoinsCsv(activity, joins);
+                        }}
+                        disabled={!joins || joins.length === 0}
+                      >
+                        <Download size={13} /> 导出 CSV
+                      </button>
+                      <button className="manage-link" onClick={() => setJoinsSlug(null)}>收起</button>
+                    </div>
+                  </div>
+                  {joins === null && <p className="detail-placeholder">正在读取报名…</p>}
+                  {joins?.length === 0 && <p className="detail-placeholder">这个活动还没有人报名。</p>}
+                  {joins && joins.length > 0 && (
+                    <div className="manage-table-wrap">
+                      <table className="manage-table">
+                        <thead>
+                          <tr>
+                            <th>昵称</th>
+                            <th>邮箱</th>
+                            <th>报名时间</th>
+                            <th>邀请人</th>
+                            <th>操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {joins.map((join) => (
+                            <tr key={join.userId}>
+                              <td>{join.name || "—"}</td>
+                              <td>{join.email}</td>
+                              <td className="manage-act-date">{new Date(join.joinedAt).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" })}</td>
+                              <td>{join.inviterEmail ?? "—"}</td>
+                              <td>
+                                <button
+                                  className="manage-link is-danger"
+                                  disabled={busyJoin === join.userId}
+                                  onClick={() => {
+                                    const activity = activities.find((row) => row.slug === joinsSlug);
+                                    if (activity) void removeJoin(activity, join);
+                                  }}
+                                >
+                                  <X size={13} /> 移除
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           )}
 
@@ -441,6 +780,11 @@ export default function ManagePage() {
                 </select>
                 {selectedActivity && submissions !== null && (
                   <span className="detail-placeholder">{submissions.length} 件作品</span>
+                )}
+                {selectedActivity && submissions && submissions.length > 0 && (
+                  <button className="manage-link" onClick={() => exportSubmissionsCsv(selectedActivity, submissions)}>
+                    <Download size={13} /> 导出 CSV
+                  </button>
                 )}
               </div>
 
@@ -474,6 +818,13 @@ export default function ManagePage() {
                       </div>
                       <div className="manage-actions">
                         <button
+                          className="manage-link"
+                          disabled={busySubmission === submission.id}
+                          onClick={() => void refreshSubmission(submission)}
+                        >
+                          <RefreshCw size={13} /> 刷新数据
+                        </button>
+                        <button
                           className="manage-link is-approve"
                           disabled={busySubmission === submission.id || submission.reviewStatus === "approved"}
                           onClick={() => void review(submission, "approved")}
@@ -501,6 +852,139 @@ export default function ManagePage() {
                   ))}
                 </div>
               )}
+            </section>
+          )}
+
+          {tab === "users" && (
+            <section className="manage-section" aria-label="用户管理" data-reveal="block">
+              {users === null ? (
+                <p className="detail-placeholder">正在读取用户…</p>
+              ) : users.length === 0 ? (
+                <p className="detail-placeholder">还没有用户。</p>
+              ) : (
+                <div className="manage-table-wrap">
+                  <table className="manage-table">
+                    <thead>
+                      <tr>
+                        <th>用户</th>
+                        <th>角色</th>
+                        <th className="num">发起</th>
+                        <th className="num">报名</th>
+                        <th className="num">作品</th>
+                        <th>注册时间</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((user) => (
+                        <tr key={user.id}>
+                          <td>
+                            <strong>{user.name || "—"}</strong>
+                            <span className="manage-act-slug">{user.email}</span>
+                          </td>
+                          <td>
+                            <span className={`manage-pill${user.role === "admin" ? " is-public" : ""}`}>
+                              {user.role === "admin" ? "管理员" : "用户"}
+                            </span>
+                          </td>
+                          <td className="num">{user.activityCount}</td>
+                          <td className="num">{user.joinCount}</td>
+                          <td className="num">{user.submissionCount}</td>
+                          <td className="manage-act-date">{new Date(user.createdAt).toLocaleDateString("zh-CN")}</td>
+                          <td>
+                            <div className="manage-actions">
+                              <button
+                                className="manage-link"
+                                disabled={busyUser === user.id}
+                                title={user.role === "admin" ? "收回管理员" : "设为管理员"}
+                                onClick={() => void toggleUserRole(user)}
+                              >
+                                {user.role === "admin" ? <><ShieldOff size={13} /> 收回管理员</> : <><ShieldCheck size={13} /> 设为管理员</>}
+                              </button>
+                              <button
+                                className="manage-link is-danger"
+                                disabled={busyUser === user.id}
+                                onClick={() => void removeUser(user)}
+                              >
+                                <Trash2 size={13} /> 删除
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="detail-placeholder">
+                删除用户会级联删除其发起的活动、报名与作品记录，无法恢复；角色改动立即生效（自己的角色不能在这里改，用服务器 ADMIN_EMAILS 管理）。
+              </p>
+            </section>
+          )}
+
+          {tab === "events" && (
+            <section className="manage-section" aria-label="全球赛事管理" data-reveal="block">
+              {events === null ? (
+                <p className="detail-placeholder">正在读取赛事…</p>
+              ) : events.length === 0 ? (
+                <p className="detail-placeholder">还没有抓到外部赛事。</p>
+              ) : (
+                <div className="manage-table-wrap">
+                  <table className="manage-table">
+                    <thead>
+                      <tr>
+                        <th>赛事</th>
+                        <th>来源</th>
+                        <th>开始 / 截止</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {events.map((event) => (
+                        <tr key={event.id} className={event.hidden ? "is-dim" : undefined}>
+                          <td>
+                            <a className="manage-act-link" href={event.url} target="_blank" rel="noopener noreferrer nofollow">
+                              {event.title}
+                            </a>
+                          </td>
+                          <td>{SOURCE_LABEL[event.source] ?? event.source}</td>
+                          <td className="manage-act-date">
+                            {event.startsAt ? new Date(event.startsAt).toLocaleDateString("zh-CN") : "—"}
+                            {event.deadlineAt ? ` / 截止 ${new Date(event.deadlineAt).toLocaleDateString("zh-CN")}` : ""}
+                          </td>
+                          <td>
+                            <span className={`manage-pill${event.hidden ? "" : " is-public"}`}>
+                              {event.hidden ? "已隐藏" : "展示中"}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="manage-actions">
+                              <button
+                                className="manage-link"
+                                disabled={busyEvent === event.id}
+                                onClick={() => void toggleEventHidden(event)}
+                              >
+                                {event.hidden ? <><Globe size={13} /> 恢复显示</> : <><EyeOff size={13} /> 隐藏</>}
+                              </button>
+                              <button
+                                className="manage-link is-danger"
+                                disabled={busyEvent === event.id}
+                                onClick={() => void removeEvent(event)}
+                              >
+                                <Trash2 size={13} /> 删除
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="detail-placeholder">
+                隐藏只影响活动页的全球赛事列表，抓取脚本不会重置该标记；删除后若来源站仍有该赛事，次日电抓会重新入库。
+              </p>
             </section>
           )}
         </div>

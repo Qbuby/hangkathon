@@ -45,6 +45,11 @@
 .manage-link.is-danger{color:#c2453f}
 .manage-link.is-approve{color:#187a4b}
 
+.manage-joins-panel{display:flex;flex-direction:column;gap:14px;background:#f8fbfe;border:1px solid #dce7f2;border-radius:14px;padding:20px 22px}
+.manage-joins-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.manage-joins-head h3{margin:0;font-size:15px;font-weight:600;letter-spacing:.5px;color:#17273a}
+.manage-table tbody tr.is-dim{opacity:.55}
+
 .manage-submission-picker{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .manage-submission-picker label{font-size:13px;color:#42566b;letter-spacing:.5px}
 .manage-submission-picker select{height:40px;padding:0 14px;border:1px solid #dce7f2;border-radius:10px;background:#fff;color:#17273a;font-size:14px;min-width:300px}

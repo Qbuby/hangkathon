@@ -50,6 +50,13 @@
       "when": 1790856000000,
       "tag": "0006_admin_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790863200000,
+      "tag": "0007_external_events_hidden",
+      "breakpoints": true
     }
   ]
 }

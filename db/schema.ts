@@ -130,6 +130,8 @@ export const externalEvents = pgTable("external_events", {
   detailTextZh: text("detail_text_zh"),
   imageUrl: text("image_url"),
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  /** 管理端口手动隐藏：公开列表不再返回，抓取 upsert 不重置此标记。 */
+  hidden: boolean("hidden").notNull().default(false),
   /** 最后一轮抓取（含失败轮之外的成功 upsert）见到它的时间，清理以两周没再见为准。 */
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

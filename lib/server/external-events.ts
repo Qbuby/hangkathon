@@ -115,10 +115,13 @@ export async function listExternalEvents(): Promise<ExternalEvent[]> {
     .select()
     .from(schema.externalEvents)
     .where(
-      or(
-        and(gte(schema.externalEvents.startsAt, past), lte(schema.externalEvents.startsAt, future)),
-        endsSoon(schema.externalEvents.endsAt),
-        endsSoon(schema.externalEvents.deadlineAt),
+      and(
+        eq(schema.externalEvents.hidden, false),
+        or(
+          and(gte(schema.externalEvents.startsAt, past), lte(schema.externalEvents.startsAt, future)),
+          endsSoon(schema.externalEvents.endsAt),
+          endsSoon(schema.externalEvents.deadlineAt),
+        ),
       ),
     )
     .orderBy(sql`${schema.externalEvents.startsAt} asc nulls last`, asc(schema.externalEvents.endsAt))

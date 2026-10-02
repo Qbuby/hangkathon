@@ -1,10 +1,13 @@
 import { count, desc, eq, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/db";
+import { captureMetrics } from "./work-metrics";
 import type { Visibility } from "@/lib/activity";
 
 /**
- * 管理端口的服务端能力：全量活动、全量作品、总览计数与审核/下线操作。
- * 只有 requireAdmin() 通过后的路由才会走到这里；错误统一由 handleRouteError 出口。
+ * 管理端口的服务端能力：全量活动、全量作品、用户、报名、外部赛事、
+ * 总览计数与审核/下线操作。只有 requireAdmin() 通过后的路由才会走到这里；
+ * 错误统一由 handleRouteError 出口（AdminActionError 由路由层映射为 4xx）。
  */
 
 export type AdminOverview = {
@@ -175,4 +178,183 @@ export async function setSubmissionReview(submissionId: string, status: ReviewSt
     .where(eq(schema.submissions.id, submissionId))
     .returning({ id: schema.submissions.id });
   if (updated.length === 0) throw new AdminActionError(404, "作品不存在");
+}
+
+/* ---------------------------------- 用户 ---------------------------------- */
+
+export type AdminUserRow = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  createdAt: string;
+  activityCount: number;
+  joinCount: number;
+  submissionCount: number;
+};
+
+export async function listUsers(): Promise<AdminUserRow[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: schema.users.id,
+      email: schema.users.email,
+      name: schema.users.name,
+      role: schema.users.role,
+      createdAt: schema.users.createdAt,
+      activityCount: sql<number>`(select count(*) from ${schema.activities} where ${schema.activities.ownerId} = ${schema.users.id})`,
+      joinCount: sql<number>`(select count(*) from ${schema.joins} where ${schema.joins.userId} = ${schema.users.id})`,
+      submissionCount: sql<number>`(select count(*) from ${schema.submissions} where ${schema.submissions.userId} = ${schema.users.id})`,
+    })
+    .from(schema.users)
+    .orderBy(desc(schema.users.createdAt));
+  return rows.map((row) => ({
+    ...row,
+    activityCount: Number(row.activityCount ?? 0),
+    joinCount: Number(row.joinCount ?? 0),
+    submissionCount: Number(row.submissionCount ?? 0),
+    createdAt: row.createdAt.toISOString(),
+  }));
+}
+
+export async function setUserRole(operatorId: string, userId: string, role: string): Promise<void> {
+  if (role !== "admin" && role !== "user") throw new AdminActionError(400, "角色只能是 admin 或 user");
+  if (userId === operatorId) throw new AdminActionError(400, "不能修改自己的角色");
+  const updated = await getDb()
+    .update(schema.users)
+    .set({ role })
+    .where(eq(schema.users.id, userId))
+    .returning({ id: schema.users.id });
+  if (updated.length === 0) throw new AdminActionError(404, "用户不存在");
+}
+
+export async function deleteUser(operatorId: string, userId: string): Promise<void> {
+  if (userId === operatorId) throw new AdminActionError(400, "不能删除自己的账号");
+  const db = getDb();
+  // 该用户发起的活动也会级联删除（外键 cascade），报名与作品随之清理。
+  const deleted = await db.delete(schema.users).where(eq(schema.users.id, userId)).returning({ id: schema.users.id });
+  if (deleted.length === 0) throw new AdminActionError(404, "用户不存在");
+}
+
+/* ---------------------------------- 报名 ---------------------------------- */
+
+export type AdminJoinRow = {
+  userId: string;
+  email: string;
+  name: string | null;
+  joinedAt: string;
+  inviterEmail: string | null;
+};
+
+export async function listActivityJoinsAdmin(activityId: string): Promise<AdminJoinRow[]> {
+  const db = getDb();
+  const inviter = alias(schema.users, "inviter");
+  const rows = await db
+    .select({
+      userId: schema.joins.userId,
+      email: schema.users.email,
+      name: schema.users.name,
+      joinedAt: schema.joins.joinedAt,
+      inviterEmail: inviter.email,
+    })
+    .from(schema.joins)
+    .innerJoin(schema.users, eq(schema.joins.userId, schema.users.id))
+    .leftJoin(inviter, eq(schema.joins.invitedBy, inviter.id))
+    .where(eq(schema.joins.activityId, activityId))
+    .orderBy(desc(schema.joins.joinedAt));
+  return rows.map((row) => ({ ...row, joinedAt: row.joinedAt.toISOString() }));
+}
+
+export async function removeJoinAdmin(activityId: string, userId: string): Promise<void> {
+  const deleted = await getDb()
+    .delete(schema.joins)
+    .where(sql`${schema.joins.activityId} = ${activityId} and ${schema.joins.userId} = ${userId}`)
+    .returning({ userId: schema.joins.userId });
+  if (deleted.length === 0) throw new AdminActionError(404, "报名记录不存在");
+}
+
+/* ------------------------------- 作品数据刷新 ------------------------------ */
+
+/** 管理员重抓一条作品的抖音指标（captureMetrics 永不抛，失败返回 null 由路由给出提示）。 */
+export async function refreshSubmissionAdmin(submissionId: string): Promise<AdminSubmissionRow | null> {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      id: schema.submissions.id,
+      activityId: schema.submissions.activityId,
+      userId: schema.submissions.userId,
+      url: schema.submissions.url,
+      submittedAt: schema.submissions.submittedAt,
+      authorName: schema.submissions.authorName,
+      caption: schema.submissions.caption,
+      diggCount: schema.submissions.diggCount,
+      commentCount: schema.submissions.commentCount,
+      shareCount: schema.submissions.shareCount,
+      collectCount: schema.submissions.collectCount,
+      metricsError: schema.submissions.metricsError,
+      reviewStatus: schema.submissions.reviewStatus,
+      userEmail: schema.users.email,
+      userName: schema.users.name,
+    })
+    .from(schema.submissions)
+    .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
+    .where(eq(schema.submissions.id, submissionId))
+    .limit(1);
+  if (!row) throw new AdminActionError(404, "作品不存在");
+  await captureMetrics(row.activityId, row.userId, row.url);
+  const rows = await listActivitySubmissionsAdmin(row.activityId);
+  return rows.find((item) => item.id === submissionId) ?? null;
+}
+
+/* -------------------------------- 外部赛事 -------------------------------- */
+
+export type AdminExternalEventRow = {
+  id: string;
+  source: string;
+  title: string;
+  url: string;
+  startsAt: string | null;
+  deadlineAt: string | null;
+  hidden: boolean;
+  createdAt: string;
+};
+
+export async function listExternalEventsAdmin(): Promise<AdminExternalEventRow[]> {
+  const rows = await getDb()
+    .select({
+      id: schema.externalEvents.id,
+      source: schema.externalEvents.source,
+      title: schema.externalEvents.title,
+      url: schema.externalEvents.url,
+      startsAt: schema.externalEvents.startsAt,
+      deadlineAt: schema.externalEvents.deadlineAt,
+      hidden: schema.externalEvents.hidden,
+      createdAt: schema.externalEvents.createdAt,
+    })
+    .from(schema.externalEvents)
+    .orderBy(desc(schema.externalEvents.createdAt))
+    .limit(500);
+  return rows.map((row) => ({
+    ...row,
+    startsAt: row.startsAt ? row.startsAt.toISOString() : null,
+    deadlineAt: row.deadlineAt ? row.deadlineAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+  }));
+}
+
+export async function setExternalEventHidden(id: string, hidden: boolean): Promise<void> {
+  const updated = await getDb()
+    .update(schema.externalEvents)
+    .set({ hidden })
+    .where(eq(schema.externalEvents.id, id))
+    .returning({ id: schema.externalEvents.id });
+  if (updated.length === 0) throw new AdminActionError(404, "赛事不存在");
+}
+
+export async function deleteExternalEventAdmin(id: string): Promise<void> {
+  const deleted = await getDb()
+    .delete(schema.externalEvents)
+    .where(eq(schema.externalEvents.id, id))
+    .returning({ id: schema.externalEvents.id });
+  if (deleted.length === 0) throw new AdminActionError(404, "赛事不存在");
 }
