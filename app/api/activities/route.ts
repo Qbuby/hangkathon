@@ -6,7 +6,7 @@ import { currentUser, requireUser } from "@/lib/server/users";
 
 export const dynamic = "force-dynamic";
 
-/** 公开列表：服务端强制 visibility 过滤（unlisted 只对发起人可见）。 */
+/** 公开列表：服务端强制可见性过滤（unlisted 与待审核只对发起人可见）。 */
 export async function GET() {
   const blocked = databaseRequired();
   if (blocked) return blocked;

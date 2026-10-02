@@ -2,7 +2,7 @@ import { and, eq, notInArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import { ensureAdminSeed } from "./users";
-import type { Activity, Award, Category, Criterion, JoinPolicy, Judging, Visibility } from "@/lib/activity";
+import type { Activity, ActivityReviewStatus, Award, Category, Criterion, JoinPolicy, Judging, Visibility } from "@/lib/activity";
 
 /**
  * 活动：库里的行 ↔ 前端用的 Activity 形状。
@@ -45,6 +45,8 @@ export function rowToActivity(row: Row, viewerId: string | null, ownerName: stri
     awardsEnabled: row.awardsEnabled,
     awards: row.awards as Award[],
     visibility: row.visibility as Visibility,
+    // 库里 NOT NULL DEFAULT 'published'，恒有值；防御式归一到两态，避免脏值外泄。
+    reviewStatus: (row.reviewStatus === "pending" ? "pending" : "published") as ActivityReviewStatus,
     joinPolicy: row.joinPolicy as JoinPolicy,
     emailDomain: row.emailDomain,
     image: row.image ?? undefined,
@@ -154,12 +156,14 @@ export async function listActivities(viewerId: string | null): Promise<ActivityW
     .from(schema.activities)
     .leftJoin(schema.users, eq(schema.users.id, schema.activities.ownerId))
     .orderBy(schema.activities.createdAt);
+  // 公开列表 = 已发布且公开；pending 只对发起人可见（管理端走 listAllActivities）。
   return rows
     .map(({ activity, ownerName }) => rowToActivity(activity, viewerId, ownerName))
-    .filter((activity) => activity.visibility === "public" || activity.mine);
+    .filter((activity) => (activity.visibility === "public" && activity.reviewStatus !== "pending") || activity.mine);
 }
 
-export async function getActivityBySlug(slug: string, viewerId: string | null): Promise<ActivityWithOwner | null> {
+/** 按 slug 查活动行（不做任何可见性过滤），列表与详情共用。 */
+async function findActivityRow(slug: string) {
   const db = getDb();
   await ensureSeed();
   const [row] = await db
@@ -168,10 +172,25 @@ export async function getActivityBySlug(slug: string, viewerId: string | null): 
     .leftJoin(schema.users, eq(schema.users.id, schema.activities.ownerId))
     .where(eq(schema.activities.slug, slug))
     .limit(1);
+  return row ?? null;
+}
+
+export async function getActivityBySlug(slug: string, viewerId: string | null): Promise<ActivityWithOwner | null> {
+  const row = await findActivityRow(slug);
   if (!row) return null;
   const activity = rowToActivity(row.activity, viewerId, row.ownerName);
-  if (activity.visibility !== "public" && !activity.mine) return null;
+  // 对非发起人完全不可见：不公开或待审核都按 404 处理；join/作品等子路由共用本入口，一并被拦。
+  if ((activity.visibility !== "public" || activity.reviewStatus === "pending") && !activity.mine) return null;
   return activity;
+}
+
+/**
+ * 管理端取活动：requireAdmin 之后的路由用，跳过公开可见性门——
+ * pending/unlisted 活动在 /manage 的作品、报名面板里必须可读，否则审核只能盲审。
+ */
+export async function getActivityBySlugAdmin(slug: string): Promise<ActivityWithOwner | null> {
+  const row = await findActivityRow(slug);
+  return row ? rowToActivity(row.activity, null, row.ownerName) : null;
 }
 
 export async function createActivity(ownerId: string, activity: Activity): Promise<ActivityWithOwner> {
@@ -201,6 +220,8 @@ export async function createActivity(ownerId: string, activity: Activity): Promi
       awardsEnabled: activity.awardsEnabled,
       awards: activity.awards,
       visibility: activity.visibility,
+      // 用户发起一律先入审核；不从 payload 读取，客户端无法影响。
+      reviewStatus: "pending",
       joinPolicy: activity.joinPolicy,
       emailDomain: activity.emailDomain,
       seeded: false,

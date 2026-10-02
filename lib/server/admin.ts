@@ -2,7 +2,7 @@ import { count, desc, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/db";
 import { captureMetrics } from "./work-metrics";
-import type { Visibility } from "@/lib/activity";
+import type { ActivityReviewStatus, Visibility } from "@/lib/activity";
 
 /**
  * 管理端口的服务端能力：全量活动、全量作品、用户、报名、外部赛事、
@@ -16,6 +16,8 @@ export type AdminOverview = {
   joins: number;
   submissions: number;
   pendingReviews: number;
+  /** 待审核活动（用户发起、还没通过审核的）。 */
+  pendingActivities: number;
 };
 
 export type AdminActivityRow = {
@@ -24,6 +26,7 @@ export type AdminActivityRow = {
   title: string;
   district: string;
   visibility: Visibility;
+  reviewStatus: ActivityReviewStatus;
   seeded: boolean;
   startsAt: string;
   endsAt: string;
@@ -61,12 +64,17 @@ export async function adminOverview(): Promise<AdminOverview> {
     .select({ value: count() })
     .from(schema.submissions)
     .where(eq(schema.submissions.reviewStatus, "pending"));
+  const [pendingActivitiesRow] = await db
+    .select({ value: count() })
+    .from(schema.activities)
+    .where(eq(schema.activities.reviewStatus, "pending"));
   return {
     users: Number(usersRow?.value ?? 0),
     activities: Number(activitiesRow?.value ?? 0),
     joins: Number(joinsRow?.value ?? 0),
     submissions: Number(submissionsRow?.value ?? 0),
     pendingReviews: Number(pendingRow?.value ?? 0),
+    pendingActivities: Number(pendingActivitiesRow?.value ?? 0),
   };
 }
 
@@ -79,6 +87,7 @@ export async function listAllActivities(): Promise<AdminActivityRow[]> {
       title: schema.activities.title,
       district: schema.activities.district,
       visibility: schema.activities.visibility,
+      reviewStatus: schema.activities.reviewStatus,
       seeded: schema.activities.seeded,
       startsAt: schema.activities.startsAt,
       endsAt: schema.activities.endsAt,
@@ -94,6 +103,7 @@ export async function listAllActivities(): Promise<AdminActivityRow[]> {
   return rows.map((row) => ({
     ...row,
     visibility: row.visibility as Visibility,
+    reviewStatus: row.reviewStatus as ActivityReviewStatus,
     joinCount: Number(row.joinCount ?? 0),
     submissionCount: Number(row.submissionCount ?? 0),
     createdAt: row.createdAt.toISOString(),
@@ -117,6 +127,23 @@ export async function setActivityVisibility(slug: string, visibility: Visibility
   const updated = await db
     .update(schema.activities)
     .set({ visibility })
+    .where(eq(schema.activities.slug, slug))
+    .returning({ id: schema.activities.id });
+  if (updated.length === 0) throw new AdminActionError(404, "活动不存在");
+}
+
+/**
+ * 活动审核：两态模型（pending → published），白名单只放行 published；
+ * 要下架用 setActivityVisibility，要驳回直接删除该活动。
+ */
+export async function setActivityReview(slug: string, reviewStatus: ActivityReviewStatus): Promise<void> {
+  if (reviewStatus !== "published") {
+    throw new AdminActionError(400, "活动审核状态只能是 published");
+  }
+  const db = getDb();
+  const updated = await db
+    .update(schema.activities)
+    .set({ reviewStatus })
     .where(eq(schema.activities.slug, slug))
     .returning({ id: schema.activities.id });
   if (updated.length === 0) throw new AdminActionError(404, "活动不存在");

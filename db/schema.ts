@@ -50,6 +50,8 @@ export const activities = pgTable("activities", {
   awardsEnabled: boolean("awards_enabled").notNull().default(false),
   awards: jsonb("awards").$type<{ name: string; slots: number; reward: string }[]>().notNull().default([]),
   visibility: text("visibility").notNull().default("public"),
+  /** 活动审核流：pending 只对发起人与管理端可见；与 submissions.review_status 同名不同义（那边审作品）。 */
+  reviewStatus: text("review_status").notNull().default("published"),
   joinPolicy: text("join_policy").notNull().default("anyone"),
   emailDomain: text("email_domain").notNull().default(""),
   /** 海报图（竖版），仅平台预置活动配置。 */

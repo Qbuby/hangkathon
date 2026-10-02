@@ -31,11 +31,21 @@
 .manage-table .num{text-align:right;font-variant-numeric:tabular-nums}
 .manage-act-link{color:#0b6fa8;font-weight:600}
 .manage-act-link:hover{text-decoration:underline;text-underline-offset:3px}
+/* 待审核活动的标题是按钮（公开详情页对管理员也 404），点开站内详情面板 */
+.manage-act-button{border:0;background:none;padding:0;font:inherit;font-size:inherit;text-align:left;cursor:pointer}
 .manage-act-slug{display:block;font-size:11px;color:#8fa6bb;margin-top:4px}
 .manage-act-date{white-space:nowrap;color:#42566b}
 
+/* 待审核活动详情面板（复用 manage-joins-panel 骨架） */
+.manage-inspect-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 20px;margin:0}
+.manage-inspect-grid dt{font-size:11.5px;letter-spacing:1px;color:#7c93a8}
+.manage-inspect-grid dd{margin:3px 0 0;font-size:13.5px;color:#17273a;word-break:break-all}
+.manage-inspect-overview{margin:0;padding-top:12px;border-top:1px dashed #dce7f2;font-size:13.5px;line-height:1.8;color:#42566b;white-space:pre-wrap}
+
 .manage-pill{display:inline-flex;align-items:center;height:22px;padding:0 10px;border-radius:11px;font-size:11px;letter-spacing:.5px;background:#f1f5f9;color:#64788c;border:1px solid #dce7f2;white-space:nowrap}
 .manage-pill.is-public{background:#e8f7ef;color:#187a4b;border-color:#bfe8d2}
+/* 活动审核流的「待审核」徽标（活动表专用，与作品审核的 submission 配色/文案互不复用） */
+.manage-pill.is-warn{background:#fff4e0;color:#c9822a;border-color:#f2b263;margin-left:8px}
 .manage-district{margin-left:8px;font-size:12px}
 
 .manage-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -53,6 +63,11 @@
 .manage-submission-picker{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .manage-submission-picker label{font-size:13px;color:#42566b;letter-spacing:.5px}
 .manage-submission-picker select{height:40px;padding:0 14px;border:1px solid #dce7f2;border-radius:10px;background:#fff;color:#17273a;font-size:14px;min-width:300px}
+
+/* 颁奖统计（作品标签）：按用户加权汇总，样式与报名面板同族 */
+.manage-award-panel{display:flex;flex-direction:column;gap:14px;background:#f8fbfe;border:1px solid #dce7f2;border-radius:14px;padding:20px 22px}
+.manage-award-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.manage-award-head h3{margin:0;font-size:15px;font-weight:600;letter-spacing:.5px;color:#17273a}
 
 .manage-submission-list{display:flex;flex-direction:column;gap:14px}
 .manage-submission{background:#fff;border:1px solid #dce7f2;border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:10px}

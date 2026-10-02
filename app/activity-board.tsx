@@ -231,7 +231,11 @@ export default function ActivityBoard({
             <strong>{badge.day}</strong>
           </div>
           <div className="feed-item-head">
-            <h3>{activity.title}</h3>
+            <h3>
+              {activity.title}
+              {/* 待审核只对发起人可见（服务端列表仅发起人拿得到该行）；local 模式字段恒缺失，徽标永不出现 */}
+              {activity.reviewStatus === "pending" && <span className="feed-pending">待审核</span>}
+            </h3>
             <p className="feed-when">{activity.startsAt} 至 {activity.endsAt}</p>
           </div>
         </div>

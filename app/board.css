@@ -64,6 +64,8 @@
 .feed-item-head{min-width:0;flex:1;padding-top:1px}
 .feed-item-head h3{font-size:17px;font-weight:650;line-height:1.5;margin:0;letter-spacing:.3px;color:#17273a;transition:color .15s}
 .feed-when{margin:7px 0 0;font-size:13px;letter-spacing:.3px;color:#7c93a8}
+/* 发起人视角的「待审核」小徽标：仅服务端模式下本人 pending 活动会出现 */
+.feed-pending{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:9px;font-size:11px;font-weight:500;letter-spacing:.5px;vertical-align:2px;background:#fff4e0;color:#c9822a;border:1px solid #f2b263;white-space:nowrap}
 .feed-where{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:14px 0 0;font-size:13px;color:#66809a}
 .feed-where svg{flex:none;opacity:.85}
 .feed-sep{color:#c4d3e0}

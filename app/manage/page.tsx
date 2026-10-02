@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { ArrowLeft, Check, Download, EyeOff, Globe, RefreshCw, ShieldCheck, ShieldOff, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { categoryLabel, formatLabel, judgingLabel, joinPolicyLabel, pricingLabel, prizeText, submissionLabels, type Activity } from "@/lib/activity";
 import { factionById } from "@/lib/factions";
 import { usePageMotion } from "../motion-scope";
 import "../activities/[slug]/detail.css";
@@ -26,6 +27,7 @@ type Overview = {
   joins: number;
   submissions: number;
   pendingReviews: number;
+  pendingActivities: number;
 };
 
 type AdminActivity = {
@@ -34,6 +36,8 @@ type AdminActivity = {
   title: string;
   district: string;
   visibility: "public" | "unlisted";
+  /** 活动审核流（pending | published）；与 AdminSubmission.reviewStatus 同名不同义，勿混用文案常量与样式。 */
+  reviewStatus: "pending" | "published";
   seeded: boolean;
   startsAt: string;
   endsAt: string;
@@ -105,6 +109,78 @@ const REVIEW_LABEL: Record<AdminSubmission["reviewStatus"], string> = {
   rejected: "已驳回",
 };
 
+/**
+ * 颁奖统计的加权口径（可调）：赞 1 / 评 2 / 转 3 / 藏 2。
+ * 只有已通过（approved）的作品计分，驳回/待审核的互动量不计入，防止未过审作品占排名；
+ * 指标缺失（抓取失败）按 0 计，但仍计入作品数；同一链接重复提交只算一件；渲染时聚合，不落库。
+ */
+const WEIGHTS = { likes: 1, comments: 2, shares: 3, collects: 2 } as const;
+
+type AwardStat = {
+  email: string;
+  name: string;
+  works: number;
+  approved: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  collects: number;
+  total: number;
+};
+
+/**
+ * 同一用户重复提交同一链接只算一件作品：addSubmission 对 submissions 无条件 insert
+ * （lib/server/submissions.ts:49，无唯一约束），重复行经 setMetricsForUrl 带着同一套指标，
+ * 逐行计分会翻倍且可被主动刷分。重复行审核状态可能不同，优先保留已通过的那条。
+ */
+function dedupeWorks(submissions: AdminSubmission[]): AdminSubmission[] {
+  const byKey = new Map<string, AdminSubmission>();
+  for (const submission of submissions) {
+    const key = `${submission.userEmail}\u0000${submission.url}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, submission);
+    } else if (existing.reviewStatus !== "approved" && submission.reviewStatus === "approved") {
+      byKey.set(key, submission);
+    }
+  }
+  return [...byKey.values()];
+}
+
+/** 按用户邮箱聚合一场活动的作品数据，加权总分降序（并列看作品数，再按邮箱稳定排序）。 */
+function awardStats(submissions: AdminSubmission[]): AwardStat[] {
+  const byUser = new Map<string, AwardStat>();
+  for (const submission of dedupeWorks(submissions)) {
+    const likes = submission.diggCount ?? 0;
+    const comments = submission.commentCount ?? 0;
+    const shares = submission.shareCount ?? 0;
+    const collects = submission.collectCount ?? 0;
+    const stat = byUser.get(submission.userEmail) ?? {
+      email: submission.userEmail,
+      name: submission.userName || submission.userEmail,
+      works: 0,
+      approved: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      collects: 0,
+      total: 0,
+    };
+    stat.works += 1;
+    if (submission.reviewStatus === "approved") {
+      // 仅已通过作品计入互动量与加权总分（口径见 WEIGHTS 注释，与贡献值结算一致）
+      stat.approved += 1;
+      stat.likes += likes;
+      stat.comments += comments;
+      stat.shares += shares;
+      stat.collects += collects;
+      stat.total += likes * WEIGHTS.likes + comments * WEIGHTS.comments + shares * WEIGHTS.shares + collects * WEIGHTS.collects;
+    }
+    byUser.set(submission.userEmail, stat);
+  }
+  return [...byUser.values()].sort((a, b) => b.total - a.total || b.works - a.works || a.email.localeCompare(b.email));
+}
+
 const SOURCE_LABEL: Record<string, string> = {
   contest_watchers: "Contest Watchers",
   chinahpc: "中国高性能计算",
@@ -115,7 +191,9 @@ const SOURCE_LABEL: Record<string, string> = {
 function downloadCsv(filename: string, header: string[], rows: (string | number | null)[][]) {
   const escape = (value: string | number | null | undefined) => {
     const text = value === null || value === undefined ? "" : String(value);
-    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    // 公式注入防护：= + - @ 开头的单元格加前导单引号，Excel 按文本而不是公式执行（昵称等用户可控字段）
+    const safe = /^[=+@-]/.test(text) ? `'${text}` : text;
+    return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
   };
   const csv = "\uFEFF" + [header, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -144,6 +222,10 @@ export default function ManagePage() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(null);
   const [busySubmission, setBusySubmission] = useState<string | null>(null);
+  // 待审核活动详情（公开详情页对管理员也 404，审核前在这里看内容）
+  const [inspect, setInspect] = useState<{ slug: string; activity: Activity | null; failed: boolean } | null>(null);
+  const submissionsRequest = useRef(0);
+  const inspectRequest = useRef(0);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [busyUser, setBusyUser] = useState<string | null>(null);
   const [joins, setJoins] = useState<AdminJoin[] | null>(null);
@@ -221,16 +303,16 @@ export default function ManagePage() {
   }, [guard]);
 
   const loadSubmissions = async (slug: string) => {
+    const requestId = ++submissionsRequest.current;
     setSubmissions(null);
     try {
       const response = await fetch(`/api/admin/activities/${encodeURIComponent(slug)}/submissions`);
-      if (response.ok) {
-        const data = (await response.json()) as { submissions: AdminSubmission[] };
-        setSubmissions(data.submissions);
-      } else {
-        setSubmissions([]);
-      }
+      const data = response.ok ? ((await response.json()) as { submissions: AdminSubmission[] }) : null;
+      // 快速切换活动时丢弃过期响应：旧活动的作品串进当前面板，颁奖统计与导出 CSV 会跟着错
+      if (requestId !== submissionsRequest.current) return;
+      setSubmissions(data ? data.submissions : []);
     } catch {
+      if (requestId !== submissionsRequest.current) return;
       setSubmissions([]);
     }
   };
@@ -238,6 +320,21 @@ export default function ManagePage() {
   function flash(message: string) {
     setNotice(message);
     window.setTimeout(() => setNotice(null), 2600);
+  }
+
+  /** 读取待审核活动正文（GET /api/admin/activities/[slug]，管理端视角不受公开可见性限制）。 */
+  async function openActivityInspect(slug: string) {
+    const requestId = ++inspectRequest.current;
+    setInspect({ slug, activity: null, failed: false });
+    try {
+      const response = await fetch(`/api/admin/activities/${encodeURIComponent(slug)}`);
+      const activity = response.ok ? (((await response.json()) as { activity: Activity }).activity ?? null) : null;
+      if (requestId !== inspectRequest.current) return;
+      setInspect({ slug, activity, failed: !response.ok });
+    } catch {
+      if (requestId !== inspectRequest.current) return;
+      setInspect({ slug, activity: null, failed: true });
+    }
   }
 
   // 用户 / 赛事两个标签按需加载：切过去时拉一次。
@@ -305,6 +402,33 @@ export default function ManagePage() {
       } else {
         const data = (await response.json().catch(() => null)) as { error?: string } | null;
         flash(data?.error ?? "删除失败");
+      }
+    } finally {
+      setBusySlug(null);
+    }
+  }
+
+  /** 活动审核通过：pending → published；计数卡依赖 overview，通过后重读一次。 */
+  async function approveActivity(activity: AdminActivity) {
+    setBusySlug(activity.slug);
+    try {
+      const response = await fetch(`/api/admin/activities/${encodeURIComponent(activity.slug)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewStatus: "published" }),
+      });
+      if (response.ok) {
+        setActivities((rows) => rows.map((row) => (row.slug === activity.slug ? { ...row, reviewStatus: "published" } : row)));
+        try {
+          const overviewResponse = await fetch("/api/admin/overview");
+          if (overviewResponse.ok) setOverview((await overviewResponse.json()) as Overview);
+        } catch {
+          /* 计数短暂不新鲜无妨 */
+        }
+        flash("已审核通过");
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "操作失败");
       }
     } finally {
       setBusySlug(null);
@@ -412,6 +536,14 @@ export default function ManagePage() {
         REVIEW_LABEL[row.reviewStatus],
         row.submittedAt,
       ]),
+    );
+  }
+
+  function exportAwardCsv(activity: AdminActivity, stats: AwardStat[]) {
+    downloadCsv(
+      `颁奖统计-${activity.slug}.csv`,
+      ["排名", "用户", "作品数", "已通过数", "赞", "评", "转", "藏", "加权总分"],
+      stats.map((stat, index) => [index + 1, stat.name, stat.works, stat.approved, stat.likes, stat.comments, stat.shares, stat.collects, stat.total]),
     );
   }
 
@@ -524,6 +656,43 @@ export default function ManagePage() {
   }
 
   const selectedActivity = activities.find((row) => row.slug === selectedSlug) ?? null;
+  // 颁奖统计：选定活动且有作品时按 WEIGHTS 即时聚合（刷新数据/切换活动后自动更新，不落库）。
+  const selectedStats = selectedActivity && submissions && submissions.length > 0 ? awardStats(submissions) : null;
+
+  /** 待审核活动详情面板：公开详情页对管理员也是 404，审核前在这里读正文。 */
+  function renderInspectPanel() {
+    if (!inspect) return null;
+    const activity = inspect.activity;
+    const district = activity ? factionById(activity.district) : undefined;
+    return (
+      <div className="manage-joins-panel">
+        <div className="manage-joins-head">
+          <h3>活动详情 · {activities.find((row) => row.slug === inspect.slug)?.title ?? inspect.slug}</h3>
+          <button className="manage-link" onClick={() => setInspect(null)}>收起</button>
+        </div>
+        {inspect.failed && <p className="detail-placeholder">读取失败，请稍后重试。</p>}
+        {!inspect.failed && !activity && <p className="detail-placeholder">正在读取活动…</p>}
+        {activity && (
+          <>
+            {activity.subtitle && <p className="detail-placeholder">{activity.subtitle}</p>}
+            <dl className="manage-inspect-grid">
+              <div><dt>主办方</dt><dd>{activity.host || "—"}</dd></div>
+              <div><dt>联系方式</dt><dd>{activity.contact || "—"}</dd></div>
+              <div><dt>类别 / 所属区</dt><dd>{categoryLabel(activity.category)}{district ? ` · ${district.name}` : ""}</dd></div>
+              <div><dt>形式 / 地点</dt><dd>{formatLabel(activity)}{activity.format === "offline" && activity.venue ? ` · ${activity.venue}` : ""}</dd></div>
+              <div><dt>费用</dt><dd>{pricingLabel(activity)}{activity.fee ? ` · ${activity.fee}` : ""}</dd></div>
+              <div><dt>时间</dt><dd>{activity.startsAt} ~ {activity.endsAt || "待定"}</dd></div>
+              <div><dt>谁能参加</dt><dd>{joinPolicyLabel(activity)}</dd></div>
+              <div><dt>评审方式</dt><dd>{judgingLabel(activity.judging)}</dd></div>
+              <div><dt>奖项</dt><dd>{prizeText(activity)}{activity.awardsEnabled && activity.awards.length > 0 ? ` · ${activity.awards.map((award) => award.name).join("、")}` : ""}</dd></div>
+              <div><dt>提交形式</dt><dd>{submissionLabels(activity.submissionTypes).join("、") || "—"}</dd></div>
+            </dl>
+            {activity.overview && <p className="manage-inspect-overview">{activity.overview}</p>}
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <main className="detail-page manage-page">
@@ -607,6 +776,7 @@ export default function ManagePage() {
                   { label: "报名", value: overview?.joins },
                   { label: "作品", value: overview?.submissions },
                   { label: "待审核作品", value: overview?.pendingReviews, hot: (overview?.pendingReviews ?? 0) > 0 },
+                  { label: "待审核活动", value: overview?.pendingActivities, hot: (overview?.pendingActivities ?? 0) > 0 },
                 ].map((card) => (
                   <div key={card.label} className={`manage-stat${card.hot ? " is-hot" : ""}`}>
                     <strong>{card.value === undefined ? "—" : card.value.toLocaleString("zh-CN")}</strong>
@@ -644,7 +814,17 @@ export default function ManagePage() {
                         return (
                           <tr key={activity.id}>
                             <td>
-                              <Link className="manage-act-link" href={`/activities/${activity.slug}`}>{activity.title}</Link>
+                              {activity.reviewStatus === "pending" ? (
+                                <button
+                                  className="manage-act-link manage-act-button"
+                                  title="待审核活动详情页未公开，点这里查看内容"
+                                  onClick={() => void openActivityInspect(activity.slug)}
+                                >
+                                  {activity.title}
+                                </button>
+                              ) : (
+                                <Link className="manage-act-link" href={`/activities/${activity.slug}`}>{activity.title}</Link>
+                              )}
                               <span className="manage-act-slug">{activity.seeded ? "预置 · " : ""}{activity.slug}</span>
                             </td>
                             <td>{activity.ownerName || activity.ownerEmail || "—"}</td>
@@ -671,10 +851,20 @@ export default function ManagePage() {
                               <span className={`manage-pill${activity.visibility === "public" ? " is-public" : ""}`}>
                                 {activity.visibility === "public" ? "公开" : "不公开"}
                               </span>
+                              {activity.reviewStatus === "pending" && <span className="manage-pill is-warn">待审核</span>}
                               {district && <span className="manage-district" style={{ color: district.color }}>{district.name}</span>}
                             </td>
                             <td>
                               <div className="manage-actions">
+                                {activity.reviewStatus === "pending" && (
+                                  <button
+                                    className="manage-link is-approve"
+                                    disabled={busySlug === activity.slug}
+                                    onClick={() => void approveActivity(activity)}
+                                  >
+                                    <Check size={13} /> 审核通过
+                                  </button>
+                                )}
                                 <button
                                   className="manage-link"
                                   disabled={busySlug === activity.slug}
@@ -699,6 +889,8 @@ export default function ManagePage() {
                   </table>
                 </div>
               )}
+
+              {renderInspectPanel()}
 
               {joinsSlug && (
                 <div className="manage-joins-panel">
@@ -787,6 +979,58 @@ export default function ManagePage() {
                   </button>
                 )}
               </div>
+
+              {selectedStats && (
+                <div className="manage-award-panel">
+                  <div className="manage-award-head">
+                    <h3>颁奖统计 · {selectedActivity?.title}</h3>
+                    <button
+                      className="manage-link"
+                      onClick={() => {
+                        if (selectedActivity) exportAwardCsv(selectedActivity, selectedStats);
+                      }}
+                    >
+                      <Download size={13} /> 导出加权汇总 CSV
+                    </button>
+                  </div>
+                  <div className="manage-table-wrap">
+                    <table className="manage-table">
+                      <thead>
+                        <tr>
+                          <th>排名</th>
+                          <th>用户</th>
+                          <th className="num">作品数</th>
+                          <th className="num">已通过数</th>
+                          <th className="num">赞</th>
+                          <th className="num">评</th>
+                          <th className="num">转</th>
+                          <th className="num">藏</th>
+                          <th className="num">加权总分</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedStats.map((stat, index) => (
+                          <tr key={stat.email}>
+                            <td>{index + 1}</td>
+                            <td>
+                              <strong>{stat.name}</strong>
+                              <span className="manage-act-slug">{stat.email}</span>
+                            </td>
+                            <td className="num">{stat.works}</td>
+                            <td className="num">{stat.approved}</td>
+                            <td className="num">{stat.likes}</td>
+                            <td className="num">{stat.comments}</td>
+                            <td className="num">{stat.shares}</td>
+                            <td className="num">{stat.collects}</td>
+                            <td className="num">{stat.total}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="detail-placeholder">口径：仅已通过作品计入互动量与加权总分（驳回/待审核不计）；同一链接重复提交只算一件。</p>
+                </div>
+              )}
 
               {selectedSlug && submissions === null && <p className="detail-placeholder">正在读取作品…</p>}
               {selectedSlug && submissions?.length === 0 && (

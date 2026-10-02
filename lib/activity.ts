@@ -10,6 +10,8 @@ export type ActivityFormat = "online" | "offline";
 export type ActivityPricing = "free" | "paid";
 export type Judging = "judges" | "public" | "both";
 export type Visibility = "public" | "unlisted";
+/** 活动审核流：pending（待审核，只对发起人与管理端可见）| published（已通过）。 */
+export type ActivityReviewStatus = "pending" | "published";
 export type JoinPolicy = "anyone" | "link" | "email";
 
 export type Criterion = { name: string; weight: number };
@@ -53,6 +55,8 @@ export type Activity = {
   awardsEnabled: boolean;
   awards: Award[];
   visibility: Visibility;
+  /** 审核状态；可选是刻意的——预置活动与 localStorage 旧数据没有该字段，缺失即 published，判断一律用 === "pending"。 */
+  reviewStatus?: ActivityReviewStatus;
   joinPolicy: JoinPolicy;
   emailDomain: string;
   /** 海报图（竖版），仅平台预置活动配置；自建活动没有。 */

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getActivityBySlug } from "@/lib/server/activities";
+import { getActivityBySlugAdmin } from "@/lib/server/activities";
 import { AdminActionError, listActivityJoinsAdmin, removeJoinAdmin } from "@/lib/server/admin";
 import { databaseRequired, handleRouteError, jsonError } from "@/lib/server/http";
 import { requireAdmin } from "@/lib/server/users";
@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   try {
     await requireAdmin();
     const { slug } = await params;
-    const activity = await getActivityBySlug(slug, null);
+    const activity = await getActivityBySlugAdmin(slug);
     if (!activity) return NextResponse.json({ error: "活动不存在" }, { status: 404 });
     return NextResponse.json({ joins: await listActivityJoinsAdmin(activity.id) });
   } catch (error) {
@@ -27,7 +27,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
   try {
     await requireAdmin();
     const { slug } = await params;
-    const activity = await getActivityBySlug(slug, null);
+    const activity = await getActivityBySlugAdmin(slug);
     if (!activity) return jsonError(404, "活动不存在");
     const body = (await request.json().catch(() => null)) as { userId?: string } | null;
     if (!body?.userId) return jsonError(400, "缺少 userId");

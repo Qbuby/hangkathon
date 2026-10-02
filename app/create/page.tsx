@@ -123,7 +123,9 @@ export default function CreateActivityPage() {
           <h1>活动已创建</h1>
           <p>
             {mode === "server"
-              ? `「${published.title}」已经发布到平台，所有人都能在活动看板看到它。`
+              ? published.reviewStatus === "pending"
+                ? `「${published.title}」已提交，进入审核，通过后会出现在活动看板。`
+                : `「${published.title}」已经发布到平台，所有人都能在活动看板看到它。`
               : `「${published.title}」已经加入活动列表。当前版本把活动保存在这台设备的浏览器里，换设备或清理数据后会消失。`}
           </p>
           <div className="create-done-actions">
