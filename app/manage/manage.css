@@ -1,0 +1,72 @@
+/* 管理端口（/manage）—— 复用 detail.css 的二级页骨架（detail-page / detail-top / detail-eyebrow / detail-placeholder）。白底明亮主题。 */
+
+.manage-page{min-height:100svh}
+
+.manage-card{max-width:560px;margin:150px auto 0;display:flex;flex-direction:column;gap:14px;background:#fff;border:1px solid #dce7f2;border-radius:16px;padding:42px;box-shadow:0 4px 18px rgba(23,58,102,.08)}
+.manage-card h1{font-size:26px;font-weight:600;letter-spacing:1px;margin:0;color:#17273a}
+
+.manage-body{display:flex;flex-direction:column;gap:26px;padding:150px 6% 70px;max-width:1180px}
+
+.manage-tabs{display:flex;gap:10px}
+.manage-tab{height:40px;padding:0 22px;border:1px solid #dce7f2;border-radius:20px;background:#fff;color:#42566b;font-size:14px;letter-spacing:1px;transition:border-color .15s,color .15s,background .15s}
+.manage-tab:hover{border-color:#8fd0ff;color:#0b6fa8}
+.manage-tab.is-on{background:#0b6fa8;border-color:#0b6fa8;color:#fff}
+
+.manage-notice{margin:0;padding:12px 18px;border:1px solid #b9dcf5;border-radius:10px;background:#f3f9ff;color:#0b6fa8;font-size:13.5px}
+
+.manage-section{display:flex;flex-direction:column;gap:18px}
+
+.manage-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.manage-stat{display:flex;flex-direction:column;gap:6px;padding:24px 22px;background:#fff;border:1px solid #dce7f2;border-radius:14px}
+.manage-stat strong{font-size:30px;font-weight:600;color:#17273a;font-variant-numeric:tabular-nums}
+.manage-stat span{font-size:12.5px;letter-spacing:1px;color:#7c93a8}
+.manage-stat.is-hot{border-color:#f2b263;background:#fffaf2}
+.manage-stat.is-hot strong{color:#c9822a}
+
+.manage-table-wrap{overflow-x:auto;background:#fff;border:1px solid #dce7f2;border-radius:14px}
+.manage-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:860px}
+.manage-table th{text-align:left;padding:14px 16px;font-size:11.5px;letter-spacing:1.5px;color:#7c93a8;border-bottom:1px solid #e2ecf6;white-space:nowrap}
+.manage-table td{padding:14px 16px;border-bottom:1px solid #eef4fa;vertical-align:middle}
+.manage-table tbody tr:last-child td{border-bottom:0}
+.manage-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.manage-act-link{color:#0b6fa8;font-weight:600}
+.manage-act-link:hover{text-decoration:underline;text-underline-offset:3px}
+.manage-act-slug{display:block;font-size:11px;color:#8fa6bb;margin-top:4px}
+.manage-act-date{white-space:nowrap;color:#42566b}
+
+.manage-pill{display:inline-flex;align-items:center;height:22px;padding:0 10px;border-radius:11px;font-size:11px;letter-spacing:.5px;background:#f1f5f9;color:#64788c;border:1px solid #dce7f2;white-space:nowrap}
+.manage-pill.is-public{background:#e8f7ef;color:#187a4b;border-color:#bfe8d2}
+.manage-district{margin-left:8px;font-size:12px}
+
+.manage-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.manage-link{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:#0b6fa8;font-size:13px;padding:4px 0;cursor:pointer}
+.manage-link:hover{text-decoration:underline;text-underline-offset:3px}
+.manage-link:disabled{color:#a9bcd0;cursor:not-allowed;text-decoration:none}
+.manage-link.is-danger{color:#c2453f}
+.manage-link.is-approve{color:#187a4b}
+
+.manage-submission-picker{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.manage-submission-picker label{font-size:13px;color:#42566b;letter-spacing:.5px}
+.manage-submission-picker select{height:40px;padding:0 14px;border:1px solid #dce7f2;border-radius:10px;background:#fff;color:#17273a;font-size:14px;min-width:300px}
+
+.manage-submission-list{display:flex;flex-direction:column;gap:14px}
+.manage-submission{background:#fff;border:1px solid #dce7f2;border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:10px}
+.manage-submission.is-approved{border-color:#bfe8d2;background:#fbfffd}
+.manage-submission.is-rejected{opacity:.72}
+.manage-submission-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.manage-submission-head strong{color:#17273a}
+.manage-submission-mail{font-size:12px;color:#8fa6bb}
+.manage-submission-head time{margin-left:auto;font-size:12px;color:#8fa6bb;white-space:nowrap}
+.manage-submission-caption{margin:0;font-size:13.5px;line-height:1.8;color:#42566b;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.manage-submission-url{margin:0;font-size:12.5px}
+.manage-submission-url a{color:#0aa2e0;word-break:break-all}
+.manage-submission-url a:hover{text-decoration:underline;text-underline-offset:3px}
+.manage-metrics{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:#5b6b7d;font-variant-numeric:tabular-nums}
+.manage-metrics-error{color:#c2453f;font-style:normal;font-size:12px}
+
+@media(max-width:760px){
+  .manage-body{padding:132px 6% 56px;gap:20px}
+  .manage-card{margin:120px 6% 0;padding:32px 25px}
+  .manage-stat strong{font-size:24px}
+  .manage-submission-head time{margin-left:0;width:100%}
+}

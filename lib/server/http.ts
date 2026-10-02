@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { hasDatabase } from "@/db";
-import { UnauthorizedError } from "./users";
+import { ForbiddenError, UnauthorizedError } from "./users";
 
-/** 路由层的统一出口：无数据库 503、未登录 401、其余 500。 */
+/** 路由层的统一出口：无数据库 503、未登录 401、无权限 403、其余 500。 */
 
 export function jsonError(status: number, message: string) {
   return NextResponse.json({ error: message }, { status });
@@ -15,6 +15,7 @@ export function databaseRequired() {
 
 export function handleRouteError(error: unknown) {
   if (error instanceof UnauthorizedError) return jsonError(401, "请先登录");
+  if (error instanceof ForbiddenError) return jsonError(403, "无管理员权限");
   console.error("[api]", error);
   return jsonError(500, "服务端错误");
 }

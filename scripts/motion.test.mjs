@@ -12,7 +12,7 @@ const { MOTION, MOTION_BOOT, PAGE_ROOTS, REDUCED_QUERY, REVEAL_BLOCK, REVEAL_ITE
   `data:text/javascript;base64,${Buffer.from(js).toString("base64")}`
 );
 
-const PAGES = ["board", "detail", "leaderboard", "profile", "create", "auth-error"];
+const PAGES = ["board", "detail", "leaderboard", "profile", "create", "manage", "auth-error"];
 
 test("reduced motion produces no plan at all", () => {
   for (const page of PAGES) {

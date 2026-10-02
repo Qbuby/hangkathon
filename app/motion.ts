@@ -19,7 +19,7 @@ export const MOTION = {
   windowMs: 1400,
 } as const;
 
-export type MotionPage = "board" | "detail" | "leaderboard" | "profile" | "create" | "auth-error";
+export type MotionPage = "board" | "detail" | "leaderboard" | "profile" | "create" | "manage" | "auth-error";
 
 /** 每页的根选择器：动效只在该根内查找 [data-reveal]，不越界到别的页面区块。 */
 export const PAGE_ROOTS: Record<MotionPage, string> = {
@@ -28,6 +28,7 @@ export const PAGE_ROOTS: Record<MotionPage, string> = {
   leaderboard: ".lb-page",
   profile: ".profile-page",
   create: ".create-page",
+  manage: ".manage-page",
   "auth-error": ".auth-error",
 };
 

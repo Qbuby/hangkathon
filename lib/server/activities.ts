@@ -1,6 +1,7 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
+import { ensureAdminSeed } from "./users";
 import type { Activity, Award, Category, Criterion, JoinPolicy, Judging, Visibility } from "@/lib/activity";
 
 /**
@@ -62,6 +63,8 @@ export async function ensureSeed() {
     .values({ email: SEED_EMAIL, name: "杭客松" })
     .onConflictDoUpdate({ target: schema.users.email, set: { name: "杭客松" } })
     .returning({ id: schema.users.id });
+
+  await ensureAdminSeed();
 
   for (const activity of PUBLISHED_ACTIVITIES) {
     await db

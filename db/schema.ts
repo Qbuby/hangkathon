@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   name: text("name"),
   image: text("image"),
+  /** user | admin；管理员由 ADMIN_EMAILS 引导提权，后续可在管理端口调整。 */
+  role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("users_email_unique").on(table.email)]);
 
@@ -87,6 +89,9 @@ export const submissions = pgTable("submissions", {
   collectCount: integer("collect_count"),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }),
   metricsError: text("metrics_error"),
+  /** 管理员审核状态：pending | approved | rejected；贡献值入账由后续流程消费。 */
+  reviewStatus: text("review_status").notNull().default("pending"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
 }, (table) => [index("submissions_activity_user_idx").on(table.activityId, table.userId)]);
 
 export const inviteEvents = pgTable("invite_events", {
