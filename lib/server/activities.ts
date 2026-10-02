@@ -99,6 +99,8 @@ export async function ensureSeed() {
       })
       // 预置活动是平台内容：部署时以代码为准覆盖同名 slug 的行，文案修正会随
       // 部署自动生效（owner 保持不变）；用户自己建的活动 slug 不同，永远不会被碰。
+      // visibility 不在覆盖之列：它是管理端口里的运行时状态（下线活动），
+      // 若随种子回写，管理员的「不公开」会在下一次列表读取时被冲掉。
       .onConflictDoUpdate({
         target: schema.activities.slug,
         set: {
@@ -121,7 +123,6 @@ export async function ensureSeed() {
           criteria: sql`excluded.criteria`,
           awardsEnabled: sql`excluded.awards_enabled`,
           awards: sql`excluded.awards`,
-          visibility: sql`excluded.visibility`,
           joinPolicy: sql`excluded.join_policy`,
           emailDomain: sql`excluded.email_domain`,
           image: sql`excluded.image`,
