@@ -1,4 +1,4 @@
-import { auth, authConfigured, oauthProviders, sessionSecretConfigured } from "@/auth";
+import { auth, authConfigured, loginConfigured, loginProviders, sessionSecretConfigured } from "@/auth";
 import { hasDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +16,13 @@ export async function GET() {
   const session = authConfigured ? await auth() : null;
 
   return Response.json({
-    configured: authConfigured,
+    // 客户端视角的「可登录」：存在未隐藏且已配置的 provider（见 auth.ts loginConfigured）。
+    // 上面的 auth() 仍按 authConfigured（全量列表）读取已有会话，两者语义不同。
+    configured: loginConfigured,
     secret: sessionSecretConfigured,
     database: hasDatabase(),
-    providers: oauthProviders,
+    // 登录按钮列表：auth.ts 里已过滤掉暂时隐去的 provider（HIDDEN_LOGIN_PROVIDERS）。
+    providers: loginProviders,
     user: session?.user
       ? {
           name: session.user.name ?? null,

@@ -29,7 +29,7 @@ export default async function AuthErrorPage({
   const missing: string[] = [];
   if (!sessionSecretConfigured) missing.push("AUTH_SECRET");
   if (!oauthProviders.some((provider) => provider.configured)) {
-    missing.push("GitHub 或 Google 的 OAuth 凭据");
+    missing.push("任一第三方登录的 OAuth 凭据");
   }
 
   return (

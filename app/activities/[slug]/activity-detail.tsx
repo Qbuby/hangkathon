@@ -347,7 +347,7 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
                 </div>
                 <button type="button" className="invite-refuse invite-refuse-quiet" onClick={() => { setInvite("refused"); setInviteNeedsLogin(false); }}>拒绝邀请</button>
                 {!account?.configured && (
-                  <p className="invite-banner-sub">本环境未配置登录；线上 hangkathon.net 已可通过 GitHub / Google 登录。</p>
+                  <p className="invite-banner-sub">本环境未配置登录。</p>
                 )}
               </div>
             ) : (

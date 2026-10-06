@@ -21,7 +21,7 @@ function missingConfig(state: SessionState) {
   const missing: string[] = [];
   if (!state.secret) missing.push("AUTH_SECRET（会话签名密钥）");
   if (!state.providers.some((provider) => provider.configured)) {
-    missing.push("GitHub 或 Google 其中一家的 OAuth 凭据");
+    missing.push("任一第三方登录的 OAuth 凭据");
   }
   return missing;
 }
@@ -46,9 +46,34 @@ function GitHubMark() {
   );
 }
 
+// 微信标志（绿色气泡）：lucide 无品牌图标，同 GitHubMark 一样内联。
+function WeChatMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="10" r="8.5" fill="#07C160" />
+      <path d="M7 17.4 5.5 21.3 11 18.1Z" fill="#07C160" />
+      <circle cx="9" cy="8.5" r="1.2" fill="#fff" />
+      <circle cx="15" cy="8.5" r="1.2" fill="#fff" />
+    </svg>
+  );
+}
+
+/** 按列表里的 provider id 选图标；未知 id 回落到 Google 标（与既有兜底一致）。 */
+function ProviderMark({ id }: { id: string }) {
+  if (id === "github") return <GitHubMark />;
+  if (id === "wechat") return <WeChatMark />;
+  return <GoogleMark />;
+}
+
 function initial(user: { name: string | null; email: string | null }) {
   const source = user.name?.trim() || user.email?.trim() || "";
   return source.slice(0, 1).toUpperCase() || "·";
+}
+
+// 微信账号的 email 是 auth.ts 用 openid 合成的占位地址（<openid>@wechat.user），
+// 界面上不原样展示（数据库/管理端仍用它做身份键）。
+function displayEmail(email: string | null) {
+  return email?.endsWith("@wechat.user") ? "微信账号" : email;
 }
 
 export default function SessionMenu() {
@@ -86,14 +111,14 @@ export default function SessionMenu() {
         <button
           className="session-button"
           onClick={() => setOpen(true)}
-          aria-label={user ? `账号：${user.name ?? user.email}` : "登录"}
+          aria-label={user ? `账号：${user.name ?? displayEmail(user.email) ?? "已登录"}` : "登录"}
         >
           {user ? (
             <span className="session-avatar" aria-hidden="true">{initial(user)}</span>
           ) : (
             <UserRound size={19} />
           )}
-          <span className="session-label">{user ? user.name ?? user.email : "登录"}</span>
+          <span className="session-label">{user ? user.name ?? displayEmail(user.email) ?? "已登录" : "登录"}</span>
         </button>
       )}
 
@@ -106,8 +131,8 @@ export default function SessionMenu() {
           {user ? (
             <>
               <p className="eyebrow">SIGNED IN</p>
-              <DialogTitle className="dialog-title">{user.name ?? user.email}</DialogTitle>
-              <DialogDescription className="dialog-description">{user.email}</DialogDescription>
+              <DialogTitle className="dialog-title">{user.name ?? displayEmail(user.email) ?? "已登录"}</DialogTitle>
+              <DialogDescription className="dialog-description">{displayEmail(user.email)}</DialogDescription>
               <div className="dialog-note">
                 <span>当前状态</span>
                 <p>已通过第三方账号登录。账号信息仅用于显示登录状态，不会写入数据库或用于其他用途。</p>
@@ -124,7 +149,7 @@ export default function SessionMenu() {
               <p className="eyebrow">SIGN IN</p>
               <DialogTitle className="dialog-title">登录杭客松</DialogTitle>
               <DialogDescription className="dialog-description">
-                用 GitHub 或 Google 账号登录，之后可以用同一个身份发起活动、发布作品。
+                使用第三方账号登录，之后可以用同一个身份发起活动、发布作品。
               </DialogDescription>
               <div className="provider-list">
                 {providers.map((provider) => (
@@ -137,7 +162,7 @@ export default function SessionMenu() {
                       void signIn(provider.id, { callbackUrl: "/" });
                     }}
                   >
-                    {provider.id === "github" ? <GitHubMark /> : <GoogleMark />}
+                    <ProviderMark id={provider.id} />
                     <span>使用 {provider.name} 登录</span>
                     {!provider.configured && <span className="provider-state">未配置</span>}
                   </button>

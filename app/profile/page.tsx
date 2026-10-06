@@ -197,7 +197,7 @@ export default function ProfilePage() {
               ))}
             </div>
             {!session.configured && (
-              <p className="detail-placeholder">本环境未配置登录；线上 hangkathon.net 已可通过 GitHub / Google 登录。</p>
+              <p className="detail-placeholder">本环境未配置登录。</p>
             )}
             <Button asChild className="primary-action"><Link href="/">返回首页 <ArrowRight size={17} /></Link></Button>
           </div>
