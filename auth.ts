@@ -31,9 +31,16 @@ export const oauthProviders = [
 // provider 本体仍注册（已有会话与 signIn 回调路由不受影响）。恢复时删除该常量即可。
 const HIDDEN_LOGIN_PROVIDERS = ["github", "google"];
 
+// 只在微信已配好凭据的部署上隐去它们——那种部署上微信就是唯一对外的入口。没配微信的
+// 部署（Vercel 那份 hangkathon.net）必须留着 GitHub / Google：否则登录框里只剩一个
+// 点不动的微信按钮，直接变成谁也登不进来的死局。
+const wechatConfigured = oauthProviders.some(
+  (provider) => provider.id === "wechat" && provider.configured,
+);
+
 /** 客户端登录按钮消费的列表（/api/session 返回这份，已应用 HIDDEN_LOGIN_PROVIDERS）。 */
 export const loginProviders = oauthProviders.filter(
-  (provider) => !HIDDEN_LOGIN_PROVIDERS.includes(provider.id),
+  (provider) => wechatConfigured || !HIDDEN_LOGIN_PROVIDERS.includes(provider.id),
 );
 
 // 客户端视角的「能登录」：至少一家未隐藏且已配置的 provider。与 authConfigured（服务端
