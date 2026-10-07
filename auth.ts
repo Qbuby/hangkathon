@@ -40,7 +40,7 @@ const wechatConfigured = oauthProviders.some(
 
 /** 客户端登录按钮消费的列表（/api/session 返回这份，已应用 HIDDEN_LOGIN_PROVIDERS）。 */
 export const loginProviders = oauthProviders.filter(
-  (provider) => wechatConfigured || !HIDDEN_LOGIN_PROVIDERS.includes(provider.id),
+  (provider) => !wechatConfigured || !HIDDEN_LOGIN_PROVIDERS.includes(provider.id),
 );
 
 // 客户端视角的「能登录」：至少一家未隐藏且已配置的 provider。与 authConfigured（服务端
