@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, count, desc, eq, gte, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { stableStringify } from "@/lib/security/stable-json";
 import type { ServerUser } from "./users";
 
 /**
@@ -77,7 +78,7 @@ function chainHash(prev: string, row: Record<string, unknown>) {
     row.targetId ?? "",
     row.result,
     new Date(row.createdAt as Date).toISOString(),
-    JSON.stringify(row.detail ?? {}),
+    stableStringify(row.detail ?? {}),
   ].join("|");
   return createHash("sha256").update(canonical).digest("hex");
 }

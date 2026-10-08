@@ -56,13 +56,16 @@ export async function enforceRateLimit(
       const { sql } = await import("drizzle-orm");
       const db = getDb();
       const nowIso = new Date(now).toISOString();
+      // 窗口过期时刻 = now - windowMs。只有「已存窗口早于过期时刻」才算过期。
+      // 之前写成 window_start < now() —— 那个条件恒真，每来一次请求就重置成 1，限流形同虚设。
+      const cutoffIso = new Date(now - windowMs).toISOString();
       // 一条 SQL 做「插入或自增 + 过期重置」，避免读改写竞态。
       // raw sql 模板里不能绑 Date（会被序列化成不可比较的字符串），所以一律传 ISO 串。
       const rows = await db.execute(sql`
         INSERT INTO rate_limits ("key", window_start, hits) VALUES (${key}, ${nowIso}, 1)
         ON CONFLICT ("key") DO UPDATE SET
-          hits = CASE WHEN rate_limits.window_start < ${nowIso} THEN 1 ELSE rate_limits.hits + 1 END,
-          window_start = CASE WHEN rate_limits.window_start < ${nowIso} THEN ${nowIso} ELSE rate_limits.window_start END
+          hits = CASE WHEN rate_limits.window_start < ${cutoffIso} THEN 1 ELSE rate_limits.hits + 1 END,
+          window_start = CASE WHEN rate_limits.window_start < ${cutoffIso} THEN ${nowIso} ELSE rate_limits.window_start END
         RETURNING hits
       `);
       const row = Array.from(rows as unknown as { hits: number }[])[0];

@@ -78,3 +78,18 @@ test("连续命中累计到阈值才触发自动黑名单", () => {
   const third = recordViolation(email);
   assert.deepEqual([third.count, third.shouldBlock], [3, true]);
 });
+// 审计链哈希用稳定序列化：jsonb 不保证键序，写入与校验必须算出同一个串。
+test("stableStringify 对键序不敏感", async () => {
+  const src = readFileSync(new URL("../lib/security/stable-json.ts", import.meta.url), "utf8");
+  const js = ts.transpileModule(src, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ESNext },
+  }).outputText;
+  const { stableStringify } = await import(
+    `data:text/javascript;base64,${Buffer.from(js).toString("base64")}`
+  );
+  const a = stableStringify({ b: 1, a: { d: 2, c: [1, { z: 1, y: 2 }] } });
+  const b = stableStringify({ a: { c: [1, { y: 2, z: 1 }], d: 2 }, b: 1 });
+  assert.equal(a, b, "键序不同但序列化结果必须相同");
+  assert.equal(stableStringify({ a: 1 }), '{"a":1}');
+  assert.equal(stableStringify([1, "x", null]), '[1,"x",null]');
+});
