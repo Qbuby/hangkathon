@@ -92,7 +92,43 @@ type AdminExternalEvent = {
   hidden: boolean;
 };
 
-type Tab = "overview" | "activities" | "submissions" | "users" | "events";
+type Tab = "overview" | "activities" | "submissions" | "users" | "events" | "audit" | "blacklist";
+
+type AuditLog = {
+  id: string;
+  createdAt: string;
+  category: string;
+  action: string;
+  userEmail: string | null;
+  ip: string | null;
+  port: string | null;
+  protocol: string | null;
+  targetType: string | null;
+  targetId: string | null;
+  result: string;
+  detail: Record<string, unknown>;
+};
+
+type BlacklistEntry = {
+  id: string;
+  email: string;
+  reason: string;
+  source: string;
+  hits: number;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  revokedAt: string | null;
+};
+
+const AUDIT_CATEGORY_LABEL: Record<string, string> = {
+  auth: "登录登出",
+  register: "用户注册",
+  publish: "内容发布",
+  behavior: "用户行为",
+  admin: "管理操作",
+  security: "安全事件",
+  system: "系统",
+};
 
 const GUARD = {
   loading: "loading",
@@ -217,6 +253,11 @@ export default function ManagePage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [activities, setActivities] = useState<AdminActivity[]>([]);
   const [tab, setTab] = useState<Tab>("overview");
+  const [auditLogs, setAuditLogs] = useState<AuditLog[] | null>(null);
+  const [auditCategory, setAuditCategory] = useState("");
+  const [auditIntegrity, setAuditIntegrity] = useState<string | null>(null);
+  const [blacklist, setBlacklist] = useState<BlacklistEntry[] | null>(null);
+  const [blockForm, setBlockForm] = useState({ email: "", reason: "", source: "platform" });
   const [busySlug, setBusySlug] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -368,7 +409,78 @@ export default function ManagePage() {
         cancelled = true;
       };
     }
-  }, [guard, tab, users, events]);
+    if (tab === "audit" && auditLogs === null) {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const query = auditCategory ? `?category=${encodeURIComponent(auditCategory)}&limit=300` : "?limit=300";
+          const response = await fetch(`/api/admin/audit${query}`);
+          if (!cancelled && response.ok) setAuditLogs(((await response.json()) as { logs: AuditLog[] }).logs);
+        } catch {
+          if (!cancelled) setAuditLogs([]);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (tab === "blacklist" && blacklist === null) {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const response = await fetch("/api/admin/blacklist");
+          if (!cancelled && response.ok) setBlacklist(((await response.json()) as { entries: BlacklistEntry[] }).entries);
+        } catch {
+          if (!cancelled) setBlacklist([]);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [guard, tab, users, events, auditLogs, auditCategory, blacklist]);
+
+  /** 审计链完整性自检：任何一条被改过都会在这里断链（检查表 8.2c / 8.4.4）。 */
+  async function verifyAudit() {
+    setAuditIntegrity("正在校验…");
+    try {
+      const response = await fetch("/api/admin/audit/verify");
+      const data = response.ok ? ((await response.json()) as { ok: boolean; checked: number; brokenAt: string | null }) : null;
+      if (!data) {
+        setAuditIntegrity("校验失败");
+        return;
+      }
+      setAuditIntegrity(
+        data.ok
+          ? `完整性校验通过：${data.checked} 条记录哈希链一致`
+          : `哈希链在 ${data.brokenAt} 处断裂，日志可能被改动`,
+      );
+    } catch {
+      setAuditIntegrity("校验失败");
+    }
+  }
+
+  async function addBlacklistEntry() {
+    if (!blockForm.email || !blockForm.reason) return;
+    const response = await fetch("/api/admin/blacklist", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(blockForm),
+    });
+    if (response.ok) {
+      flash("已加入黑名单");
+      setBlockForm({ email: "", reason: "", source: "platform" });
+      setBlacklist(null);
+    } else {
+      flash("加入失败");
+    }
+  }
+
+  async function revokeBlacklistEntry(id: string) {
+    const response = await fetch(`/api/admin/blacklist/${encodeURIComponent(id)}`, { method: "DELETE" });
+    flash(response.ok ? "已解除" : "解除失败");
+    setBlacklist(null);
+  }
 
   async function toggleVisibility(activity: AdminActivity) {
     setBusySlug(activity.slug);
@@ -763,6 +875,8 @@ export default function ManagePage() {
             <button className={`manage-tab${tab === "submissions" ? " is-on" : ""}`} onClick={() => setTab("submissions")}>作品</button>
             <button className={`manage-tab${tab === "users" ? " is-on" : ""}`} onClick={() => setTab("users")}>用户</button>
             <button className={`manage-tab${tab === "events" ? " is-on" : ""}`} onClick={() => setTab("events")}>全球赛事</button>
+            <button className={`manage-tab${tab === "audit" ? " is-on" : ""}`} onClick={() => setTab("audit")}>审计日志</button>
+            <button className={`manage-tab${tab === "blacklist" ? " is-on" : ""}`} onClick={() => setTab("blacklist")}>黑名单</button>
           </nav>
 
           {notice && <p className="manage-notice" role="status">{notice}</p>}
@@ -1162,6 +1276,150 @@ export default function ManagePage() {
               )}
               <p className="detail-placeholder">
                 删除用户会级联删除其发起的活动、报名与作品记录，无法恢复；角色改动立即生效（自己的角色不能在这里改，用服务器 ADMIN_EMAILS 管理）。
+              </p>
+            </section>
+          )}
+
+          {tab === "audit" && (
+            <section className="manage-section" aria-label="审计日志" data-reveal="block">
+              <div className="manage-toolbar">
+                <select
+                  aria-label="按分类筛选"
+                  value={auditCategory}
+                  onChange={(event) => {
+                    setAuditCategory(event.target.value);
+                    setAuditLogs(null);
+                  }}
+                >
+                  <option value="">全部分类</option>
+                  {Object.entries(AUDIT_CATEGORY_LABEL).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+                <a className="manage-link" href={`/api/admin/audit?format=csv${auditCategory ? `&category=${encodeURIComponent(auditCategory)}` : ""}&limit=2000`}>
+                  导出 CSV
+                </a>
+                <button className="manage-link" onClick={() => void verifyAudit()}>
+                  完整性自检
+                </button>
+                {auditIntegrity && <span className="manage-note">{auditIntegrity}</span>}
+              </div>
+              {auditLogs === null ? (
+                <p className="detail-placeholder">正在读取审计日志…</p>
+              ) : auditLogs.length === 0 ? (
+                <p className="detail-placeholder">还没有审计记录。</p>
+              ) : (
+                <div className="manage-table-wrap">
+                  <table className="manage-table">
+                    <thead>
+                      <tr>
+                        <th>时间</th>
+                        <th>分类</th>
+                        <th>动作</th>
+                        <th>账号</th>
+                        <th>来源 IP:端口</th>
+                        <th>对象</th>
+                        <th>结果</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.map((log) => (
+                        <tr key={log.id}>
+                          <td className="manage-act-date">{new Date(log.createdAt).toLocaleString("zh-CN")}</td>
+                          <td>{AUDIT_CATEGORY_LABEL[log.category] ?? log.category}</td>
+                          <td>{log.action}</td>
+                          <td>{log.userEmail ?? "—"}</td>
+                          <td>{log.ip ? `${log.ip}:${log.port ?? "?"}` : "—"}</td>
+                          <td>{log.targetType ? `${log.targetType} ${log.targetId ?? ""}` : "—"}</td>
+                          <td>
+                            <span className={`manage-pill${log.result === "denied" || log.result === "failed" ? "" : " is-public"}`}>
+                              {log.result === "success" ? "成功" : log.result === "denied" ? "已拦截" : "失败"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="detail-placeholder">
+                记录用户注册、登录登出、内容发布、报名行为与管理操作，逐条带 IP、端口与协议，可溯源到真实账号。
+                日志表只允许写入：应用层与数据库触发器都拒绝修改和删除。
+              </p>
+            </section>
+          )}
+
+          {tab === "blacklist" && (
+            <section className="manage-section" aria-label="用户黑名单" data-reveal="block">
+              <div className="manage-toolbar">
+                <input
+                  aria-label="账号邮箱"
+                  placeholder="账号邮箱"
+                  value={blockForm.email}
+                  onChange={(event) => setBlockForm({ ...blockForm, email: event.target.value })}
+                />
+                <input
+                  aria-label="列入原因"
+                  placeholder="列入原因（必填）"
+                  value={blockForm.reason}
+                  onChange={(event) => setBlockForm({ ...blockForm, reason: event.target.value })}
+                />
+                <select
+                  aria-label="来源"
+                  value={blockForm.source}
+                  onChange={(event) => setBlockForm({ ...blockForm, source: event.target.value })}
+                >
+                  <option value="platform">平台自查</option>
+                  <option value="police">公安通报</option>
+                </select>
+                <button className="manage-link" onClick={() => void addBlacklistEntry()}>加入黑名单</button>
+              </div>
+              {blacklist === null ? (
+                <p className="detail-placeholder">正在读取黑名单…</p>
+              ) : blacklist.length === 0 ? (
+                <p className="detail-placeholder">黑名单为空。</p>
+              ) : (
+                <div className="manage-table-wrap">
+                  <table className="manage-table">
+                    <thead>
+                      <tr>
+                        <th>账号</th>
+                        <th>原因</th>
+                        <th>来源</th>
+                        <th className="num">命中</th>
+                        <th>生效时间</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {blacklist.map((entry) => (
+                        <tr key={entry.id} className={entry.revokedAt ? "is-dim" : undefined}>
+                          <td>{entry.email}</td>
+                          <td>{entry.reason}</td>
+                          <td>{entry.source === "police" ? "公安通报" : "平台自查"}</td>
+                          <td className="num">{entry.hits}</td>
+                          <td className="manage-act-date">{new Date(entry.effectiveFrom).toLocaleString("zh-CN")}</td>
+                          <td>
+                            <span className={`manage-pill${entry.revokedAt ? "" : " is-public"}`}>
+                              {entry.revokedAt ? "已解除" : "生效中"}
+                            </span>
+                          </td>
+                          <td>
+                            {entry.revokedAt ? null : (
+                              <button className="manage-link" onClick={() => void revokeBlacklistEntry(entry.id)}>
+                                解除
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="detail-placeholder">
+                黑名单内账号无法发起活动、报名与提交作品；连续命中内容过滤会自动入名单，解除需要记录操作人。
               </p>
             </section>
           )}

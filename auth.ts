@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { headers } from "next/headers";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import WeChat from "next-auth/providers/wechat";
@@ -98,4 +99,92 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // No database is provisioned, so the session lives in a signed cookie.
   session: { strategy: "jwt" },
   pages: { error: "/auth-error" },
+  // 登录/登出留痕（检查表 8.4.2c：登录时间、退出时间、IP 地址及端口）。
+  // Auth.js 的事件里拿不到原始 Request，所以这里自己从 headers 重建来源地址。
+  events: {
+    async signIn({ user, account }) {
+      const email = user.email ?? null;
+      await recordAuthEvent("login", email, user.name ?? null, account?.provider ?? null);
+    },
+    async signOut(message) {
+      // Auth.js 的 signOut 消息是 { token } | { session } 两种形状，这里只取 token 上的邮箱。
+      const token = "token" in message ? message.token : null;
+      await recordAuthEvent("logout", typeof token?.email === "string" ? token.email : null);
+    },
+  },
 });
+
+/**
+ * 把登录相关事件写进审计日志，并更新 users 表上的最近登录痕迹。
+ * 没有数据库的部署（Vercel 那份）整套函数静默跳过 —— 不影响登录本身。
+ */
+async function recordAuthEvent(
+  kind: "login" | "logout",
+  email: string | null,
+  name?: string | null,
+  provider?: string | null,
+) {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const requestHeaders = await headers();
+    const forwarded = requestHeaders.get("x-forwarded-for") ?? "";
+    const ip = forwarded.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || null;
+    const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
+    const port = requestHeaders.get("x-forwarded-port") ?? (protocol === "https" ? "443" : "80");
+    const userAgent = requestHeaders.get("user-agent");
+
+    const { getDb, schema } = await import("@/db");
+    const { writeAudit } = await import("@/lib/server/audit");
+    const db = getDb();
+
+    let userId: string | null = null;
+    if (email) {
+      // 首次登录即注册：upsert 出用户行，同时把注册这件事本身记进 register 类别。
+      const [row] = await db
+        .insert(schema.users)
+        .values({ email, name: name ?? null, lastLoginAt: new Date(), lastLoginIp: ip })
+        .onConflictDoUpdate({
+          target: schema.users.email,
+          set: {
+            name: name ?? undefined,
+            lastLoginAt: new Date(),
+            lastLoginIp: ip,
+          },
+        })
+        .returning({ id: schema.users.id, createdAt: schema.users.createdAt });
+      userId = row?.id ?? null;
+      if (row && Date.now() - row.createdAt.getTime() < 60_000) {
+        await writeAudit({
+          category: "register",
+          action: "user.register",
+          user: { id: row.id, email },
+          ip,
+          port,
+          protocol,
+          userAgent,
+          method: "POST",
+          path: "/api/auth/callback",
+          targetType: "user",
+          targetId: row.id,
+          detail: { provider, name: name ?? null, channel: provider === "wechat" ? "微信扫码" : "OAuth" },
+        });
+      }
+    }
+
+    await writeAudit({
+      category: "auth",
+      action: `auth.${kind}`,
+      user: userId && email ? { id: userId, email } : null,
+      ip,
+      port,
+      protocol,
+      userAgent,
+      method: kind === "logout" ? "POST" : "GET",
+      path: kind === "logout" ? "/api/auth/signout" : "/api/auth/callback",
+      result: "success",
+      detail: provider ? { provider } : {},
+    });
+  } catch (error) {
+    console.error("[auth] 审计写入失败", error);
+  }
+}

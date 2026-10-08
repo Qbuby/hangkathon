@@ -1,0 +1,10 @@
+[Unit]
+Description=杭客松每日备份定时器（03:20 执行）
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

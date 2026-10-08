@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { getDb, schema } from "@/db";
+import { requireNotBlacklisted } from "./blacklist";
 
 /**
  * 服务端身份解析：会话里的 email 是唯一身份来源，users 表按 email upsert。
@@ -58,6 +59,9 @@ export async function ensureUser(email: string, name: string | null): Promise<Se
 export async function requireUser(): Promise<ServerUser> {
   const user = await currentUser();
   if (!user) throw new UnauthorizedError();
+  // 黑名单来源控制（检查表 9.3.4）：名单内账号一律不能发起活动、报名、提交作品。
+  // 读接口不经过这里，所以他们仍可浏览公开内容。
+  await requireNotBlacklisted(user.email);
   return user;
 }
 

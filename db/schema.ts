@@ -23,6 +23,15 @@ export const users = pgTable("users", {
   image: text("image"),
   /** user | admin；管理员由 ADMIN_EMAILS 引导提权，后续可在管理端口调整。 */
   role: text("role").notNull().default("user"),
+  /**
+   * 实名信息与最近登录痕迹（检查表 8.4.2a / 9.2.2）：
+   * 微信登录拿不到身份证件，默认走「已实名第三方账号」这一档，故 status 默认 unverified，
+   * 由用户自行提交姓名 + 证件号、管理员核验后才置 verified。
+   */
+  realName: text("real_name"),
+  realNameStatus: text("real_name_status").notNull().default("unverified"),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  lastLoginIp: text("last_login_ip"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("users_email_unique").on(table.email)]);
 
@@ -140,6 +149,65 @@ export const externalEvents = pgTable("external_events", {
 }, (table) => [
   uniqueIndex("external_events_source_external_unique").on(table.source, table.externalId),
   index("external_events_starts_idx").on(table.startsAt),
+]);
+
+/**
+ * 审计日志（检查表 8.4）：用户注册、登录登出、内容发布、行为、管理员操作、安全事件全部落一条。
+ * 只允许 INSERT —— 0009 迁移里用触发器把 UPDATE/DELETE 全部拒绝，实现「审计进程不能被单独中断、
+ * 日志不可删除/修改/覆盖」；hash 字段是前一条的哈希串联，任何一条被改动都能顺着链验出来。
+ */
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** 事件分类：auth | register | publish | behavior | admin | security | system。 */
+  category: text("category").notNull(),
+  /** 具体动作，如 auth.login / publish.activity.create / admin.user.role。 */
+  action: text("action").notNull(),
+  /** 可溯源三件套（8.4.3）：真实用户 ID、网络地址、协议。 */
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  userEmail: text("user_email"),
+  ip: text("ip"),
+  port: text("port"),
+  protocol: text("protocol"),
+  userAgent: text("user_agent"),
+  method: text("method"),
+  path: text("path"),
+  status: integer("status"),
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  /** 内容标题/摘要与变更明细，JSON。 */
+  detail: jsonb("detail").$type<Record<string, unknown>>().default({}),
+  result: text("result").notNull().default("success"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  prevHash: text("prev_hash"),
+  hash: text("hash"),
+}, (table) => [
+  index("audit_logs_created_idx").on(table.createdAt),
+  index("audit_logs_user_idx").on(table.userId),
+  index("audit_logs_action_idx").on(table.action),
+  index("audit_logs_category_idx").on(table.category),
+]);
+
+/**
+ * 用户黑名单（检查表 9.2.2c / 9.3.4）：平台自查或公安通报的账号进名单，
+ * 名单内账号不能发起活动、报名、提交作品；生效时间与来源都留痕，供检查时核对。
+ */
+export const userBlacklist = pgTable("user_blacklist", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  reason: text("reason").notNull(),
+  /** platform = 平台自查发现；police = 公安机关通报。 */
+  source: text("source").notNull().default("platform"),
+  /** 触发次数（多次/大量发布违法有害信息才入名单）。 */
+  hits: integer("hits").notNull().default(1),
+  effectiveFrom: timestamp("effective_from", { withTimezone: true }).notNull().defaultNow(),
+  effectiveUntil: timestamp("effective_until", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokedBy: uuid("revoked_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("user_blacklist_email_unique").on(table.email),
+  index("user_blacklist_effective_idx").on(table.effectiveFrom),
 ]);
 
 export const activitiesRelations = relations(activities, ({ one, many }) => ({

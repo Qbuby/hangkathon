@@ -64,6 +64,13 @@
       "when": 1790949600000,
       "tag": "0008_activity_review",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791379200000,
+      "tag": "0009_security_audit",
+      "breakpoints": true
     }
   ]
 }

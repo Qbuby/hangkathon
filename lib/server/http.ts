@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { hasDatabase } from "@/db";
+import { BlacklistedError } from "./blacklist";
 import { ForbiddenError, UnauthorizedError } from "./users";
 
-/** 路由层的统一出口：无数据库 503、未登录 401、无权限 403、其余 500。 */
+/** 路由层的统一出口：无数据库 503、未登录 401、无权限 403、黑名单 403、限流 429、其余 500。 */
+
+export class RateLimitError extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super("请求过于频繁，请稍后再试");
+    this.name = "RateLimitError";
+  }
+}
 
 export function jsonError(status: number, message: string) {
   return NextResponse.json({ error: message }, { status });
@@ -16,6 +24,15 @@ export function databaseRequired() {
 export function handleRouteError(error: unknown) {
   if (error instanceof UnauthorizedError) return jsonError(401, "请先登录");
   if (error instanceof ForbiddenError) return jsonError(403, "无管理员权限");
+  if (error instanceof BlacklistedError) {
+    return jsonError(403, `账号已被列入黑名单：${error.reason}`);
+  }
+  if (error instanceof RateLimitError) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 429, headers: { "retry-after": String(error.retryAfterSeconds) } },
+    );
+  }
   console.error("[api]", error);
   return jsonError(500, "服务端错误");
 }

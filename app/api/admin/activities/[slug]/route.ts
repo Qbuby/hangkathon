@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { writeAudit } from "@/lib/server/audit";
 import { getActivityBySlugAdmin } from "@/lib/server/activities";
 import { AdminActionError, deleteActivity, setActivityReview, setActivityVisibility } from "@/lib/server/admin";
 import { databaseRequired, handleRouteError, jsonError } from "@/lib/server/http";
@@ -27,16 +28,39 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
   const blocked = databaseRequired();
   if (blocked) return blocked;
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const { slug } = await params;
     const body = (await request.json().catch(() => null)) as { visibility?: string; reviewStatus?: string } | null;
     if (body?.reviewStatus !== undefined) {
       await setActivityReview(slug, body.reviewStatus as ActivityReviewStatus);
+      // 特殊权限使用记录（检查表 7.3c）：谁、何时、把哪场活动审成了什么状态。
+      await writeAudit(
+        {
+          category: "admin",
+          action: "admin.activity.review",
+          user: admin,
+          targetType: "activity",
+          targetId: slug,
+          detail: { reviewStatus: body.reviewStatus },
+        },
+        request,
+      );
       return NextResponse.json({ ok: true });
     }
     const visibility = body?.visibility as Visibility | undefined;
     if (!visibility) return jsonError(400, "缺少 visibility 或 reviewStatus");
     await setActivityVisibility(slug, visibility);
+    await writeAudit(
+      {
+        category: "admin",
+        action: "admin.activity.visibility",
+        user: admin,
+        targetType: "activity",
+        targetId: slug,
+        detail: { visibility },
+      },
+      request,
+    );
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof AdminActionError) return jsonError(error.status, error.message);
@@ -44,13 +68,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
   }
 }
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const blocked = databaseRequired();
   if (blocked) return blocked;
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const { slug } = await params;
     await deleteActivity(slug);
+    await writeAudit(
+      {
+        category: "admin",
+        action: "admin.activity.delete",
+        user: admin,
+        targetType: "activity",
+        targetId: slug,
+        detail: { slug },
+      },
+      request,
+    );
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof AdminActionError) return jsonError(error.status, error.message);

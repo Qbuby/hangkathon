@@ -1,0 +1,12 @@
+[Unit]
+Description=杭客松每日完整性自检（备份校验 + 审计链 + 容器与磁盘）
+Documentation=file:/opt/hangkathon/deploy/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/hangkathon
+EnvironmentFile=/opt/hangkathon/.env
+ExecStart=/bin/sh /opt/hangkathon/deploy/integrity-check.sh
+TimeoutStartSec=300
+Nice=10

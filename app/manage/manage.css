@@ -90,3 +90,11 @@
   .manage-stat strong{font-size:24px}
   .manage-submission-head time{margin-left:0;width:100%}
 }
+
+/* 审计日志 / 黑名单两个标签的工具条 */
+.manage-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px}
+.manage-toolbar select,.manage-toolbar input{height:38px;padding:0 12px;border:1px solid #dce7f3;border-radius:10px;background:#fff;color:#12324f;font-size:14px;min-width:160px}
+.manage-toolbar input{min-width:220px}
+.manage-toolbar select:focus,.manage-toolbar input:focus{outline:2px solid #1b9cfc33;border-color:#1b9cfc}
+.manage-note{font-size:13px;color:#5f7d99}
+@media(max-width:760px){.manage-toolbar select,.manage-toolbar input{min-width:100%;width:100%}}

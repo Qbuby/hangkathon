@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { writeAudit } from "@/lib/server/audit";
 import { getActivityBySlug } from "@/lib/server/activities";
 import { createJoin, getJoin } from "@/lib/server/joins";
 import { databaseRequired, handleRouteError, jsonError } from "@/lib/server/http";
 import { findUserByNameOrEmail } from "@/lib/server/invites";
+import { enforceRateLimit, RULES } from "@/lib/server/rate-limit";
 import { currentUser, requireUser } from "@/lib/server/users";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   if (blocked) return blocked;
   try {
     const user = await requireUser();
+    await enforceRateLimit("write", `join:${user.id}`, RULES.write);
     const { slug } = await params;
     const activity = await getActivityBySlug(slug, user.id);
     if (!activity) return jsonError(404, "活动不存在");
@@ -29,6 +32,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     }
 
     const join = await createJoin(activity.id, user.id, invitedBy);
+    // 行为日志（检查表 8.4.2e）：进出活动、是否由他人邀请。
+    await writeAudit(
+      {
+        category: "behavior",
+        action: "activity.join",
+        user,
+        targetType: "activity",
+        targetId: activity.id,
+        detail: { activity: activity.title, invitedBy },
+      },
+      request,
+    );
     return NextResponse.json({ joined: true, join }, { status: 201 });
   } catch (error) {
     return handleRouteError(error);
