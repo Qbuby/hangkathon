@@ -10,7 +10,17 @@ import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
 
-export const metadata: Metadata = { title: "排行榜 · 杭客松" };
+export const metadata: Metadata = {
+  title: "荣誉榜 · 杭州 AI 贡献排行",
+  description:
+    "杭客松荣誉榜：查看杭州各区 AI 活动数量、个人贡献与战队贡献排行，见证城市 AI 共创的实时进度。",
+  alternates: { canonical: "/leaderboard" },
+  openGraph: {
+    title: "荣誉榜 · 杭州 AI 贡献排行 · 杭客松",
+    description: "各区活动数量、个人与战队贡献实时排行。",
+    url: "/leaderboard",
+  },
+};
 
 export default function LeaderboardPage() {
   const totals = platformTotals();
