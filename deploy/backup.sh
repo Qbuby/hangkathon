@@ -6,16 +6,16 @@
 #   2. 审计日志单独导一份 CSV —— 检查/公安调取时直接给，不用开库；
 #   3. 每次备份写 .sha256 校验文件，恢复前先验完整性（8.2c 文件完整性）。
 #
-# 保留策略：日备 14 份、周备（周日）8 份、月备（1 号）6 份，其余自动清理。
+# 保留策略：日备 90 份 + 周备（周日）12 份 + 月备（1 号）3 份，三档取并集，统一 90 天口径。
 # 凭据只从 .env 读，不写在命令行里。
 set -eu
 
 APP_DIR=/opt/hangkathon
 BACKUP_DIR=/var/backups/hangkathon
 LOG=/var/log/hangkathon-backup.log
-RETENTION_DAILY=14
-RETENTION_WEEKLY=8
-RETENTION_MONTHLY=6
+RETENTION_DAILY=90
+RETENTION_WEEKLY=12
+RETENTION_MONTHLY=3
 
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG"; echo "$*"; }
 
@@ -59,7 +59,7 @@ fi
 sha256sum "$DUMP" > "$DUMP.sha256"
 [ -f "$AUDIT_CSV" ] && sha256sum "$AUDIT_CSV" > "$AUDIT_CSV.sha256"
 
-# 4) 保留策略：日备 14 天 + 周备 8 份 + 月备 6 份，三档取并集。
+# 4) 保留策略：日备 90 天 + 周备 12 份 + 月备 3 份，三档取并集（统一 90 天口径）。
 #    早先的写法是三档依次 prune 同一批文件，月备日会把日备也砍到 6 份 ——
 #    那样一旦数据库损坏，最新可用备份只有 6 天。现在改成先算保留清单再删。
 KEEP="$(mktemp)"

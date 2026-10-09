@@ -23,12 +23,10 @@ services:
       retries: 10
       start_period: 20s
     logging:
-      driver: json-file
-      options:
-        # 容器日志保留 20 ×10MB ≈ 200MB/容器；超过 365 天的留存由宿主机 logrotate
-        # 与 journald 策略负责（检查表 8.4.5b 要求维护日志留存 12 个月以上）
-        max-size: "10m"
-        max-file: "20"
+      # 统一 90 天留存口径：容器日志交给 journald，与 nginx/systemd 同一条留存策略
+      # （/etc/systemd/journald.conf.d/hangkathon.conf 的 MaxRetentionSec=90day）。
+      # 换驱动后 `docker logs` 不再可用，改用 `journalctl CONTAINER_NAME=<名字> --since -24h`。
+      driver: journald
 
   hangkathon:
     build:
@@ -57,10 +55,8 @@ services:
       retries: 5
       start_period: 30s
     logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "20"
+      # 同上：应用容器日志并入 journald，统一 90 天
+      driver: journald
 
 volumes:
   pgdata:
