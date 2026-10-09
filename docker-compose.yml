@@ -25,8 +25,10 @@ services:
     logging:
       driver: json-file
       options:
+        # 容器日志保留 20 ×10MB ≈ 200MB/容器；超过 365 天的留存由宿主机 logrotate
+        # 与 journald 策略负责（检查表 8.4.5b 要求维护日志留存 12 个月以上）
         max-size: "10m"
-        max-file: "3"
+        max-file: "20"
 
   hangkathon:
     build:
@@ -58,7 +60,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
-        max-file: "3"
+        max-file: "20"
 
 volumes:
   pgdata:
