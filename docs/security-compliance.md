@@ -16,7 +16,7 @@
 | 8.4.3 | 可溯源到真实用户 ID、网络地址和协议 | 每条审计带 userId + email + ip + port + protocol + UA；微信身份用 openid 合成邮箱且 openid 恒定，不易伪造 | `lib/server/audit.ts` |
 | 8.4.4 | 审计日志不可单独中断、不可删除修改覆盖 | ① 数据库触发器拒绝 UPDATE/DELETE；② 每条带 hash 链（前一条哈希串联），改动任何一条都会断链 | `drizzle/0009_security_audit.sql` |
 | 8.4.5 | 可按公安要求留存指定内容 | 管理端「审计日志」标签支持分类/关键字/邮箱/时间过滤与 CSV 导出 | `/manage` + `app/api/admin/audit/route.ts` |
-| 8.4.5 留存期 | 注册信息永久；维护日志 ≥12 个月；用户日志 ≥12 个月；发布内容 ≥6 个月 | 代码不做任何清理（触发器也不允许删）；备份按日/周/月保留，审计 CSV 随备份归档 | `deploy/backup.sh` |
+| 8.4.5 留存期 | 注册信息永久；用户日志永久；发布内容永久；**系统维护日志 90 天** | 审计库不做任何清理（数据库触发器禁止 UPDATE/DELETE）；运维日志统一 90 天：logrotate 90 + journald `MaxRetentionSec=90day`（容器日志驱动改为 journald 共用此策略）；备份日 90 + 周 12 + 月 3，审计 CSV 随备份归档 | `deploy/backup.sh`、`/etc/logrotate.d/hangkathon`、`/etc/systemd/journald.conf.d/hangkathon.conf` |
 | 8.3.1 | 备份策略、备份设施、备份记录 | 每日 03:20 全库 pg_dump + 审计日志 CSV + sha256 校验；日 14 / 周 8 / 月 6 保留；`deploy/restore.sh` 支持先验校验再恢复 | `deploy/backup.{sh,service,timer}` |
 | 8.2b | 7×24 入侵预防、检测与响应 | nginx `limit_req` 挡脚本 + 应用层按 IP/账号限流（登录 10 次/分、写接口 5 次/分）；超限记 security 审计 | `lib/server/rate-limit.ts`、`app/api/auth/[...nextauth]/route.ts` |
 | 8.2c | 重要文件完整性检测与恢复 | 每日 04:10 校验备份 sha256、审计链连续性、容器健康与磁盘水位；异常写 ALERT 日志 | `deploy/integrity-check.{sh,service,timer}` |
