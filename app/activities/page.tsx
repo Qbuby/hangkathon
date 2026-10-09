@@ -1,78 +1,43 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import ActivityBoard from "../activity-board";
-import GlobalEvents from "../global-events";
-import SiteHeader from "../site-header";
-import { Button } from "@/components/ui/button";
-import { listActivities, listGlobalEvents, type ActivityView } from "@/lib/api/data";
-import { eventScope, type ExternalEvent } from "@/lib/external-events";
-
-/** 本地赛事板块里外部平台活动的展示上限（数据全量入库，只挑最近的）。 */
-const LOCAL_EVENTS_LIMIT = 20;
-import { hasServerData } from "@/lib/api/client";
+import type { Metadata } from "next";
+import { hasDatabase } from "@/db";
+import { listActivities } from "@/lib/server/activities";
+import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
+import type { ActivityView } from "@/lib/api/data";
+import ActivitiesClient from "./activities-client";
 import "./activities.css";
 
-export default function ActivitiesPage() {
-  const [activities, setActivities] = useState<ActivityView[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [mode, setMode] = useState<"local" | "server">("local");
-  const [globalEvents, setGlobalEvents] = useState<ExternalEvent[]>([]);
-  const [eventsLoaded, setEventsLoaded] = useState(false);
+/**
+ * 活动看板：SEO 的主力页。改成服务端组件，先把活动列表在服务端算出来再交给客户端组件渲染，
+ * 这样首屏 HTML 里就带着活动标题、日期、所属区与摘要 —— 之前是客户端取数，
+ * 不执行 JS 的爬虫只能看到一个空列表。
+ * listActivities(null) 是匿名访客口径：不公开与待审核的活动不会出现在页面与 sitemap 里。
+ */
+export const dynamic = "force-dynamic";
 
-  // 有数据库的部署走 /api/activities；没有数据库的部署（Vercel）回落到本机记录。
-  useEffect(() => {
-    let cancelled = false;
-    void hasServerData().then((server) => {
-      if (!cancelled) setMode(server ? "server" : "local");
-    });
-    void listActivities()
-      .then((list) => {
-        if (!cancelled) setActivities(list);
-      })
-      .catch(() => {
-        if (!cancelled) setActivities([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
-    void listGlobalEvents()
-      .then((list) => {
-        if (!cancelled) setGlobalEvents(list);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setEventsLoaded(true);
-      });
-    const reload = () => {
-      void listActivities().then((list) => setActivities(list)).catch(() => {});
-      void listGlobalEvents().then((list) => setGlobalEvents(list)).catch(() => {});
-    };
-    window.addEventListener("focus", reload);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("focus", reload);
-    };
-  }, []);
+export const metadata: Metadata = {
+  title: "AI 活动看板 · 杭州",
+  description:
+    "杭客松 AI 活动看板：浏览杭州正在进行的 AI 赛事、大赛与共创活动，覆盖各区线上线下活动，可直接报名参赛。",
+  alternates: { canonical: "/activities" },
+  openGraph: {
+    title: "AI 活动看板 · 杭州 · 杭客松",
+    description: "杭州 AI 赛事与活动大全，正在进行与即将开始的活动都在这里。",
+    url: "/activities",
+  },
+};
 
-  return (
-    <main className="activities-page">
-      <SiteHeader />
-      <div className="activities-wrap">
-        <ActivityBoard
-          activities={activities}
-          localEvents={globalEvents
-            .filter((event) => eventScope(event.source) === "local")
-            // 接口已按开始日期升序返回，取最近的 20 场
-            .slice(0, LOCAL_EVENTS_LIMIT)}
-          mode={mode}
-          loaded={loaded}
-          action={<Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>}
-        />
-        <GlobalEvents events={globalEvents.filter((event) => eventScope(event.source) === "global")} eventsLoaded={eventsLoaded} />
-      </div>
-    </main>
-  );
+/** 没有数据库的部署（Vercel 那份）回落到预置活动，其余走服务端列表。 */
+async function loadInitial(): Promise<{ activities: ActivityView[]; mode: "local" | "server" }> {
+  if (!hasDatabase()) return { activities: [...PUBLISHED_ACTIVITIES] as ActivityView[], mode: "local" };
+  try {
+    return { activities: (await listActivities(null)) as ActivityView[], mode: "server" };
+  } catch (error) {
+    console.error("[seo] 活动列表服务端读取失败，回落预置活动", error);
+    return { activities: [...PUBLISHED_ACTIVITIES] as ActivityView[], mode: "server" };
+  }
+}
+
+export default async function ActivitiesPage() {
+  const { activities, mode } = await loadInitial();
+  return <ActivitiesClient initialActivities={activities} initialMode={mode} />;
 }
