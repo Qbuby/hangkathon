@@ -59,19 +59,40 @@ fi
 sha256sum "$DUMP" > "$DUMP.sha256"
 [ -f "$AUDIT_CSV" ] && sha256sum "$AUDIT_CSV" > "$AUDIT_CSV.sha256"
 
-# 4) 保留策略：日备 / 周备 / 月备
-ls -1t "$BACKUP_DIR"/hangkathon-*.dump.gz 2>/dev/null | tail -n +$((RETENTION_DAILY + 1)) | while read -r old; do
-  rm -f "$old" "$old.sha256"
+# 4) 保留策略：日备 14 天 + 周备 8 份 + 月备 6 份，三档取并集。
+#    早先的写法是三档依次 prune 同一批文件，月备日会把日备也砍到 6 份 ——
+#    那样一旦数据库损坏，最新可用备份只有 6 天。现在改成先算保留清单再删。
+KEEP="$(mktemp)"
+ALL="$(ls -1t "$BACKUP_DIR"/hangkathon-*.dump.gz 2>/dev/null || true)"
+
+keep_basename() { basename "$1" >> "$KEEP"; }
+
+# 日备：最近 14 份
+echo "$ALL" | head -n "$RETENTION_DAILY" | while read -r f; do [ -n "$f" ] && keep_basename "$f"; done
+
+ymd_of() { echo "$1" | sed -n 's/^hangkathon-\([0-9]\{8\}\)-.*/\1/p'; }
+
+# 周备：最近 8 份（文件名日期为周日）
+i=0
+for f in $ALL; do
+  ymd=$(ymd_of "$f")
+  dow=$(date -d "${ymd:0:4}-${ymd:4:2}-${ymd:6:2}" +%u 2>/dev/null || echo 0)
+  if [ "$dow" = "7" ]; then i=$((i + 1)); [ "$i" -le "$RETENTION_WEEKLY" ] && keep_basename "$f"; fi
 done
-if [ "$DAY_OF_WEEK" = "7" ]; then
-  ls -1t "$BACKUP_DIR"/hangkathon-*.dump.gz 2>/dev/null | tail -n +$((RETENTION_WEEKLY + 1)) | while read -r old; do
-    rm -f "$old" "$old.sha256"
-  done
-fi
-if [ "$DAY_OF_MONTH" = "01" ]; then
-  ls -1t "$BACKUP_DIR"/hangkathon-*.dump.gz 2>/dev/null | tail -n +$((RETENTION_MONTHLY + 1)) | while read -r old; do
-    rm -f "$old" "$old.sha256"
-  done
-fi
+
+# 月备：最近 6 份（文件名日期为 01 日）
+i=0
+for f in $ALL; do
+  ymd=$(ymd_of "$f")
+  if [ "${ymd:6:2}" = "01" ]; then i=$((i + 1)); [ "$i" -le "$RETENTION_MONTHLY" ] && keep_basename "$f"; fi
+done
+
+for f in $ALL; do
+  if ! grep -qx "$(basename "$f")" "$KEEP"; then
+    rm -f "$f" "$f.sha256"
+    log "清理过期备份 $(basename "$f")"
+  fi
+done
+rm -f "$KEEP"
 
 log "备份流程结束，目录占用 $(du -sh "$BACKUP_DIR" | cut -f1)"
