@@ -61,10 +61,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         {children}
-        {/* ICP 备案（法规要求全站可见，链接到工信部备案系统）+ 关于页入口 */}
+        {/* 备案信息（法规要求全站可见）：ICP 备案链接工信部，公安备案链接公安备案系统）+ 关于页入口 */}
         <footer className="icp-footer">
           <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer nofollow">
             浙ICP备2026082561号
+          </a>
+          <a
+            className="icp-footer-link"
+            href="https://beian.mps.gov.cn/#/query/webSearch?code=33010502013637"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >
+            浙公网安备33010502013637号
           </a>
           <Link className="icp-footer-link" href="/about">关于杭客松</Link>
         </footer>
