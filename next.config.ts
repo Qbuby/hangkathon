@@ -29,6 +29,12 @@ const CONTENT_SECURITY_POLICY = [
 const nextConfig: NextConfig = {
   /* 自托管（Docker）时才产出 standalone 服务端，Vercel / Cloudflare 两个目标的构建保持不变。 */
   ...(process.env.DOCKER_BUILD === "1" ? { output: "standalone" as const } : {}),
+  /**
+   * 不发送 X-Powered-By: Next.js。
+   * 版本号本来就没带，但框架指纹同样没必要主动交出去 —— 攻击者据此可以直接挑
+   * Next.js 的已知问题试，而不是从零探测。对抗测试 F 组会断言这个头不存在。
+   */
+  poweredByHeader: false,
   async redirects() {
     return ["hangkathon.net", "www.hangkathon.net"].map((host) => ({
       source: "/:path*",

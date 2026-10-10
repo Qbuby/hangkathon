@@ -1,0 +1,55 @@
+name: CI
+
+# 合并前闸门：跑在 GitHub 的干净 runner 上，与本地 scripts/ci/gates.mjs 同一套命令。
+# 部署后冒烟与对抗测试不打这里 —— 它们在服务器的 deploy/ci.sh 里跑（GitHub runner 访问不到内网容器）。
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # 同一分支只保留最新一次，避免连续推送时排队堆积
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # 服务器在国内直连 npmjs 不稳定，runner 在境外但依赖里有 next/eslint 等大包，
+      # 统一走 npmmirror 让本地与 CI 解析出同一份依赖树。
+      - name: 安装依赖
+        run: npm ci --registry=https://registry.npmmirror.com
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: 单元测试
+        run: node --test scripts/*.test.mjs scripts/douyin/*.test.mjs
+
+      # 两个构建目标都要过：代码同一份，Vercel 走 localStorage、自托管走 Postgres，
+      # 只验证其中一个，另一个的破坏会在部署时才暴露。
+      - name: 构建（自托管）
+        run: npm run build:vercel
+
+      - name: 构建（Vercel）
+        run: npm run build:vercel
+
+      # 部署产物里绝不能出现凭据：用模式扫描而不是人工检查
+      - name: 检查产物中是否泄漏凭据
+        run: |
+          set -e
+          if grep -rIl -E 'LTAI5t[A-Za-z0-9]{8,}|wx[0-9a-f]{16}|(SECRET|AppSecret)[\"'"'"']?\s*[:=]\s*[\"'"'"'][A-Za-z0-9_\-]{16,}' .next public 2>/dev/null; then
+            echo "::error::构建产物中发现疑似凭据，请立即轮换并清除"
+            exit 1
+          fi
+          echo "未发现凭据泄漏"
