@@ -16,8 +16,11 @@
   .about-lead{font-size:13.5px;line-height:1.95}
 }
 
-/* 关于页（app/about/page.tsx）：平台能力卡片 + 覆盖范围 + 怎么参与 */
-.about-page .detail-body{max-width:860px}
+/* 关于页（app/about/page.tsx）：单栏正文 + 平台能力卡片 */
+.about-content{padding:44px 6% 72px;max-width:1000px;margin:0 auto;display:grid;gap:40px}
+.about-block h2{margin:0 0 16px;font-size:24px;letter-spacing:1px;color:#0f2f4d}
+.about-block>p{margin:0;font-size:15px;line-height:2;color:#4d6b87}
+.about-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:22px}
 .about-cap-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}
 .about-cap{background:#fff;border:1px solid #e6eef7;border-radius:16px;padding:20px 22px;box-shadow:0 10px 30px rgba(18,54,92,.05)}
 .about-cap h3{margin:0 0 8px;font-size:17px;letter-spacing:.5px;color:#12324f}

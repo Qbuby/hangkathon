@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import AboutSection from "../about-section";
+import PageMotion from "../motion-mount";
 import SiteHeader from "../site-header";
 import { FACTIONS } from "@/lib/factions";
 import "../activities/[slug]/detail.css";
@@ -48,18 +49,20 @@ export default function AboutPage() {
   return (
     <main className="detail-page about-page">
       <SiteHeader />
-      <div className="detail-body">
-        <header className="detail-hero" data-reveal="block">
-          <Link className="detail-back" href="/"><ArrowLeft size={17} /> 返回首页</Link>
-          <p className="detail-eyebrow" data-reveal="block">ABOUT HANGKESONG</p>
-          <h1 data-reveal="block">关于杭客松</h1>
-          <p className="detail-sub" data-reveal="block">
-            杭客松是杭州的 AI 活动与赛事平台。我们把散落在城市里的 AI 大赛、开发者活动与技术社区汇到一处，
-            让企业能更快找到能落地的 AI 场景，让开发者与创作者能更容易找到真实需求、找到同伴、找到作品被看见的舞台。
-          </p>
-        </header>
+      {/* 关于页复用 detail 的动效根（.detail-page），动效只会在这页的 [data-reveal] 上生效 */}
+      <PageMotion page="detail" />
+      <header className="detail-hero" data-reveal="block">
+        <Link className="detail-back" href="/"><ArrowLeft size={17} /> 返回首页</Link>
+        <p className="detail-eyebrow" data-reveal="block">ABOUT HANGKESONG</p>
+        <h1 data-reveal="block">关于杭客松</h1>
+        <p className="detail-sub" data-reveal="block">
+          杭客松是杭州的 AI 活动与赛事平台。我们把散落在城市里的 AI 大赛、开发者活动与技术社区汇到一处，
+          让企业能更快找到能落地的 AI 场景，让开发者与创作者能更容易找到真实需求、找到同伴、找到作品被看见的舞台。
+        </p>
+      </header>
 
-        <section className="detail-section" aria-label="平台能做什么" data-reveal="block">
+      <div className="about-content">
+        <section className="about-block" aria-label="平台能做什么" data-reveal="block">
           <h2>平台能做什么</h2>
           <div className="about-cap-grid">
             {CAPABILITIES.map((item) => (
@@ -71,7 +74,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="detail-section" aria-label="覆盖范围" data-reveal="block">
+        <section className="about-block" aria-label="覆盖范围" data-reveal="block">
           <h2>覆盖范围</h2>
           <p>
             活动按杭州各区归属，覆盖 {FACTIONS.map((item) => item.name).join("、")} 等区域，
@@ -80,20 +83,20 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <section className="detail-section" aria-label="怎么参与" data-reveal="block">
+        <section className="about-block" aria-label="怎么参与" data-reveal="block">
           <h2>怎么参与</h2>
           <p>
             想参加：在活动看板找到感兴趣的活动，用微信扫码登录后即可报名与提交作品。
             想主办：进入发起活动页面填写活动信息，提交后由平台审核，通过即在活动看板公开。
           </p>
-          <p className="detail-actions">
+          <p className="about-actions">
             <Link className="primary-action" href="/activities">去看活动 <ArrowRight size={17} /></Link>
             <Link className="secondary-action" href="/create">发起活动 <ArrowRight size={17} /></Link>
           </p>
         </section>
-
-        <AboutSection />
       </div>
+
+      <AboutSection />
     </main>
   );
 }
