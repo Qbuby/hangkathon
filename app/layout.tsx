@@ -61,18 +61,29 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         {children}
-        {/* 备案信息（法规要求全站可见）：ICP 备案链接工信部，公安备案链接公安备案系统）+ 关于页入口 */}
+        {/*
+          备案信息（法规要求全站可见）。顺序由公安部门要求：**公安备案在最左，且必须带统一的公安标志**，
+          ICP 备案紧随其后。图标用官方 ghs.png（/beian.png），尺寸由 CSS 控制、不随头像缩放。
+        */}
         <footer className="icp-footer">
-          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer nofollow">
-            浙ICP备2026082561号
-          </a>
           <a
-            className="icp-footer-link"
+            className="icp-footer-link icp-footer-beian"
             href="https://beian.mps.gov.cn/#/query/webSearch?code=33010502013637"
             target="_blank"
             rel="noopener noreferrer nofollow"
           >
+            {/* 官方图标是外部内容，用原生 img 而不是 next/image：不参与优化管线、原样输出 */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="icp-footer-badge" src="/beian.png" alt="公安备案" width={20} height={20} />
             浙公网安备33010502013637号
+          </a>
+          <a
+            className="icp-footer-link"
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >
+            浙ICP备2026082561号
           </a>
           <Link className="icp-footer-link" href="/about">关于杭客松</Link>
         </footer>

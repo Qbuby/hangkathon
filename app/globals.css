@@ -44,8 +44,13 @@ html:has(main#top) body{position:relative}
 html:has(main#top) .icp-footer{position:absolute;left:0;right:0;bottom:0;padding:10px 6% 12px}
 @media(max-width:760px){html:has(main#top) .icp-footer{padding:6px 6% 8px}}
 
-/* 页脚里的「关于杭客松」入口：与备案号同行，不增加页脚高度，首页单屏不受影响 */
+/* 页脚里的备案与「关于杭客松」入口：同一行、不增加页脚高度，首页单屏不受影响。
+   顺序是公安备案在前、ICP 在后；公安那条带官方标志（图标与文字垂直居中对齐）。
+   用 inline-flex 而不是 inline-block，是为了让 img 的基线对齐不再把行高撑出几像素。 */
 .icp-footer .icp-footer-link{margin-left:14px;color:#8fa6bb;text-decoration:none;letter-spacing:.5px}
 .icp-footer .icp-footer-link:hover{color:#0b6fa8;text-decoration:underline;text-underline-offset:3px}
 html:has(main#top) .icp-footer .icp-footer-link{color:#93a9c0}
 html:has(main#top) .icp-footer .icp-footer-link:hover{color:#8fd0ff}
+/* 公安备案整条：图标 + 号。第一条不留左边距，让它在页脚里真正靠最左（相对其他备案项） */
+.icp-footer .icp-footer-beian{display:inline-flex;align-items:center;gap:5px;margin-left:0;vertical-align:middle}
+.icp-footer .icp-footer-badge{width:16px;height:16px;flex:none;display:block}
