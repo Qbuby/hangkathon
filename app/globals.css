@@ -43,3 +43,9 @@ html:has(main#top) .icp-footer a:hover,html:has(.about) .icp-footer a:hover{colo
 html:has(main#top) body{position:relative}
 html:has(main#top) .icp-footer{position:absolute;left:0;right:0;bottom:0;padding:10px 6% 12px}
 @media(max-width:760px){html:has(main#top) .icp-footer{padding:6px 6% 8px}}
+
+/* 页脚里的「关于杭客松」入口：与备案号同行，不增加页脚高度，首页单屏不受影响 */
+.icp-footer .icp-footer-link{margin-left:14px;color:#8fa6bb;text-decoration:none;letter-spacing:.5px}
+.icp-footer .icp-footer-link:hover{color:#0b6fa8;text-decoration:underline;text-underline-offset:3px}
+html:has(main#top) .icp-footer .icp-footer-link{color:#93a9c0}
+html:has(main#top) .icp-footer .icp-footer-link:hover{color:#8fd0ff}

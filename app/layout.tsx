@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
 import "./motion.css";
 import { MOTION_BOOT } from "./motion";
@@ -60,11 +61,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         {children}
-        {/* ICP 备案（法规要求全站可见，链接到工信部备案系统） */}
+        {/* ICP 备案（法规要求全站可见，链接到工信部备案系统）+ 关于页入口 */}
         <footer className="icp-footer">
           <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer nofollow">
             浙ICP备2026082561号
           </a>
+          <Link className="icp-footer-link" href="/about">关于杭客松</Link>
         </footer>
       </body>
     </html>
