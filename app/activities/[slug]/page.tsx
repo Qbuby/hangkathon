@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
 import { factionById } from "@/lib/factions";
 import type { Activity } from "@/lib/activity";
@@ -134,6 +135,14 @@ function eventJsonLd(activity: Activity) {
 export default async function ActivityPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const initial = await loadPublicActivity(slug);
+  /**
+   * 有数据库时，服务端查不到就是真的没有这场活动 —— 必须回 404。
+   * 否则任何路径（包括 `/activities/..%2f..%2fpackage.json` 这种穿越尝试）都会拿到
+   * HTTP 200 + 一个"没有找到这场活动"的页面：状态码撒谎，爬虫会把无限多的垃圾 URL
+   * 当成有效页面收录。无数据库的部署不能这么判 —— 用户自建活动只存在浏览器里，
+   * 服务端查不到是正常的，那由客户端接管。
+   */
+  if (!initial && hasDatabase()) notFound();
   return (
     <>
       {initial ? (
