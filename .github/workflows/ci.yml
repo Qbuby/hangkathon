@@ -13,14 +13,19 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# 最小权限：本 workflow 不需要任何写操作（ci-cd-security：GITHUB_TOKEN 收紧到只读）
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      # SHA 固定（ci-cd-security：浮动 tag 可被上游接管）
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "22"
           cache: npm
@@ -43,6 +48,10 @@ jobs:
 
       - name: 构建（Vercel）
         run: npm run build:vercel
+
+      # 已知漏洞闸门：high/critical 直接失败（与 npm audit fix 的修复线联动）
+      - name: 依赖漏洞审计
+        run: npm audit --omit=dev --audit-level=high
 
       # 部署产物里绝不能出现凭据：用模式扫描而不是人工检查
       - name: 检查产物中是否泄漏凭据

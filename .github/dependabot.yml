@@ -1,0 +1,11 @@
+# supply-chain-security：每周检查 npm 依赖更新，安全补丁自动成 PR
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
