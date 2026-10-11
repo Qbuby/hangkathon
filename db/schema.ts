@@ -210,6 +210,31 @@ export const userBlacklist = pgTable("user_blacklist", {
   index("user_blacklist_effective_idx").on(table.effectiveFrom),
 ]);
 
+/**
+ * 代理商申请：只有代理商可以发布活动，普通用户在 /create 提交身份声明与联系方式，
+ * 管理端审核通过后把 users.role 提为 agent。一个用户一份申请（重新提交即覆盖重审）。
+ */
+export const agentApplications = pgTable("agent_applications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  contactName: text("contact_name").notNull(),
+  organization: text("organization").notNull().default(""),
+  phone: text("phone").notNull(),
+  email: text("email").notNull().default(""),
+  /** 身份声明：你是谁、计划发什么活动。 */
+  statement: text("statement").notNull(),
+  /** pending | approved | rejected */
+  status: text("status").notNull().default("pending"),
+  reviewNote: text("review_note"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("agent_applications_user_unique").on(table.userId),
+  index("agent_applications_status_idx").on(table.status),
+]);
+
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   owner: one(users, { fields: [activities.ownerId], references: [users.id] }),
   joins: many(joins),

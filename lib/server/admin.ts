@@ -18,6 +18,8 @@ export type AdminOverview = {
   pendingReviews: number;
   /** 待审核活动（用户发起、还没通过审核的）。 */
   pendingActivities: number;
+  /** 待审核的代理商申请。 */
+  pendingAgents: number;
 };
 
 export type AdminActivityRow = {
@@ -68,6 +70,10 @@ export async function adminOverview(): Promise<AdminOverview> {
     .select({ value: count() })
     .from(schema.activities)
     .where(eq(schema.activities.reviewStatus, "pending"));
+  const [pendingAgentsRow] = await db
+    .select({ value: count() })
+    .from(schema.agentApplications)
+    .where(eq(schema.agentApplications.status, "pending"));
   return {
     users: Number(usersRow?.value ?? 0),
     activities: Number(activitiesRow?.value ?? 0),
@@ -75,6 +81,7 @@ export async function adminOverview(): Promise<AdminOverview> {
     submissions: Number(submissionsRow?.value ?? 0),
     pendingReviews: Number(pendingRow?.value ?? 0),
     pendingActivities: Number(pendingActivitiesRow?.value ?? 0),
+    pendingAgents: Number(pendingAgentsRow?.value ?? 0),
   };
 }
 
@@ -245,7 +252,9 @@ export async function listUsers(): Promise<AdminUserRow[]> {
 }
 
 export async function setUserRole(operatorId: string, userId: string, role: string): Promise<void> {
-  if (role !== "admin" && role !== "user") throw new AdminActionError(400, "角色只能是 admin 或 user");
+  if (role !== "admin" && role !== "user" && role !== "agent") {
+    throw new AdminActionError(400, "角色只能是 admin、agent 或 user");
+  }
   if (userId === operatorId) throw new AdminActionError(400, "不能修改自己的角色");
   const updated = await getDb()
     .update(schema.users)

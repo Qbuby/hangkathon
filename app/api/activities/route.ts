@@ -6,7 +6,7 @@ import { writeAudit } from "@/lib/server/audit";
 import { createActivity, listActivities, uniqueSlug } from "@/lib/server/activities";
 import { databaseRequired, handleRouteError, jsonError } from "@/lib/server/http";
 import { clientIp, enforceRateLimit, RULES } from "@/lib/server/rate-limit";
-import { currentUser, requireUser } from "@/lib/server/users";
+import { currentUser, requirePublisher } from "@/lib/server/users";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +22,12 @@ export async function GET() {
   }
 }
 
-/** 登录后创建活动，归属当前用户。 */
+/** 发布活动：只有代理商（和管理员）可以。未授权用户会拿到 403 + 申请指引。 */
 export async function POST(request: Request) {
   const blocked = databaseRequired();
   if (blocked) return blocked;
   try {
-    const user = await requireUser();
+    const user = await requirePublisher();
     await enforceRateLimit("write", `activity:${user.id}`, RULES.write);
     const values = (await request.json()) as Draft;
     const errors = validateAll(values);

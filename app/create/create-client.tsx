@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Check, Rocket } from "lucide-react";
+import { signIn } from "next-auth/react";
+import { ArrowLeft, ArrowRight, Check, Rocket, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   STEPS,
@@ -22,6 +23,23 @@ import SiteHeader from "../site-header";
 import { usePageMotion } from "../motion-scope";
 import "./create.css";
 
+/** /create 的身份门禁状态：loading 校验中；local 无数据库部署（不做门禁）；login 未登录；apply 非代理商；form 放行。 */
+type GatePhase = "loading" | "local" | "login" | "apply" | "form";
+
+type AgentApplication = {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  contactName: string;
+  organization: string;
+  phone: string;
+  email: string;
+  statement: string;
+  reviewNote: string | null;
+  updatedAt: string;
+};
+
+const EMPTY_APPLY = { contactName: "", organization: "", phone: "", email: "", statement: "" };
+
 export default function CreateActivityPage() {
   const [values, setValues] = useState<Draft>(() => initialDraft());
   const [stepIndex, setStepIndex] = useState(0);
@@ -31,6 +49,72 @@ export default function CreateActivityPage() {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [mode, setMode] = useState<"local" | "server">("local");
+
+  // 代理商门禁：有数据库的部署里只有代理商（和管理员）能发布。
+  // loading → local（无库，直接放行）/ login（未登录）/ apply（非代理商）/ form（放行）。
+  const [gate, setGate] = useState<GatePhase>("loading");
+  const [providers, setProviders] = useState<{ id: string; name: string; configured: boolean }[]>([]);
+  const [loginConfigured, setLoginConfigured] = useState(true);
+  const [application, setApplication] = useState<AgentApplication | null>(null);
+  const [applyForm, setApplyForm] = useState(EMPTY_APPLY);
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyEditing, setApplyEditing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const server = await hasServerData();
+      if (cancelled) return;
+      setMode(server ? "server" : "local");
+      // 无数据库的部署没有角色系统（活动在本机），保持原有直接进入的行为
+      if (!server) {
+        setGate("local");
+        return;
+      }
+      try {
+        const response = await fetch("/api/agent/session");
+        const data = (await response.json()) as {
+          user?: { email: string | null; name: string | null } | null;
+          role?: string | null;
+          canPublish?: boolean;
+          application?: AgentApplication | null;
+        };
+        if (cancelled) return;
+        if (!data.user) {
+          // 未登录：取登录按钮列表（与 /manage 的登录引导同一套）
+          const sessionResponse = await fetch("/api/session");
+          const sessionData = (await sessionResponse.json()) as {
+            configured: boolean;
+            providers: { id: string; name: string; configured: boolean }[];
+          };
+          if (!cancelled) {
+            setProviders(sessionData.providers ?? []);
+            setLoginConfigured(Boolean(sessionData.configured));
+            setGate("login");
+          }
+          return;
+        }
+        setApplication(data.application ?? null);
+        if (data.application && data.application.status !== "approved") {
+          setApplyForm({
+            contactName: data.application.contactName,
+            organization: data.application.organization,
+            phone: data.application.phone,
+            email: data.application.email,
+            statement: data.application.statement,
+          });
+        }
+        setGate(data.canPublish ? "form" : "apply");
+      } catch {
+        if (!cancelled) setGate("apply");
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 入场动效：步骤卡与表单面板依次入场；切步骤或发布成功时表单/成功页重新入场。
   usePageMotion("create", { signature: `${stepIndex}:${published ? "done" : "edit"}` });
@@ -113,6 +197,177 @@ export default function CreateActivityPage() {
     } finally {
       setPublishing(false);
     }
+  }
+
+  /** 提交代理商申请：成功后回到「审核中」视图。 */
+  async function submitApply() {
+    setApplyBusy(true);
+    setApplyError(null);
+    try {
+      const response = await fetch("/api/agent/application", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(applyForm),
+      });
+      const data = (await response.json().catch(() => null)) as { application?: AgentApplication; error?: string } | null;
+      if (!response.ok) {
+        setApplyError(data?.error ?? "提交失败，请稍后重试。");
+        return;
+      }
+      if (data?.application) setApplication(data.application);
+      setApplyEditing(false);
+    } catch {
+      setApplyError("提交失败，请检查网络后重试。");
+    } finally {
+      setApplyBusy(false);
+    }
+  }
+
+  if (gate === "loading") {
+    return (
+      <main className="create-page">
+        <SiteHeader />
+        <div className="agent-gate" data-reveal="block">
+          <p className="detail-placeholder">正在校验发布身份…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (gate === "login") {
+    return (
+      <main className="create-page">
+        <SiteHeader />
+        <div className="agent-gate" data-reveal="block">
+          <span className="agent-gate-icon"><ShieldCheck size={30} /></span>
+          <h1>先登录，再发起活动</h1>
+          <p>发起活动需要平台授权的代理商身份。登录后我们会校验你的账号；如果你还不是代理商，可以直接在下一步提交申请。</p>
+          <div className="agent-gate-providers">
+            {providers.map((provider) => (
+              <button
+                key={provider.id}
+                className="provider-button"
+                disabled={!loginConfigured || !provider.configured}
+                onClick={() => void signIn(provider.id, { callbackUrl: "/create" })}
+              >
+                <span>使用 {provider.name} 登录</span>
+                {!provider.configured && <span className="provider-state">未配置</span>}
+              </button>
+            ))}
+          </div>
+          {!loginConfigured && <p className="detail-placeholder">本环境未配置登录。</p>}
+        </div>
+      </main>
+    );
+  }
+
+  if (gate === "apply") {
+    const pending = application?.status === "pending" && !applyEditing;
+    const rejected = application?.status === "rejected";
+    return (
+      <main className="create-page">
+        <SiteHeader />
+        <div className="agent-gate" data-reveal="block">
+          <span className="agent-gate-icon"><Rocket size={30} /></span>
+          <h1>发起活动需要代理商身份</h1>
+          <p>
+            平台的活动发布权只对<b>代理商</b>开放：代理商负责发起和运营活动，参与者以个人身份报名参赛。
+            如果你想成为代理商，请填写下面的身份声明与联系方式提交审核，通过后即可发起活动。
+          </p>
+
+          {pending ? (
+            <div className="agent-apply-status">
+              <p className="agent-apply-state is-pending">审核中</p>
+              <p>
+                你的申请已在 {new Date(application!.updatedAt).toLocaleString("zh-CN")} 提交，平台会尽快处理。
+                审核通过后刷新本页即可开始创建活动。
+              </p>
+              <dl className="agent-apply-meta">
+                <div><dt>联系人</dt><dd>{application!.contactName}</dd></div>
+                <div><dt>机构</dt><dd>{application!.organization || "—"}</dd></div>
+                <div><dt>电话</dt><dd>{application!.phone}</dd></div>
+              </dl>
+              <button className="secondary-action" type="button" onClick={() => setApplyEditing(true)}>
+                修改申请
+              </button>
+            </div>
+          ) : (
+            <form
+              className="agent-apply-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitApply();
+              }}
+            >
+              {rejected && (
+                <p className="agent-apply-state is-rejected">
+                  上次申请未通过{application?.reviewNote ? `：${application.reviewNote}` : ""}。你可以修改后重新提交。
+                </p>
+              )}
+              <label className="agent-field">
+                <span>联系人姓名 *</span>
+                <input
+                  value={applyForm.contactName}
+                  onChange={(event) => setApplyForm({ ...applyForm, contactName: event.target.value })}
+                  placeholder="真实姓名"
+                  required
+                />
+              </label>
+              <label className="agent-field">
+                <span>机构 / 组织</span>
+                <input
+                  value={applyForm.organization}
+                  onChange={(event) => setApplyForm({ ...applyForm, organization: event.target.value })}
+                  placeholder="公司、社团或团队名称（没有可留空）"
+                />
+              </label>
+              <label className="agent-field">
+                <span>联系电话 *</span>
+                <input
+                  value={applyForm.phone}
+                  onChange={(event) => setApplyForm({ ...applyForm, phone: event.target.value })}
+                  placeholder="手机号或固话"
+                  required
+                />
+              </label>
+              <label className="agent-field">
+                <span>电子邮箱</span>
+                <input
+                  type="email"
+                  value={applyForm.email}
+                  onChange={(event) => setApplyForm({ ...applyForm, email: event.target.value })}
+                  placeholder="接收审核结果的邮箱"
+                />
+              </label>
+              <label className="agent-field">
+                <span>身份声明 *</span>
+                <textarea
+                  value={applyForm.statement}
+                  onChange={(event) => setApplyForm({ ...applyForm, statement: event.target.value })}
+                  placeholder="你是谁、代表什么组织、计划发起什么类型的活动（至少 10 个字）"
+                  rows={5}
+                  required
+                />
+              </label>
+              {applyError && <p className="agent-apply-error">{applyError}</p>}
+              <div className="agent-apply-actions">
+                <button className="primary-action" type="submit" disabled={applyBusy}>
+                  {applyBusy ? "提交中…" : pending || rejected ? "重新提交申请" : "提交申请"}
+                </button>
+                {pending && (
+                  <button className="secondary-action" type="button" onClick={() => setApplyEditing(false)}>
+                    取消
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+          <p className="agent-gate-note">
+            已有代理商身份？<Link href="/create">刷新页面</Link>即可进入创建流程。有疑问请通过活动页公示的联系方式联系平台方。
+          </p>
+        </div>
+      </main>
+    );
   }
 
   if (published) {

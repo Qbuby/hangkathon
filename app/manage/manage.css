@@ -98,3 +98,7 @@
 .manage-toolbar select:focus,.manage-toolbar input:focus{outline:2px solid #1b9cfc33;border-color:#1b9cfc}
 .manage-note{font-size:13px;color:#5f7d99}
 @media(max-width:760px){.manage-toolbar select,.manage-toolbar input{min-width:100%;width:100%}}
+
+/* 代理商申请列表：声明列限宽可读，待审核状态用金色提示 */
+.manage-agent-statement{max-width:260px;font-size:13px;color:#4d6b87;line-height:1.7}
+.manage-pill.is-agent{background:#fdf6e3;color:#b8860b;border:1px solid #e6d9a8}

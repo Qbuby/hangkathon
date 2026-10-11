@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { ArrowLeft, Check, Download, EyeOff, Globe, RefreshCw, ShieldCheck, ShieldOff, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Download, EyeOff, Globe, RefreshCw, Rocket, ShieldCheck, ShieldOff, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { categoryLabel, formatLabel, judgingLabel, joinPolicyLabel, pricingLabel, prizeText, submissionLabels, type Activity } from "@/lib/activity";
 import { factionById } from "@/lib/factions";
@@ -28,6 +28,7 @@ type Overview = {
   submissions: number;
   pendingReviews: number;
   pendingActivities: number;
+  pendingAgents: number;
 };
 
 type AdminActivity = {
@@ -92,7 +93,23 @@ type AdminExternalEvent = {
   hidden: boolean;
 };
 
-type Tab = "overview" | "activities" | "submissions" | "users" | "events" | "audit" | "blacklist";
+type Tab = "overview" | "activities" | "submissions" | "users" | "agents" | "events" | "audit" | "blacklist";
+
+type AgentApplication = {
+  id: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  contactName: string;
+  organization: string;
+  phone: string;
+  email: string;
+  statement: string;
+  status: "pending" | "approved" | "rejected";
+  reviewNote: string | null;
+  reviewedAt: string | null;
+  updatedAt: string;
+};
 
 type AuditLog = {
   id: string;
@@ -269,6 +286,8 @@ export default function ManagePage() {
   const inspectRequest = useRef(0);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [busyUser, setBusyUser] = useState<string | null>(null);
+  const [agents, setAgents] = useState<AgentApplication[] | null>(null);
+  const [busyAgent, setBusyAgent] = useState<string | null>(null);
   const [joins, setJoins] = useState<AdminJoin[] | null>(null);
   const [joinsSlug, setJoinsSlug] = useState<string | null>(null);
   const [busyJoin, setBusyJoin] = useState<string | null>(null);
@@ -395,6 +414,22 @@ export default function ManagePage() {
         cancelled = true;
       };
     }
+    if (tab === "agents" && agents === null) {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const response = await fetch("/api/admin/agents");
+          if (!cancelled && response.ok) {
+            setAgents(((await response.json()) as { applications: AgentApplication[] }).applications);
+          }
+        } catch {
+          if (!cancelled) setAgents([]);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
     if (tab === "events" && events === null) {
       let cancelled = false;
       void (async () => {
@@ -438,7 +473,7 @@ export default function ManagePage() {
         cancelled = true;
       };
     }
-  }, [guard, tab, users, events, auditLogs, auditCategory, blacklist]);
+  }, [guard, tab, users, agents, events, auditLogs, auditCategory, blacklist]);
 
   /** 审计链完整性自检：任何一条被改过都会在这里断链（检查表 8.2c / 8.4.4）。 */
   async function verifyAudit() {
@@ -684,6 +719,55 @@ export default function ManagePage() {
     }
   }
 
+  /** 审核代理商申请：通过=授予代理商角色；驳回=留理由（用户可改后重提）。 */
+  async function reviewAgent(id: string, decision: "approved" | "rejected") {
+    let note: string | null = null;
+    if (decision === "rejected") {
+      note = window.prompt("驳回理由（会展示给申请人，可留空）：") ?? "";
+      if (note === null) return;
+    } else if (!window.confirm("通过该申请并授予代理商身份？通过后对方即可发布活动。")) return;
+    setBusyAgent(id);
+    try {
+      const response = await fetch(`/api/admin/agents/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision, note }),
+      });
+      if (response.ok) {
+        flash(decision === "approved" ? "已通过并授予代理商身份" : "已驳回");
+        setAgents(null);
+        setUsers(null);
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "操作失败");
+      }
+    } finally {
+      setBusyAgent(null);
+    }
+  }
+
+  /** 授予/收回代理商角色（用户标签的快捷操作；与申请审核走同一个角色字段）。 */
+  async function setAgentRole(user: AdminUser, toAgent: boolean) {
+    if (!window.confirm(`${toAgent ? "授予" : "收回"} ${user.email} 的代理商角色？`)) return;
+    setBusyUser(user.id);
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: toAgent ? "agent" : "user" }),
+      });
+      if (response.ok) {
+        setUsers((rows) => (rows ? rows.map((row) => (row.id === user.id ? { ...row, role: toAgent ? "agent" : "user" } : row)) : rows));
+        flash(toAgent ? "已授予代理商" : "已收回代理商");
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        flash(data?.error ?? "操作失败");
+      }
+    } finally {
+      setBusyUser(null);
+    }
+  }
+
   async function toggleUserRole(user: AdminUser) {
     if (!window.confirm(`${user.role === "admin" ? "收回" : "授予"} ${user.email} 的管理员角色？`)) return;
     setBusyUser(user.id);
@@ -874,6 +958,7 @@ export default function ManagePage() {
             <button className={`manage-tab${tab === "activities" ? " is-on" : ""}`} onClick={() => setTab("activities")}>活动</button>
             <button className={`manage-tab${tab === "submissions" ? " is-on" : ""}`} onClick={() => setTab("submissions")}>作品</button>
             <button className={`manage-tab${tab === "users" ? " is-on" : ""}`} onClick={() => setTab("users")}>用户</button>
+            <button className={`manage-tab${tab === "agents" ? " is-on" : ""}`} onClick={() => setTab("agents")}>代理商</button>
             <button className={`manage-tab${tab === "events" ? " is-on" : ""}`} onClick={() => setTab("events")}>全球赛事</button>
             <button className={`manage-tab${tab === "audit" ? " is-on" : ""}`} onClick={() => setTab("audit")}>审计日志</button>
             <button className={`manage-tab${tab === "blacklist" ? " is-on" : ""}`} onClick={() => setTab("blacklist")}>黑名单</button>
@@ -891,6 +976,7 @@ export default function ManagePage() {
                   { label: "作品", value: overview?.submissions },
                   { label: "待审核作品", value: overview?.pendingReviews, hot: (overview?.pendingReviews ?? 0) > 0 },
                   { label: "待审核活动", value: overview?.pendingActivities, hot: (overview?.pendingActivities ?? 0) > 0 },
+                  { label: "待审代理商", value: overview?.pendingAgents, hot: (overview?.pendingAgents ?? 0) > 0 },
                 ].map((card) => (
                   <div key={card.label} className={`manage-stat${card.hot ? " is-hot" : ""}`}>
                     <strong>{card.value === undefined ? "—" : card.value.toLocaleString("zh-CN")}</strong>
@@ -899,7 +985,7 @@ export default function ManagePage() {
                 ))}
               </div>
               <p className="detail-placeholder">
-                待审核作品在「作品」标签里处理；贡献值结算流程接入后，审核通过将自动折算贡献值。
+                待审核作品在「作品」标签里处理；代理商申请在「代理商」标签里审核，通过后对方才能发布活动；贡献值结算流程接入后，审核通过将自动折算贡献值。
               </p>
             </section>
           )}
@@ -1241,8 +1327,8 @@ export default function ManagePage() {
                             <span className="manage-act-slug">{user.email}</span>
                           </td>
                           <td>
-                            <span className={`manage-pill${user.role === "admin" ? " is-public" : ""}`}>
-                              {user.role === "admin" ? "管理员" : "用户"}
+                            <span className={`manage-pill${user.role === "admin" ? " is-public" : user.role === "agent" ? " is-agent" : ""}`}>
+                              {user.role === "admin" ? "管理员" : user.role === "agent" ? "代理商" : "用户"}
                             </span>
                           </td>
                           <td className="num">{user.activityCount}</td>
@@ -1259,6 +1345,16 @@ export default function ManagePage() {
                               >
                                 {user.role === "admin" ? <><ShieldOff size={13} /> 收回管理员</> : <><ShieldCheck size={13} /> 设为管理员</>}
                               </button>
+                              {user.role !== "admin" && (
+                                <button
+                                  className="manage-link"
+                                  disabled={busyUser === user.id}
+                                  title={user.role === "agent" ? "收回代理商（对方将不能再发布活动）" : "直接授予代理商（可发布活动）"}
+                                  onClick={() => void setAgentRole(user, user.role !== "agent")}
+                                >
+                                  {user.role === "agent" ? <><ShieldOff size={13} /> 收回代理商</> : <><Rocket size={13} /> 设为代理商</>}
+                                </button>
+                              )}
                               <button
                                 className="manage-link is-danger"
                                 disabled={busyUser === user.id}
@@ -1420,6 +1516,75 @@ export default function ManagePage() {
               )}
               <p className="detail-placeholder">
                 黑名单内账号无法发起活动、报名与提交作品；连续命中内容过滤会自动入名单，解除需要记录操作人。
+              </p>
+            </section>
+          )}
+
+          {tab === "agents" && (
+            <section className="manage-section" aria-label="代理商管理" data-reveal="block">
+              {agents === null ? (
+                <p className="detail-placeholder">正在读取代理商申请…</p>
+              ) : agents.length === 0 ? (
+                <p className="detail-placeholder">还没有收到代理商申请。</p>
+              ) : (
+                <div className="manage-table-wrap">
+                  <table className="manage-table">
+                    <thead>
+                      <tr>
+                        <th>申请人</th>
+                        <th>联系人</th>
+                        <th>机构 / 电话</th>
+                        <th>身份声明</th>
+                        <th>状态</th>
+                        <th>申请时间</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {agents.map((item) => (
+                        <tr key={item.id} className={item.status !== "pending" ? "is-dim" : undefined}>
+                          <td>
+                            <strong>{item.userName || "—"}</strong>
+                            <span className="manage-act-slug">{item.userEmail ?? "—"}</span>
+                          </td>
+                          <td>{item.contactName}</td>
+                          <td>
+                            {item.organization || "—"}
+                            <span className="manage-act-slug">{item.phone}</span>
+                          </td>
+                          <td className="manage-agent-statement" title={item.statement}>
+                            {item.statement.length > 60 ? `${item.statement.slice(0, 60)}…` : item.statement}
+                          </td>
+                          <td>
+                            <span className={`manage-pill${item.status === "approved" ? " is-public" : item.status === "pending" ? " is-agent" : ""}`}>
+                              {item.status === "pending" ? "待审核" : item.status === "approved" ? "已通过" : "已驳回"}
+                            </span>
+                            {item.reviewNote && <span className="manage-act-slug">{item.reviewNote}</span>}
+                          </td>
+                          <td className="manage-act-date">{new Date(item.updatedAt).toLocaleString("zh-CN")}</td>
+                          <td>
+                            {item.status === "pending" ? (
+                              <div className="manage-actions">
+                                <button className="manage-link" disabled={busyAgent === item.id} onClick={() => void reviewAgent(item.id, "approved")}>
+                                  <ShieldCheck size={13} /> 通过
+                                </button>
+                                <button className="manage-link is-danger" disabled={busyAgent === item.id} onClick={() => void reviewAgent(item.id, "rejected")}>
+                                  驳回
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="manage-act-slug">已处理</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="detail-placeholder">
+                只有代理商可以发布活动。通过申请会自动把对方角色提为代理商；也可以在「用户」标签里直接授予/收回。
+                所有授予与收回都会写入审计日志。
               </p>
             </section>
           )}

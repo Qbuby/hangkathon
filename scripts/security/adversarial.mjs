@@ -110,6 +110,7 @@ await run("A 信息泄露", async () => {
 
 await run("B 越权访问", async () => {
   const ADMIN_ENDPOINTS = [
+    ["GET", "/api/admin/agents"],
     ["GET", "/api/admin/overview"],
     ["GET", "/api/admin/activities"],
     ["GET", "/api/admin/users"],
@@ -218,7 +219,22 @@ await run("C 内容与来源控制", async () => {
   });
   check(results, "非抖音链接不会返回 201", foreign.status !== 201, `实际 ${foreign.status}`);
 
-  // C3 创建活动：未登录必须 401，不会因为"内容不敏感"就放行
+  // C3 代理商申请与发布权：匿名提交申请必须被拒；匿名发活动必须被拒
+  const applyAnon = await postJson(BASE, "/api/agent/application", {
+    contactName: "攻击者",
+    phone: "13800000000",
+    statement: "对抗测试探测代理商申请入口",
+  });
+  check(results, "匿名提交代理商申请被拒", [401, 403, 503].includes(applyAnon.status), `实际 ${applyAnon.status}`);
+  const createAnon = await postJson(BASE, "/api/activities", { title: "对抗测试", subtitle: "x" });
+  check(results, "匿名创建活动被拒（发布权限门禁）", [401, 403, 503].includes(createAnon.status), `实际 ${createAnon.status}`);
+  // 伪造会话也不能拿到发布权
+  const createForged = await postJson(BASE, "/api/activities", { title: "对抗测试", subtitle: "x" }, {
+    headers: { cookie: "__Secure-authjs.session-token=forged.signature" },
+  });
+  check(results, "伪造会话创建活动被拒", [401, 403, 503].includes(createForged.status), `实际 ${createForged.status}`);
+
+  // C4 创建活动：未登录必须 401，不会因为"内容不敏感"就放行
   const create = await postJson(BASE, "/api/activities", {
     title: "对抗测试",
     subtitle: "probe",

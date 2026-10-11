@@ -73,6 +73,24 @@ if (session.status === 200) {
   }
 }
 
+const agentSession = await timed("/api/agent/session");
+if (WITH_DB) {
+  check(results, "GET /api/agent/session 状态码", agentSession.status === 200, expect.status(agentSession, 200).detail);
+  if (agentSession.status === 200) {
+    let data = null;
+    try {
+      data = JSON.parse(agentSession.body);
+    } catch {
+      /* 统一报错 */
+    }
+    check(results, "/api/agent/session 含 canPublish 字段", typeof data?.canPublish === "boolean", JSON.stringify(data).slice(0, 120));
+    check(results, "/api/agent/session 匿名 canPublish=false", data?.canPublish === false, String(data?.canPublish));
+    check(results, "/api/agent/session 匿名不泄漏邮箱", !/@/.test(agentSession.body), agentSession.body.slice(0, 120));
+  }
+} else {
+  check(results, "GET /api/agent/session（本地模式应 503）", agentSession.status === 503, expect.status(agentSession, 503).detail);
+}
+
 const activities = await timed("/api/activities");
 if (WITH_DB) {
   check(results, "GET /api/activities 状态码", activities.status === 200, expect.status(activities, 200).detail);

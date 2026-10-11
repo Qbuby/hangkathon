@@ -23,8 +23,8 @@ export class UnauthorizedError extends Error {
 }
 
 export class ForbiddenError extends Error {
-  constructor() {
-    super("无管理员权限");
+  constructor(message = "无管理员权限") {
+    super(message);
     this.name = "ForbiddenError";
   }
 }
@@ -67,6 +67,25 @@ export async function requireUser(): Promise<ServerUser> {
 
 export async function isAdminUser(user: ServerUser | null): Promise<boolean> {
   return user?.role === "admin";
+}
+
+/**
+ * 发布权门禁：只有代理商（和平台管理员）能发活动。
+ * 代理商来自管理端授权或申请审核通过 —— 见 lib/server/agents.ts。
+ */
+export function isPublisher(user: ServerUser | null): boolean {
+  return canPublishRole(user?.role);
+}
+
+export function canPublishRole(role: string | null | undefined): boolean {
+  return role === "agent" || role === "admin";
+}
+
+/** 供路由用：未登录 401、黑名单/无发布权 403。 */
+export async function requirePublisher(): Promise<ServerUser> {
+  const user = await requireUser();
+  if (!isPublisher(user)) throw new ForbiddenError("只有代理商可以发布活动，请先提交代理商申请");
+  return user;
 }
 
 /** 供路由用：未登录 401、非管理员 403。 */
