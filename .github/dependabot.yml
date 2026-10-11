@@ -9,3 +9,10 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # eslint 10 破坏 eslint-config-next 16 的插件 API（react/display-name 崩溃），等上游适配
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # @types/node 大版本应跟随实际运行时（22），而不是最新 Node
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
