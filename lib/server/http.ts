@@ -23,7 +23,8 @@ export function databaseRequired() {
 
 export function handleRouteError(error: unknown) {
   if (error instanceof UnauthorizedError) return jsonError(401, "请先登录");
-  if (error instanceof ForbiddenError) return jsonError(403, "无管理员权限");
+  // ForbiddenError 允许自带消息（如发布权门禁的"只有代理商可以发布活动"），带不上来的才用默认文案
+  if (error instanceof ForbiddenError) return jsonError(403, error.message);
   if (error instanceof BlacklistedError) {
     return jsonError(403, `账号已被列入黑名单：${error.reason}`);
   }
