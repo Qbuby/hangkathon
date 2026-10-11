@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import "./motion.css";
-import { MOTION_BOOT } from "./motion";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://hangkathon.com").replace(/\/$/, "");
 const SITE_NAME = "杭客松";
@@ -52,12 +51,22 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * CSP nonce 逐请求变化，页面必须动态渲染：静态预渲染的 HTML 无法注入 per-request
+ * nonce，Next 的 flight/水合内联脚本会被 CSP 拦截、水合直接死掉（实测踩过）。
+ * 代价是放弃静态化——本站体量下 TTFB 增加几十毫秒，可接受。
+ */
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
       <head>
-        {/* 在应用 JS 之前决定要不要隐藏 [data-reveal] 的初态，避免入场动画先闪一下内容。 */}
-        <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT }} />
+        {/* 在应用 JS 之前决定要不要隐藏 [data-reveal] 的初态，避免入场动画先闪一下内容。
+            CSP nonce 化后内联脚本被禁：这段引导外置为 public/motion-boot.js（scripts/motion.test.mjs 保证与 app/motion.ts 不漂移）。 */}
+        {/* 同步加载是有意为之：必须在首帧前设置 data-motion 防止入场闪白（CSP nonce 化后不能再内联） */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/motion-boot.js" />
       </head>
       <body>
         {children}

@@ -49,6 +49,13 @@ test("boot script only hides content in a short, self-expiring window", () => {
   assert.ok(MOTION_BOOT.includes(`${MOTION.windowMs}`), "boot must use the configured window");
   assert.ok(MOTION_BOOT.includes("removeAttribute"), "boot must be able to release the hidden state");
   assert.ok(MOTION_BOOT.includes(REDUCED_QUERY), "boot must honour the reduced-motion query");
+  {
+    // CSP nonce 化后内联脚本被禁，实际执行的是 public/motion-boot.js —— 两者必须语义一致（忽略空白）
+    const norm = (text) => text.replace(/\s+/g, "").slice(text.replace(/\s+/g, "").indexOf("(function(){"));
+    const file = norm(readFileSync(new URL("../public/motion-boot.js", import.meta.url), "utf8"));
+    const inline = norm(MOTION_BOOT);
+    assert.ok(file === inline, "public/motion-boot.js must stay in lockstep with MOTION_BOOT (whitespace-insensitive)");
+  }
   assert.ok(!MOTION_BOOT.includes("data-reveal-done"), "the hidden state must expire on its own, not wait for the layer");
 });
 

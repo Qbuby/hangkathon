@@ -335,6 +335,24 @@ await run("F 响应安全", async () => {
     (home.headers["content-security-policy"] ?? "").includes("frame-ancestors 'none'"),
     (home.headers["content-security-policy"] ?? "").slice(0, 80),
   );
+  const scriptSrc = /script-src ([^;]+)/.exec(home.headers["content-security-policy"] ?? "")?.[1] ?? "";
+  check(
+    results,
+    "script-src 已 nonce 化（含一次性 nonce，unsafe-inline 不再是实际豁免）",
+    scriptSrc.includes("'nonce-") && scriptSrc.includes("'self'"),
+    scriptSrc.slice(0, 80),
+  );
+  // 可执行内联脚本必须带 CSP 里的同一个 nonce；ld+json 是数据块（非可执行），CSP 不管它
+  const executableInline = [...home.body.matchAll(/<script(?![^>]*src=)([^>]*)>/g)]
+    .map((match) => match[0])
+    .filter((tag) => !/type=["']application\/ld\+json["']/.test(tag));
+  const nonced = executableInline.filter((tag) => /nonce="([^"]+)"/.test(tag));
+  check(
+    results,
+    "可执行内联脚本全部带 CSP 同源 nonce（ld+json 数据块除外）",
+    executableInline.length > 0 && nonced.length === executableInline.length,
+    `可执行内联 ${executableInline.length} 个，带 nonce ${nonced.length} 个`,
+  );
   check(results, "首页含 HSTS", (home.headers["strict-transport-security"] ?? "").includes("max-age="), "");
   check(results, "未泄露 X-Powered-By", !("x-powered-by" in home.headers) || !/next/i.test(home.headers["x-powered-by"]), `实际 ${home.headers["x-powered-by"] ?? "(无)"}`);
 

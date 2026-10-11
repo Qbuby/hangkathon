@@ -97,7 +97,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // through its own proxy; both need the forwarded host to be honoured.
   trustHost: true,
   // No database is provisioned, so the session lives in a signed cookie.
-  session: { strategy: "jwt" },
+  // maxAge 7 天：JWT 无服务端吊销，令牌泄露后的暴露窗口 = 剩余有效期，
+  // 30 天默认值太长（安全评估 P2#4）；高危操作的 step-up 认证是后续项。
+  session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60 },
   pages: { error: "/auth-error" },
   // 登录/登出留痕（检查表 8.4.2c：登录时间、退出时间、IP 地址及端口）。
   // Auth.js 的事件里拿不到原始 Request，所以这里自己从 headers 重建来源地址。

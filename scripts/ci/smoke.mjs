@@ -117,6 +117,7 @@ const STATIC = [
   "/brand/icon-512.png",
   "/brand/hangkathon-logo.png",
   "/og-image.jpg",
+  "/motion-boot.js",
   "/robots.txt",
   "/sitemap.xml",
   "/baidu_verify_codeva-oo0L6Rdfhs.html",
