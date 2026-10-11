@@ -162,8 +162,13 @@ export const auditLogs = pgTable("audit_logs", {
   category: text("category").notNull(),
   /** 具体动作，如 auth.login / publish.activity.create / admin.user.role。 */
   action: text("action").notNull(),
-  /** 可溯源三件套（8.4.3）：真实用户 ID、网络地址、协议。 */
-  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  /**
+   * 可溯源三件套（8.4.3）：真实用户 ID、网络地址、协议。
+   * 刻意不加外键 —— 审计表 append-only，若挂 ON DELETE SET NULL，删用户时
+   * Postgres 对本表的 UPDATE 会被防篡改触发器拒绝，用户就永远删不掉；
+   * 追溯由 user_email 文本兜底（0011 迁移移除了 0009 误建的外键）。
+   */
+  userId: uuid("user_id"),
   userEmail: text("user_email"),
   ip: text("ip"),
   port: text("port"),
