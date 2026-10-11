@@ -51,3 +51,4 @@ next-env.d.ts
 # python bytecode (scripts/douyin runs python, nothing else does)
 __pycache__/
 *.pyc
+pentest-evidence/
