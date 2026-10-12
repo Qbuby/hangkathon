@@ -23,9 +23,17 @@ services:
       - "127.0.0.1:3001:3001"
     volumes:
       - uptime-kuma-data:/app/data
+      # 只读挂 docker socket：Kuma 需要它才能用「Docker」类型监控项列出容器。
+      # 默认不加是更安全的姿态（拿到 socket ≈ 拿到宿主机 root），这里按需开启且限制为只读。
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       # 用国内可达的镜像源拉取 npm 依赖（容器启动时会自更新）
       UPTIME_KUMA_UPDATE_CHECK: "true"
+    # 与应用同网：容器监控需要，能对 127.0.0.1:3210 做内网探测
+    networks:
+      - hangkathon_default
+    # 用应用的网络而不是自动生成的 deploy_default —— 网络共享是 Compose 自动命名的，
+    # 独立文件跑会得到另一个网络，容器之间就互相不可见。
     logging:
       driver: json-file
       options:
@@ -41,3 +49,8 @@ services:
 volumes:
   uptime-kuma-data:
     name: hangkathon-uptime-data
+
+networks:
+  hangkathon_default:
+    name: hangkathon_default
+    external: true
