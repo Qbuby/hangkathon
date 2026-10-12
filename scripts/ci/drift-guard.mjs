@@ -133,6 +133,75 @@ if (!ciYml.includes("db-schema.test.mjs")) problems.push("ci.yml 缺少数据库
 // 权限最小化：顶层给 contents: read，不要 write
 if (/permissions:\s*write/.test(ciYml)) problems.push("ci.yml 里出现了 permissions: write —— 应保持 contents: read 最小权限");
 
+/* ── 5b. SEO 的几条硬约束 ─────────────────────────────────────────────────── */
+
+/**
+ * JSON-LD 必须经 lib/seo 的安全序列化注入。
+ *
+ * 为什么升级成 CI 守卫：`JSON.stringify` 不转义 `<`，而活动标题/简介是用户可填字段。
+ * 受控实验确认过：标题里带 `</script>` 就能提前闭合脚本块，往页面里注入**真实标记**
+ * （一个 robots meta、一个隐藏 div、一条外站垃圾链），脚本本身被 CSP 挡住，但标记挡不住。
+ * 这个坑从"有人新写一个页面、顺手用了 JSON.stringify"那一刻就会回来，所以必须机器盯着。
+ */
+const APP_DIR = "app";
+const walkApp = (dir, out = []) => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walkApp(full, out);
+    else if (/\.(tsx|ts)$/.test(entry.name)) out.push(full);
+  }
+  return out;
+};
+
+for (const file of walkApp(APP_DIR)) {
+  const body = read(file);
+  const usesLdJson = body.includes("application/ld+json") || body.includes("<JsonLd");
+  if (!usesLdJson) continue;
+  // 允许两种写法：用 JsonLd 组件，或自己调 toJsonLdScript
+  const safe = body.includes("<JsonLd") || body.includes("toJsonLdScript");
+  if (!safe) {
+    problems.push(
+      `${rel(file)}：注入了 application/ld+json 但没走 lib/seo 的安全序列化。` +
+        `JSON.stringify 不转义 <，用户填的标题里带 </script> 就能往页面注入真实标记。改用 <JsonLd data={...} />。`,
+    );
+  }
+}
+
+// noindex 必须真的落在不该收录的页面上
+for (const [page, label] of [
+  ["app/manage/page.tsx", "管理端口"],
+  ["app/auth-error/page.tsx", "登录失败页"],
+]) {
+  if (!existsSync(page)) {
+    problems.push(`缺少 ${page}（${label} 应带 noindex）`);
+    continue;
+  }
+  const body = read(page);
+  if (!/robots:\s*\{[^}]*index:\s*false/s.test(body)) {
+    problems.push(`${page}：${label} 没有 noindex —— 客户端组件导不出 metadata，得有一层服务端薄壳`);
+  }
+}
+
+// robots.txt 必须显式声明 AI 搜索类爬虫（"AI 能不能引用本页"不该靠通配符解释）
+const robotsTs = read("app/robots.ts");
+for (const bot of ["OAI-SearchBot", "Claude-SearchBot", "PerplexityBot"]) {
+  if (!robotsTs.includes(bot)) {
+    problems.push(`app/robots.ts 未显式声明 ${bot} —— AI 搜索可见性取决于逐条声明，不能只写 User-agent: *`);
+  }
+}
+// 这两对爬虫最容易被混为一谈，注释里必须说清各自管什么，避免后来人改错
+if (!robotsTs.includes("GPTBot") && !robotsTs.includes("训练")) {
+  problems.push("app/robots.ts 里没有区分搜索类与训练类爬虫 —— 容易把 OAI-SearchBot 与 GPTBot 搞混");
+}
+
+// sitemap 不得再输出已废弃字段
+const sitemapTs = read("app/sitemap.ts");
+for (const dead of ["priority", "changeFrequency"]) {
+  if (new RegExp(`\\b${dead}:`).test(sitemapTs)) {
+    problems.push(`app/sitemap.ts 仍在输出 ${dead} —— Google 已明确忽略这两个字段`);
+  }
+}
+
 /* ── 6. 告警链路：死人开关必须真的被调到 ─────────────────────────────────── */
 
 const commonLib = read("deploy/lib/common.sh");

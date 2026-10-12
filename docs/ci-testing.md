@@ -70,6 +70,15 @@ docker rm -f hk-pgtest
 TEST_BASE_URL=http://127.0.0.1:3210 node scripts/ci/smoke.mjs
 TEST_BASE_URL=http://127.0.0.1:3210 node scripts/security/adversarial.mjs
 
+# 本地 `next start` 没有数据库：接口会返回 503，与"防线失效"是两回事。
+# 这时必须**显式**告诉套件哪些跳过是合理的，不要用一把总开关整体放行：
+SMOKE_MODE=local TEST_BASE_URL=http://127.0.0.1:3210 node scripts/ci/smoke.mjs
+ADVERSARIAL_ACK=1 TEST_BASE_URL=http://127.0.0.1:3210   REPORT_ALLOW_SKIP_NAMES="/api/admin/session 匿名 user 为 null,/api/admin/session 匿名 admin 为 false,/api/admin/session 不泄漏邮箱"   node scripts/security/adversarial.mjs
+
+# SEO 检查（结构化数据 / robots / sitemap）。查的是**原始 HTML** ——
+# 不执行 JS 的爬虫（GPTBot / PerplexityBot）看到的就是这一层。
+TEST_BASE_URL=http://127.0.0.1:3210 node scripts/seo/audit.mjs
+
 # 对线上站点跑对抗测试必须显式确认（会触发限流计数、产生审计日志）
 ADVERSARIAL_ACK=1 TEST_BASE_URL=https://hangkathon.com node scripts/security/adversarial.mjs
 

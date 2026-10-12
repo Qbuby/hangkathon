@@ -52,7 +52,10 @@ run_post_deploy_checks() {
   fi
 
   fail=0
-  for pair in "scripts/ci/smoke.mjs:部署后冒烟" "scripts/security/adversarial.mjs:对抗测试"; do
+  # 三个套件：冒烟（能不能开）、对抗（防守还在不在）、SEO（能不能被正确收录）。
+  # SEO 单独成一档是因为它查的是"原始 HTML 里的结构化数据"—— 不执行 JS 的爬虫
+  # （GPTBot / PerplexityBot）看到的就是这一层，用浏览器看会得到不同的结论。
+  for pair in "scripts/ci/smoke.mjs:部署后冒烟" "scripts/security/adversarial.mjs:对抗测试" "scripts/seo/audit.mjs:SEO 检查"; do
     script="${pair%%:*}"
     title="${pair#*:}"
     [ -f "$APP_DIR/$script" ] || { log "跳过 $title：$script 不存在"; continue; }

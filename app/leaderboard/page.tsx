@@ -3,17 +3,21 @@ import Link from "next/link";
 import FactionPanel from "../faction-panel";
 import PageMotion from "../motion-mount";
 import SiteHeader from "../site-header";
+import JsonLd from "../json-ld";
 import YourEntry from "./your-entry";
 import DistrictStats from "./district-stats";
 import { platformTotals } from "@/lib/contribution";
 import { PUBLISHED_ACTIVITIES } from "@/lib/published-activities";
+import { breadcrumbNode, graph, webpageNode } from "@/lib/seo/schema";
 import "../activities/[slug]/detail.css";
 import "./leaderboard.css";
 
+const DESCRIPTION =
+  "杭客松荣誉榜：查看杭州各区 AI 活动数量、个人贡献与战队贡献排行，见证城市 AI 共创的实时进度。";
+
 export const metadata: Metadata = {
   title: "荣誉榜 · 杭州 AI 贡献排行",
-  description:
-    "杭客松荣誉榜：查看杭州各区 AI 活动数量、个人贡献与战队贡献排行，见证城市 AI 共创的实时进度。",
+  description: DESCRIPTION,
   alternates: { canonical: "/leaderboard" },
   openGraph: {
     title: "荣誉榜 · 杭州 AI 贡献排行 · 杭客松",
@@ -22,12 +26,29 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * 榜单页的结构化数据只声明"这是什么页、挂在哪"（WebPage + 面包屑）。
+ *
+ * 刻意不生成 ItemList 排行数据：claude-seo 的 schema 规范要求结构化数据必须是
+ * **可核验的事实**，而这里的名次与贡献值随活动结算实时变化、且涉及个人收益隐私
+ * （用户明确要求过收益不外露）。把易变且敏感的数据写进结构化数据，
+ * 既是错误的（摘要会引用过期名次），也越过了用户的隐私线。
+ */
+const LEADERBOARD_JSON_LD = graph([
+  webpageNode({ path: "/leaderboard", name: "荣誉榜 · 杭州 AI 贡献排行", description: DESCRIPTION }),
+  breadcrumbNode([
+    { name: "首页", path: "/" },
+    { name: "荣誉榜", path: "/leaderboard" },
+  ]),
+]);
+
 export default function LeaderboardPage() {
   const totals = platformTotals();
   const teamTotal = totals.teams.reduce((sum, team) => sum + team.points, 0);
 
   return (
     <main className="detail-page lb-page">
+      <JsonLd data={LEADERBOARD_JSON_LD} />
       <SiteHeader />
       <PageMotion page="leaderboard" />
 

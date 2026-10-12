@@ -86,6 +86,7 @@ if (!QUICK) {
 if (WITH_E2E) {
   addStep("部署后冒烟（smoke）", "node", ["scripts/ci/smoke.mjs"]);
   addStep("对抗测试（adversarial）", "node", ["scripts/security/adversarial.mjs"]);
+  addStep("SEO 检查（结构化数据 / robots / sitemap）", "node", ["scripts/seo/audit.mjs"]);
 }
 
 /**

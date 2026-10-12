@@ -1,7 +1,19 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import PageMotion from "../motion-mount";
 import { oauthProviders, sessionSecretConfigured } from "@/auth";
+
+/**
+ * 登录失败的落地页。它对搜索与用户都没有价值：内容随 error 参数变化、
+ * 页面本身是"出事了"的状态，被抓进索引只会显示一屏报错文案。
+ * robots.txt 里已有 Disallow，但那只管抓取；这里再给 noindex 兜底
+ * （robots 的 Disallow 反而会让爬虫看不到 noindex —— 两道一起上更稳）。
+ */
+export const metadata: Metadata = {
+  title: "登录没有完成",
+  robots: { index: false, follow: false },
+};
 
 const EXPLANATIONS: Record<string, string> = {
   Configuration: "服务端认证配置不完整，登录无法启动。",

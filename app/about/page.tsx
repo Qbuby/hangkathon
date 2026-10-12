@@ -4,7 +4,9 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import AboutSection from "../about-section";
 import PageMotion from "../motion-mount";
 import SiteHeader from "../site-header";
+import JsonLd from "../json-ld";
 import { FACTIONS } from "@/lib/factions";
+import { breadcrumbNode, graph, organizationNode, webpageNode } from "@/lib/seo/schema";
 import "../activities/[slug]/detail.css";
 import "../about.css";
 
@@ -14,10 +16,12 @@ import "../about.css";
  * 这里把「杭客松是什么、能为谁解决什么、怎么参与」写清楚，覆盖
  * 「杭州 AI 活动」「AI 大赛」「开发者活动」这类真实搜索词。
  */
+const DESCRIPTION =
+  "杭客松是杭州的 AI 活动与赛事平台，连接开发者、企业与创作者：发布 AI 大赛与开发者活动，支持在线报名参赛、作品提交与荣誉榜。";
+
 export const metadata: Metadata = {
   title: "关于杭客松 · 杭州 AI 活动与赛事平台",
-  description:
-    "杭客松是杭州的 AI 活动与赛事平台，连接开发者、企业与创作者：发布 AI 大赛与开发者活动，支持在线报名参赛、作品提交与荣誉榜。",
+  description: DESCRIPTION,
   alternates: { canonical: "/about" },
   openGraph: {
     title: "关于杭客松 · 杭州 AI 活动与赛事平台",
@@ -25,6 +29,25 @@ export const metadata: Metadata = {
     url: "/about",
   },
 };
+
+/**
+ * 关于页是最适合承载组织实体的页面 —— Organization 只在这里与首页出现，
+ * 且这里能给它配上完整属性（legalName / logo / email / contactPoint）。
+ * 搜索引擎与 AI 摘要读到"这家平台是谁、怎么联系"，通常在关于页取信。
+ */
+const ABOUT_JSON_LD = graph([
+  organizationNode(),
+  webpageNode({
+    path: "/about",
+    name: "关于杭客松",
+    description: DESCRIPTION,
+    type: "AboutPage",
+  }),
+  breadcrumbNode([
+    { name: "首页", path: "/" },
+    { name: "关于杭客松", path: "/about" },
+  ]),
+]);
 
 const CAPABILITIES = [
   {
@@ -48,6 +71,7 @@ const CAPABILITIES = [
 export default function AboutPage() {
   return (
     <main className="detail-page about-page">
+      <JsonLd data={ABOUT_JSON_LD} />
       <SiteHeader />
       {/* 关于页复用 detail 的动效根（.detail-page），动效只会在这页的 [data-reveal] 上生效 */}
       <PageMotion page="detail" />

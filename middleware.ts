@@ -43,6 +43,7 @@ export function middleware(request: Request) {
 }
 
 export const config = {
-  // 静态资源与 SEO 文件不需要 CSP（也无 nonce 意义），跳过以省一次中间件开销
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|motion-boot.js|baidu_verify).*)"],
+  // 静态资源与 SEO 文件不需要 CSP（也无 nonce 意义），跳过以省一次中间件开销。
+  // llms.txt 加进来同理：它是给机器读的纯文本，不带任何脚本。
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|llms.txt|motion-boot.js|baidu_verify).*)"],
 };
