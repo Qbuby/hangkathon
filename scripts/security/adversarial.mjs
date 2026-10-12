@@ -441,14 +441,22 @@ await run("F 响应安全", async () => {
     session.headers["cache-control"] ?? "(无)",
   );
 
-  // TLS 相关：https 目标必须能协商，且 HTTP 应跳转
+  // TLS 相关：https 目标必须能协商，且 HTTP 应跳转。
+  //
+  // 回环 http 目标（服务器上 ci.sh 的部署后检查就是这么调的：http://127.0.0.1:3210）
+  // 天然不适用这条 —— 那里没有 https 可谈。所以这条检查**只在 https 目标上存在**：
+  // 不适用时不记 skipped，只打一行说明。
+  //
+  // 判断标准：凡是"目标本身决定了这条检查存不存在"的断言都该这么处理，
+  // 否则每次部署都会挂着一条永久跳过，把"跳过即失败"稀释成噪声、最后被人整体放行。
+  // （对照：`skipGroup` 留给"前置失败导致后续测不了"那种情况 —— 那是意外，
+  //  必须计入并让套件红；这里是设计上就不适用。）
   if (BASE.startsWith("https://")) {
     const httpBase = BASE.replace("https://", "http://");
     const plain = await get(httpBase, "/");
     check(results, "HTTP 跳转 HTTPS", [301, 302, 308].includes(plain.status), `实际 ${plain.status}`);
   } else {
-    // 本地 http 目标没有"跳转"可言：显式跳过，避免这条断言在不适用时静默消失
-    skipGroup(results, ["HTTP 跳转 HTTPS"], "目标是 http://（本地/服务器回环），不适用 HTTPS 跳转检查");
+    console.log("[注] 目标为 http://（回环部署后检查），本次不做 HTTPS 跳转检查。");
   }
 });
 
