@@ -3,17 +3,33 @@
 这份文档定义"改动怎么算通过"。目标是让**能被自动化验证的东西全自动**，
 只把真正需要人判断的留给人工评审。
 
-## 一、四层闸门
+## 一、CI 的五个并行 job（2026-10-12 起重构）
+
+形态参考 [shadcn-ui/ui](https://github.com/shadcn-ui/ui) 的 `code-check.yml`：
+**每个检查一个独立 job、彼此无 `needs`、并行启动**，取代原先七步串在一个 job 里的写法。
+
+| job | 内容 | 对应本地命令 |
+|---|---|---|
+| `lint` | ESLint | `npm run lint` |
+| `test` | `scripts/**/*.test.mjs` 全部单测 | `node --test …` |
+| `build` | `next build` + 产物凭据扫描 | `npm run build:vercel` |
+| `audit` | `npm audit --omit=dev --audit-level=high` | 同上 |
+| `authz` | `scripts/security/authz-matrix.mjs` 授权矩阵 | 同上 |
+
+好处：失败时看哪个 job 红即可，总时长从「串行相加」变成「最慢的那个」（实测 1 分钟左右）。
+
+**为什么 build 只跑一次**：自托管与 Vercel 是**运行时**差异（有无 `DATABASE_URL`），
+不是构建期差异 —— 两条命令产物同源。原先跑两次是重复劳动，已合并；
+真正的双模式覆盖由服务器侧的冒烟 + 对抗套件负责（部署后验证）。
+
+## 二、四层闸门
 
 | 层 | 跑在哪 | 什么时候 | 内容 | 失败后果 |
 |---|---|---|---|---|
-| **L1 静态与单测** | GitHub runner + 本机 | 每次 push / PR（本机 `gates.mjs --quick`） | ESLint、`scripts/**/*.test.mjs` 全部单测 | 阻断合并 |
-| **L2 双目标构建** | GitHub runner + 本机 | 每次 push / PR（本机 `gates.mjs`） | `next build` 自托管 + Vercel 两份产物、产物凭据扫描 | 阻断合并 |
-| **L3 部署后冒烟** | 服务器（容器健康检查通过后） | 每次 CI 部署完成 | `scripts/ci/smoke.mjs`：路由可达、JSON 字段契约、SEO 文件、安全响应头、响应时间预算 | 记日志标红，人工决定是否回滚 |
-| **L4 对抗测试** | 服务器 / 本机 | 每次 CI 部署完成；`/manage` 安全复核时手动 | `scripts/security/adversarial.mjs`：越权、信息泄露、限流、输入健壮性、响应安全 | 同上 |
-
-为什么 L2 要跑两个构建目标：代码同一份，Vercel 那份走 localStorage、自托管走 Postgres。
-只验证其中一个，另一个的破坏会在部署时才暴露 —— 之前踩过这个坑。
+| **L1 静态与单测** | GitHub runner + 本机 | 每次 push / PR（本机 `gates.mjs --quick`） | ESLint、全部单测 | 阻断合并 |
+| **L2 构建与审计** | GitHub runner + 本机 | 每次 push / PR（本机 `gates.mjs`） | 构建、产物凭据扫描、依赖审计、授权矩阵 | 阻断合并 |
+| **L3 部署后冒烟** | 服务器（容器健康检查通过后） | 每次 CI 部署完成 | `scripts/ci/smoke.mjs`：路由可达、JSON 字段契约、SEO 文件、安全响应头、响应时间预算 | 记日志 + 飞书告警，人工决定是否回滚 |
+| **L4 对抗测试** | 服务器 / 本机 | 每次 CI 部署完成；安全复核时手动 | `scripts/security/adversarial.mjs`：越权、信息泄露、限流、输入健壮性、CSP nonce | 同上 |
 
 ## 二、怎么用
 
@@ -58,6 +74,10 @@ ADVERSARIAL_ACK=1 TEST_BASE_URL=https://hangkathon.com node scripts/security/adv
 4. **失败不静默**。冒烟/对抗失败时 `deploy/ci.sh` 返回非零，systemd 会把这次运行标成 failed，
    `journalctl -u hangkathon-ci` 或 `/var/log/hangkathon-ci.log` 里能直接看到 FAIL 清单。
 5. **不要用 `docker system prune`**（历史事故：会删掉运行中的容器与 compose 网络，站点直接 502）。
+6. **改 workflow / 门禁前先看成熟开源项目的对应文件**（本项目已参考 shadcn-ui/ui 的
+   `code-check.yml` 与 superagent-ai/skills 的 recon-security）；不要凭空设计流程。
+7. **Windows 路径分隔符**：扫描类脚本（如 authz-matrix）读到的是 `\`，做 `startsWith("/api/…")`
+   之前必须 `replaceAll("\\", "/")` 归一化，否则前缀判断在本地静默失效（CI 是 Linux，发现不了）。
 
 ## 五、已知边界（写在明面上，别假装覆盖了）
 

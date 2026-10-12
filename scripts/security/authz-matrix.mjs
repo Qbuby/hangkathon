@@ -33,7 +33,8 @@ walk("app/api");
 
 for (const file of rows) {
   const source = readFileSync(file, "utf8");
-  const route = file.replace(/^app/, "").replace(/\/route\.ts$/, "") || "/";
+  // Windows 下路径分隔符是 \，不归一化的话 startsWith("/api/auth/") 这类前缀判断全失效
+  const route = file.replaceAll("\\", "/").replace(/^app/, "").replace(/\/route\.ts$/, "") || "/";
   const methods = [...source.matchAll(/export async function (GET|POST|PATCH|PUT|DELETE)/g)].map((match) => match[1]);
   const guards = GUARDS.filter((guard) => new RegExp(`\\b${guard}\\b`).test(source));
   const isAdminRoute = route.startsWith("/api/admin");

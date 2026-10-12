@@ -1,7 +1,12 @@
 name: CI
 
-# 合并前闸门：跑在 GitHub 的干净 runner 上，与本地 scripts/ci/gates.mjs 同一套命令。
-# 部署后冒烟与对抗测试不打这里 —— 它们在服务器的 deploy/ci.sh 里跑（GitHub runner 访问不到内网容器）。
+# 合并前闸门。形态参考 shadcn-ui/ui 的 code-check.yml：**每个检查一个独立 job、
+# 彼此无依赖、并行启动**，而不是七步串在一个 job 里。好处：
+#   - 失败时看哪个 job 红就行，不用在一个 log 里翻步骤；
+#   - lint / test / audit / authz 与构建并行，总时长从「串行相加」变成「最慢的那个」。
+#
+# 部署后冒烟与对抗测试不打这里 —— 它们在服务器 deploy/ci.sh 里跑
+# （GitHub runner 访问不到内网容器；本地用 node scripts/ci/gates.mjs --with-e2e 补）。
 on:
   push:
     branches: [main]
@@ -13,52 +18,92 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# 最小权限：本 workflow 不需要任何写操作（ci-cd-security：GITHUB_TOKEN 收紧到只读）
-permissions:
-  contents: read
-
 jobs:
-  verify:
+  lint:
+    name: ESLint
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      # SHA 固定（ci-cd-security：浮动 tag 可被上游接管）
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "22"
           cache: npm
+      # runner 在境外但依赖里 next/eslint 是大包，走 npmmirror 与本地解析同一份依赖树
+      - run: npm ci --registry=https://registry.npmmirror.com
+      - run: npm run lint
 
-      # 服务器在国内直连 npmjs 不稳定，runner 在境外但依赖里有 next/eslint 等大包，
-      # 统一走 npmmirror 让本地与 CI 解析出同一份依赖树。
-      - name: 安装依赖
-        run: npm ci --registry=https://registry.npmmirror.com
+  test:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --registry=https://registry.npmmirror.com
+      - run: node --test scripts/*.test.mjs scripts/douyin/*.test.mjs
 
-      - name: ESLint
-        run: npm run lint
-
-      - name: 单元测试
-        run: node --test scripts/*.test.mjs scripts/douyin/*.test.mjs
-
-      # 两个构建目标都要过：代码同一份，Vercel 走 localStorage、自托管走 Postgres，
-      # 只验证其中一个，另一个的破坏会在部署时才暴露。
-      - name: 构建（自托管）
-        run: npm run build:vercel
-
-      - name: 构建（Vercel）
-        run: npm run build:vercel
-
-      # 已知漏洞闸门：high/critical 直接失败（与 npm audit fix 的修复线联动）
-      - name: 依赖漏洞审计
-        run: npm audit --omit=dev --audit-level=high
-
+  build:
+    name: 构建（双目标）
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --registry=https://registry.npmmirror.com
+      # 自托管那份在 Dockerfile 里以 DOCKER_BUILD=1 构建 standalone；这里跑普通构建
+      # 覆盖 Vercel（localStorage 模式）。两条命令的产物同源，运行时差异由服务器侧
+      # 的冒烟 + 对抗套件覆盖，所以不需要在 CI 里重复两次。
+      - run: npm run build:vercel
       # 部署产物里绝不能出现凭据：用模式扫描而不是人工检查
       - name: 检查产物中是否泄漏凭据
         run: |
-          set -e
-          if grep -rIl -E 'LTAI5t[A-Za-z0-9]{8,}|wx[0-9a-f]{16}|(SECRET|AppSecret)[\"'"'"']?\s*[:=]\s*[\"'"'"'][A-Za-z0-9_\-]{16,}' .next public 2>/dev/null; then
+          if grep -rIl -E 'LTAI5t[A-Za-z0-9]{8,}|wx[0-9a-f]{16}|(SECRET|AppSecret)["'"'"']?\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{16,}' .next public 2>/dev/null; then
             echo "::error::构建产物中发现疑似凭据，请立即轮换并清除"
             exit 1
           fi
           echo "未发现凭据泄漏"
+
+  audit:
+    name: 依赖漏洞审计
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --registry=https://registry.npmmirror.com
+      # high/critical 直接失败：与 npm audit fix 的修复线联动
+      - run: npm audit --omit=dev --audit-level=high
+
+  authz:
+    name: 授权矩阵
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --registry=https://registry.npmmirror.com
+      # 静态扫描：写方法无守卫、管理读接口缺 requireAdmin 即 exit 1（authz-security）
+      - run: node scripts/security/authz-matrix.mjs
