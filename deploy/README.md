@@ -193,3 +193,27 @@ systemctl start hangkathon-events.service          # 手动抓一轮
 首次部署时源码是用云助手分片上传到 `/opt/hk-src` 再解包的（当时还不是 git 检出）。
 现在 `/opt/hangkathon` 已经是 git 检出，`deploy/setup-ci.sh` 完成后即可由 CI 接管；
 只有在 CI 凭据不可用时，才需要回到"重新打包上传覆盖 + `docker compose up -d --build`"这条老路。
+
+## 监控告警（2026-10-12 起）
+
+三层构成，任何一层不通都能被下一层补上：
+
+| 层 | 组件 | 覆盖 | 位置 |
+|---|---|---|---|
+| 存活探测 | Uptime Kuma（自建） | 站点、接口、容器健康 | `uptime.hangkathon.com`（Basic Auth；容器仅绑 127.0.0.1:3001，不新增公网端口） |
+| 定时任务 | backup.sh / integrity-check.sh | 备份与完整性自检成功/失败都推送 | `deploy/backup.sh`、`deploy/integrity-check.sh` |
+| 部署验证 | ci.sh 的部署后检查 | 冒烟与对抗套件失败时推送 | `deploy/ci.sh` |
+
+告警出口：飞书自建应用（`deploy/feishu-alert.mjs`，凭据在服务器 `.env`），
+统一入口 `deploy/alert.sh`。所有调用都吞掉自身错误（退出码恒为 0）——
+告警通道故障不该让备份任务失败。
+
+```sh
+sh deploy/alert.sh "标题" "正文"          # 手工发一条
+sh deploy/backup.sh                       # 备份（含成功通知）
+sh deploy/integrity-check.sh              # 自检（仅失败时通知）
+```
+
+Kuma 面板的监控项在 Web 界面添加（它的 socket.io 通知配置没有稳定的无头 API）。
+注意 Kuma 自带的 Feishu 渠道只吃**群自定义机器人 webhook**；自建应用走的是
+App ID/Secret → tenant_access_token → im/v1/messages，由上面的脚本实现，两条路互不通用。
