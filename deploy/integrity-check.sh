@@ -76,7 +76,10 @@ fi
 
 if [ "$fail" -eq 0 ]; then
   echo OK > "$STATUS_FILE"
+  log "自检通过"
 else
   echo ALERT > "$STATUS_FILE"
+  # 告警外发：完整性/备份异常必须有人看到，只写日志等于没有响应链
+  sh "$APP_DIR/deploy/alert.sh" "【杭客松】完整性自检告警" "服务器 $(hostname) 于 $(date '+%F %T') 自检未通过，明细见 /var/log/hangkathon-integrity.log" || true
 fi
 exit "$fail"

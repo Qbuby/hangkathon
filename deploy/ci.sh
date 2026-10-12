@@ -39,6 +39,7 @@ run_post_deploy_checks() {
       log "$title 通过（$sha）"
     else
       log "$title 失败（$sha）—— 详见上方输出"
+      sh "$APP_DIR/deploy/alert.sh" "【杭客松】部署后检查失败" "$title 未通过（提交 $sha），明细见 /var/log/hangkathon-ci.log" || true
       fail=1
     fi
   done

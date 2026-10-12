@@ -41,6 +41,7 @@ if docker exec "$CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" -Fc 2>/dev/null 
 else
   rm -f "$DUMP"
   log "全库备份失败"
+  sh "$APP_DIR/deploy/alert.sh" "【杭客松】备份失败" "$(date '+%F %T') 全库 pg_dump 失败，明细见 /var/log/hangkathon-backup.log" || true
   exit 1
 fi
 
@@ -96,3 +97,4 @@ done
 rm -f "$KEEP"
 
 log "备份流程结束，目录占用 $(du -sh "$BACKUP_DIR" | cut -f1)"
+sh "$APP_DIR/deploy/alert.sh" "【杭客松】备份完成" "$(date '+%F %T') 备份成功，体积 $(du -sh "$BACKUP_DIR" | cut -f1)" || true
