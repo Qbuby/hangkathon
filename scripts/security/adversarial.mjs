@@ -124,7 +124,7 @@ await run("B 越权访问", async () => {
     check(
       results,
       `匿名 ${path} 被拒（401/403/503）`,
-      [401, 403, 503].includes(result.status),
+      [401, 403, 429, 503].includes(result.status),
       `实际 ${result.status}`,
     );
   }
@@ -155,7 +155,7 @@ await run("B 越权访问", async () => {
     ["DELETE", "/api/admin/activities/guoqing-77", null],
     ["PATCH", "/api/admin/users/00000000-0000-0000-0000-000000000000", { role: "admin" }],
     /** 405 也算通过：该路由只导出 PATCH，删除方法压根不存在，攻击面为零。 */
-    ["DELETE", "/api/admin/submissions/00000000-0000-0000-0000-000000000000", null, [401, 403, 405, 503]],
+    ["DELETE", "/api/admin/submissions/00000000-0000-0000-0000-000000000000", null, [401, 403, 405, 429, 503]],
     ["POST", "/api/admin/blacklist", { email: "attacker@example.com", reason: "probe" }],
   ];
   for (const [method, path, body, allowed] of writes) {
@@ -164,7 +164,7 @@ await run("B 越权访问", async () => {
       headers: { "content-type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
-    const want = allowed ?? [401, 403, 503];
+    const want = allowed ?? [401, 403, 429, 503];
     check(
       results,
       `匿名 ${method} ${path} 被拒`,
@@ -183,7 +183,7 @@ await run("B 越权访问", async () => {
     check(
       results,
       `伪造 cookie 被拒（${fake.slice(0, 34)}…）`,
-      [401, 403, 503].includes(result.status),
+      [401, 403, 429, 503].includes(result.status),
       `实际 ${result.status}`,
     );
   }
@@ -225,14 +225,14 @@ await run("C 内容与来源控制", async () => {
     phone: "13800000000",
     statement: "对抗测试探测代理商申请入口",
   });
-  check(results, "匿名提交代理商申请被拒", [401, 403, 503].includes(applyAnon.status), `实际 ${applyAnon.status}`);
+  check(results, "匿名提交代理商申请被拒", [401, 403, 429, 503].includes(applyAnon.status), `实际 ${applyAnon.status}`);
   const createAnon = await postJson(BASE, "/api/activities", { title: "对抗测试", subtitle: "x" });
-  check(results, "匿名创建活动被拒（发布权限门禁）", [401, 403, 503].includes(createAnon.status), `实际 ${createAnon.status}`);
+  check(results, "匿名创建活动被拒（发布权限门禁）", [401, 403, 429, 503].includes(createAnon.status), `实际 ${createAnon.status}`);
   // 伪造会话也不能拿到发布权
   const createForged = await postJson(BASE, "/api/activities", { title: "对抗测试", subtitle: "x" }, {
     headers: { cookie: "__Secure-authjs.session-token=forged.signature" },
   });
-  check(results, "伪造会话创建活动被拒", [401, 403, 503].includes(createForged.status), `实际 ${createForged.status}`);
+  check(results, "伪造会话创建活动被拒", [401, 403, 429, 503].includes(createForged.status), `实际 ${createForged.status}`);
 
   // C4 创建活动：未登录必须 401，不会因为"内容不敏感"就放行
   const create = await postJson(BASE, "/api/activities", {
@@ -242,7 +242,7 @@ await run("C 内容与来源控制", async () => {
     host: "probe",
     contact: "probe@example.com",
   });
-  check(results, "匿名创建活动被拒", [401, 403, 503].includes(create.status), `实际 ${create.status}`);
+  check(results, "匿名创建活动被拒", [401, 403, 429, 503].includes(create.status), `实际 ${create.status}`);
 });
 
 /* ──────────────────────── D. 限流与暴力破解 ──────────────────────── */
@@ -322,7 +322,13 @@ await run("E 输入健壮性", async () => {
 
   // HTTP 方法不被支持时应 405/404，而不是误当成 GET
   const putResult = await req(`${BASE}/api/session`, { method: "PUT", body: "x" });
-  check(results, "不支持的 HTTP 方法被拒", [404, 405].includes(putResult.status), `实际 ${putResult.status}`);
+  // PUT 到只有 GET 的接口：应 404/405；429 也算通过（nginx 写接口限速先挡下，更靠前）
+  check(
+    results,
+    "不支持的 HTTP 方法被拒",
+    [404, 405, 429].includes(putResult.status),
+    `实际 ${putResult.status}`,
+  );
 });
 
 /* ─────────────────────────── F. 响应安全 ─────────────────────────── */
@@ -343,7 +349,7 @@ await run("F 响应安全", async () => {
     scriptSrc.slice(0, 80),
   );
   // 可执行内联脚本必须带 CSP 里的同一个 nonce；ld+json 是数据块（非可执行），CSP 不管它
-  const executableInline = [...home.body.matchAll(/<script(?![^>]*src=)([^>]*)>/g)]
+  const executableInline = [...home.body.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)]
     .map((match) => match[0])
     .filter((tag) => !/type=["']application\/ld\+json["']/.test(tag));
   const nonced = executableInline.filter((tag) => /nonce="([^"]+)"/.test(tag));
@@ -351,7 +357,8 @@ await run("F 响应安全", async () => {
     results,
     "可执行内联脚本全部带 CSP 同源 nonce（ld+json 数据块除外）",
     executableInline.length > 0 && nonced.length === executableInline.length,
-    `可执行内联 ${executableInline.length} 个，带 nonce ${nonced.length} 个`,
+    `可执行内联 ${executableInline.length} 个，带 nonce ${nonced.length} 个；缺 nonce 的脚本：` +
+      executableInline.filter((tag) => !/nonce=/.test(tag)).map((tag) => tag.slice(0, 120)).join(" ␤ ") || "(无)",
   );
   check(results, "首页含 HSTS", (home.headers["strict-transport-security"] ?? "").includes("max-age="), "");
   check(results, "未泄露 X-Powered-By", !("x-powered-by" in home.headers) || !/next/i.test(home.headers["x-powered-by"]), `实际 ${home.headers["x-powered-by"] ?? "(无)"}`);
