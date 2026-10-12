@@ -1,0 +1,43 @@
+# 监控与告警栈（Uptime Kuma + Healthchecks）
+#
+# 为什么是这两件：
+#   - Uptime Kuma 自建，探测站点/接口/容器的存活，自己宕机时没人知道；
+#   - Healthchecks.io 免费层托管在**服务器之外**，做备份/自检任务的「死人开关」——
+#     整台机器宕机时它仍能告警，这是自建方案做不到的（故障域不同）。
+#
+# 关键约束：云防火墙只放行 80/443（22 已按安全评估关闭），所以 Uptime Kuma
+# 绑定 127.0.0.1:3001，经 nginx 反代到 uptime.hangkathon.com + Basic Auth，
+# 不新增任何公网端口。
+#
+# 部署：sh deploy/monitoring-setup.sh（幂等，可重复执行）
+
+services:
+  uptime-kuma:
+    # 带 docker.m.daocloud.io 前缀：这台机器直连 Docker Hub 很慢（裸 louislam/uptime-kuma
+    # 拉了 8 分钟卡在解包），显式走国内镜像前缀几分钟完成。内容与上游同一份 digest。
+    image: docker.m.daocloud.io/louislam/uptime-kuma:1
+    container_name: hangkathon-uptime
+    restart: unless-stopped
+    # 仅环回可达：公网入口只有 nginx 反代的子域名
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+    environment:
+      # 用国内可达的镜像源拉取 npm 依赖（容器启动时会自更新）
+      UPTIME_KUMA_UPDATE_CHECK: "true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3001/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  uptime-kuma-data:
+    name: hangkathon-uptime-data
