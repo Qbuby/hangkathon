@@ -14,6 +14,7 @@ if ! command -v docker >/dev/null 2>&1; then
   dnf install -y dnf-utils >/dev/null 2>&1 || true
   dnf config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo >/dev/null
   # Alibaba Cloud Linux 3 的 releasever 是 3，docker-ce 仓库里没有对应路径，固定成 8
+  # shellcheck disable=SC2016  # 单引号是刻意的：这里的 \$releasever 是给 sed 的字面量，不该被 shell 展开
   sed -i 's/\$releasever/8/g' /etc/yum.repos.d/docker-ce.repo
   dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 fi

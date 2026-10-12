@@ -1,0 +1,172 @@
+#!/usr/bin/env node
+/**
+ * 漂移守卫：把"只写在文档 / 只存在服务器上 / 只在某个人脑子里"的约定，变成 CI 可执行的断言。
+ *
+ * 每一条都来自**真实踩过的坑**，不是假想的规范：
+ *
+ *   1. timer 必须有安装脚本。2026-10-12 发现 backup / integrity / events 三个
+ *      systemd timer 在整个仓库里出现 0 次（没有 cp、没有 enable）—— 它们靠早期人工
+ *      操作装上去，任何一次重建机器都无法复现，而合规文档已经把"每日备份"写成了
+ *      检查表 8.3.1 的正式答复。合规声明必须能由代码重现。
+ *
+ *   2. nginx vhost 必须引用公共反代片段。四个 proxy_set_header 原先抄了 4 遍，
+ *      改 XFF 策略时漏了一处（本项目真实发生过）。
+ *
+ *   3. X-Forwarded-For 不得退回 $proxy_add_x_forwarded_for（追加模式可被客户端伪造，
+ *      污染审计 IP、绕过按 IP 的限流）。这是安全评估里的 P2，修好之后不能改回去。
+ *
+ *   4. 部署脚本里不得出现"把退出码抹平"的写法（`cmd | gzip`、`|| echo 0`）。
+ *      它们正是本轮修掉的那批静默失败。用模式匹配做粗筛，命中就要求人工确认。
+ *
+ * 用法：node scripts/ci/drift-guard.mjs
+ */
+
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const problems = [];
+const notes = [];
+const rel = (path) => path.replaceAll("\\", "/");
+const read = (path) => readFileSync(path, "utf8");
+
+/* ── 1. systemd timer 必须能被脚本重现安装 ───────────────────────────────── */
+
+const TIMERS = ["hangkathon-ci", "hangkathon-backup", "hangkathon-integrity", "hangkathon-events"];
+const installScript = "deploy/install-timers.sh";
+const installerBody = existsSync(installScript) ? read(installScript) : "";
+
+for (const name of TIMERS) {
+  for (const suffix of [".service", ".timer"]) {
+    const unit = `deploy/${name}${suffix}`;
+    if (!existsSync(unit)) problems.push(`缺少 systemd 单元文件 ${unit}`);
+  }
+  if (!installerBody.includes(name)) {
+    problems.push(`deploy/install-timers.sh 里没有安装 ${name} —— 该 timer 无法从仓库重建`);
+  }
+}
+
+// 安装脚本得真的装上，不能只是提到名字
+if (!/install\s+-m\s+644/.test(installerBody)) problems.push(`${installScript} 里没有 install -m 644 写入 /etc/systemd/system`);
+if (!/systemctl\s+daemon-reload/.test(installerBody)) problems.push(`${installScript} 里没有 systemctl daemon-reload`);
+if (!/systemctl\s+enable\s+--now/.test(installerBody)) problems.push(`${installScript} 里没有 systemctl enable --now`);
+
+// setup-ci.sh 必须调用安装脚本，否则"一次性初始化"仍然装不全 timer
+const setupBody = existsSync("deploy/setup-ci.sh") ? read("deploy/setup-ci.sh") : "";
+if (!setupBody.includes("install-timers.sh")) {
+  problems.push("deploy/setup-ci.sh 没有调用 install-timers.sh —— 新机器初始化后可能只有 ci timer 在跑");
+}
+
+/* ── 2 & 3. nginx 配置：公共片段 + XFF 覆盖语义 ──────────────────────────── */
+
+const INCLUDE_PATH = "/www/server/panel/vhost/nginx/hangkathon-proxy-common.inc";
+const mainVhost = read("deploy/nginx-hangkathon.com.conf");
+const uptimeVhost = read("deploy/nginx-uptime.hangkathon.com.conf");
+const proxyInc = read("deploy/nginx-proxy-common.inc");
+
+for (const [name, body] of [["deploy/nginx-hangkathon.com.conf", mainVhost], ["deploy/nginx-uptime.hangkathon.com.conf", uptimeVhost]]) {
+  if (!body.includes(`include ${INCLUDE_PATH};`)) {
+    problems.push(`${name} 没有 include ${INCLUDE_PATH} —— 反代头又变成各写一份了`);
+  }
+  if (/X-Forwarded-For\s+\$proxy_add_x_forwarded_for/.test(body)) {
+    problems.push(`${name} 出现追加式 XFF（\$proxy_add_x_forwarded_for）—— 客户端可伪造，必须用 $remote_addr 覆盖`);
+  }
+}
+
+if (!/X-Forwarded-For\s+\$remote_addr/.test(proxyInc)) {
+  problems.push("deploy/nginx-proxy-common.inc 没有用 $remote_addr 覆盖 X-Forwarded-For");
+}
+if (!/X-Forwarded-Proto\s+\$scheme/.test(proxyInc)) {
+  problems.push("deploy/nginx-proxy-common.inc 缺少 X-Forwarded-Proto");
+}
+
+// 片段扩展名不能是 .conf：宝塔 nginx.conf 里有 `include .../vhost/nginx/*.conf;`，
+// 被当成独立配置加载时 proxy_set_header 不在 server/location 上下文里，nginx -t 会直接失败。
+if (existsSync("deploy/nginx-proxy-common.conf")) {
+  problems.push("反代公共片段不能叫 .conf（会被宝塔的 include .../*.conf 当独立配置加载导致 nginx -t 失败），应为 .inc");
+}
+
+/* ── 4. 部署脚本不得抹平退出码 ───────────────────────────────────────────── */
+
+/**
+ * 这些模式是"命令失败但脚本继续"的常见形态。允许列表里的是确实无所谓的场景
+ * （清理/提示类命令），命中其他位置就要求人工确认 —— 每一步都是踩过的：
+ *   · `pg_dump | gzip`   → pg_dump 的退出码被 gzip 覆盖
+ *   · `... || echo 0`    → 数据库连不上被读成"计数为 0"
+ *   · `docker inspect | while read` → 子 shell 里的 fail=1 丢失
+ */
+const MASKING_PATTERNS = [
+  { re: /pg_dump[^|\n]*\|\s*(gzip|docker)/, why: "pg_dump 接了管道：退出码会被下游命令覆盖" },
+  { re: /psql[^|\n]*\|\|[^|\n]*echo\s+["']?[0-9?]/, why: "psql 失败被 || echo 数字 抹平" },
+  { re: /docker\s+inspect[^|\n]*\|\s*while/, why: "docker inspect 进了管道：子 shell 里的判定结果会丢失" },
+];
+
+const DEPLOY_SCRIPTS = readdirSync("deploy")
+  .filter((name) => name.endsWith(".sh"))
+  .map((name) => join("deploy", name));
+
+for (const path of DEPLOY_SCRIPTS) {
+  // 守卫脚本本身引用了这些模式（用来解释问题），跳过
+  if (rel(path).endsWith("fault-injection.sh")) continue;
+  const body = read(path);
+  for (const { re, why } of MASKING_PATTERNS) {
+    for (const line of body.split("\n")) {
+      if (re.test(line) && !line.trimStart().startsWith("#")) {
+        problems.push(`${rel(path)}：${why} —— ${line.trim().slice(0, 100)}`);
+      }
+    }
+  }
+}
+
+/* ── 5. CI 与本地门禁共用同一份测试发现逻辑 ─────────────────────────────── */
+
+const ciYml = read(".github/workflows/ci.yml");
+if (/node\s+--test\s+scripts\/\*\.test\.mjs/.test(ciYml)) {
+  problems.push("ci.yml 又用回了手写 glob（scripts/*.test.mjs）—— 会漏掉子目录里的测试且静默通过");
+}
+if (!ciYml.includes("unit-tests.mjs")) {
+  problems.push("ci.yml 的 test job 没有走 scripts/ci/unit-tests.mjs 统一发现");
+}
+if (!ciYml.includes("shellcheck")) problems.push("ci.yml 缺少 shellcheck job（运维脚本 0 静态检查）");
+if (!ciYml.includes("actionlint")) problems.push("ci.yml 缺少 actionlint job（workflow 自身无检查）");
+if (!ciYml.includes("db-schema.test.mjs")) problems.push("ci.yml 缺少数据库层测试（迁移/触发器/限流 SQL 无回归防护）");
+
+// 权限最小化：顶层给 contents: read，不要 write
+if (/permissions:\s*write/.test(ciYml)) problems.push("ci.yml 里出现了 permissions: write —— 应保持 contents: read 最小权限");
+
+/* ── 6. 告警链路：死人开关必须真的被调到 ─────────────────────────────────── */
+
+const commonLib = read("deploy/lib/common.sh");
+if (!/hk_ping\s*\(\)/.test(commonLib)) problems.push("deploy/lib/common.sh 缺少 hk_ping（死人开关）");
+// 三条链都要接上带外告警：备份（aurora）、自检（integrity）、部署（ci）。
+// hk_finish 内部已经 ping，所以"用 hk_finish"也算接上。
+const PING_CHAINS = [
+  ["deploy/backup.sh", "备份"],
+  ["deploy/integrity-check.sh", "完整性自检"],
+  ["deploy/ci.sh", "部署"],
+];
+for (const [path, label] of PING_CHAINS) {
+  if (!existsSync(path)) {
+    problems.push(`${label}链的脚本不存在：${path}`);
+    continue;
+  }
+  const body = read(path);
+  if (!body.includes("hk_ping ") && !body.includes("hk_finish")) {
+    problems.push(`${label}链（${path}）没有接死人开关：hk_ping 与 hk_finish 都没被调用`);
+  }
+}
+
+/* ── 输出 ───────────────────────────────────────────────────────────────── */
+
+for (const note of notes) console.log(`[注] ${note}`);
+if (problems.length === 0) {
+  console.log("漂移守卫：全部通过。");
+  console.log(`  · ${TIMERS.length} 个 timer 均有单元文件与安装路径`);
+  console.log("  · nginx vhost 引用公共反代片段且 XFF 为覆盖模式");
+  console.log(`  · ${DEPLOY_SCRIPTS.length} 个部署脚本未发现退出码抹平写法`);
+  console.log("  · CI 与本地门禁共用测试发现；含 shellcheck / actionlint / db 层");
+  console.log("  · 死人开关已在备份、自检、部署三条链上埋点");
+  process.exit(0);
+}
+console.log("漂移守卫发现问题：");
+for (const problem of problems) console.log(`  - ${problem}`);
+process.exit(1);

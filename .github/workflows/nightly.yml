@@ -1,0 +1,122 @@
+name: Nightly
+
+# 夜间流水线：放"有价值但不该卡住每次 push"的检查。
+#
+# 参考成熟项目的做法（Playwright / OWASP ZAP 的 nightly 模式）：把**耗时**与
+# **会外联**的检查从 push 路径移出去，只在失败时开 issue。
+# push 路径（ci.yml）保持"分钟级出结果"，夜间这条可以跑几分钟。
+#
+# 三件事：
+#   1. 完整渗透管线（8 段式，含被动侦察/CT/端口/TLS），跑白名单内自有资产；
+#   2. moderate 级依赖审计 —— push 路径只卡 high/critical，低一级的在这里兜；
+#   3. 覆盖率采集（node --experimental-test-coverage），当前只记录不设门槛，
+#      先把基线数据攒起来，再决定阈值 —— 直接设阈值只会逼人写凑数的测试。
+on:
+  schedule:
+    # 每天 19:00 UTC = 次日 03:00 CST（避开备份 03:20 与自检 04:10 的时段）
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  pentest:
+    name: 渗透管线（自有资产，显式授权）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --registry=https://registry.npmmirror.com
+      # 目标在 run.mjs 的 SCOPE_ALLOWLIST 里硬编码（自有资产），缺 --ack 会拒绝执行。
+      # RoE 红线（暴力破解/DoS/数据导出/写业务数据/利用验证）由脚本自身把关。
+      - name: 渗透测试管线
+        id: pentest
+        # P1 发现会让脚本退出 1；报告仍会生成，下面一步负责收集
+        continue-on-error: true
+        run: node scripts/pentest/run.mjs --target https://hangkathon.com --ack
+      - name: 收集证据（无论成败）
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: pentest-evidence
+          path: pentest-evidence/
+          retention-days: 90
+          if-no-files-found: warn
+
+  audit-moderate:
+    name: 依赖审计（moderate）
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --registry=https://registry.npmmirror.com
+      - run: npm audit --omit=dev --audit-level=moderate
+
+  coverage:
+    name: 单元测试覆盖率基线
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --registry=https://registry.npmmirror.com
+      # 只记录不设门槛：先把基线攒出来，阈值才有依据。
+      # （直接设阈值的常见后果是有人写空断言把数字凑上去，反而降低可信度。）
+      - name: 覆盖率
+        run: |
+          # 用数组装文件清单：`$(...)` 裸展开会触发 SC2046（空格路径会被拆错）
+          mapfile -t test_files < <(node scripts/ci/unit-tests.mjs --list | tr ' ' '\n' | grep -v '^$')
+          printf '测试文件 %d 个\n' "${#test_files[@]}"
+          node --test --experimental-test-coverage "${test_files[@]}" | tee coverage.txt
+          grep -A 30 'start of coverage report' coverage.txt || true
+      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.txt
+          retention-days: 30
+
+  notify:
+    name: 失败时开 issue
+    needs: [pentest, audit-moderate, coverage]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      # 夜间失败不该只躺在 Actions 列表里没人看 —— 开一个 issue 让飞书/邮件把它带到人面前。
+      # 用固定标题做去重：同一个失败不会每晚开一个新 issue。
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const title = "Nightly 失败（自动化）";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `夜间流水线失败。\n\n- 触发：${context.eventName}\n- 运行记录：${runUrl}\n- 提交：${context.sha}\n\n三个子任务：pentest / audit-moderate / coverage。请打开运行记录查看哪个 job 红了。`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: "open", labels: "nightly",
+            });
+            const hit = existing.data.find((issue) => issue.title === title);
+            if (hit) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: hit.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ["nightly"],
+              });
+            }

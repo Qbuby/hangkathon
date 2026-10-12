@@ -1,9 +1,25 @@
 #!/bin/sh
 # 一次性初始化 CI：装 git、生成部署密钥、把 /opt/hangkathon 变成 git 检出、装 systemd timer。
 # 幂等，可以反复执行（例如把公钥加到 GitHub 之后再跑一次完成首次检出）。
+#
+# timer 的安装统一交给 deploy/install-timers.sh（四个 timer 一个入口），本脚本只负责
+# git 侧的一次性动作 —— 原先这里只装 hangkathon-ci.timer，backup/integrity/events
+# 三个 timer 全靠文档里手敲 cp，实际没人装（2026-10-12 查过：装了，但没有任何脚本能重现）。
 set -u
 
-APP_DIR=/opt/hangkathon
+# 先按脚本自身位置定位：从仓库检出直接跑（本地体检、故障注入）也能用；
+# APP_DIR 仍可被环境变量覆盖（沙箱测试就靠它）。
+SELF_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+APP_DIR="${APP_DIR:-$(dirname -- "$SELF_DIR")}"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=lib/common.sh
+# 显式检查公共库存在：`. ` 失败在 set -u（无 set -e）下不会中断脚本，
+# 结果是后面每个 hk_* 都报 command not found 而脚本继续跑下去 ——
+# ci.sh 走这条路会让"自动部署"静默半瘫。宁可这里就退非零。
+[ -f "$SELF_DIR/lib/common.sh" ] || { echo "缺少 $SELF_DIR/lib/common.sh（检出损坏？）" >&2; exit 1; }
+. "$SELF_DIR/lib/common.sh"
+hk_init setup-ci
+
 KEY=/root/.ssh/hangkathon_deploy
 REPO_SSH=git@github.com:Qbuby/hangkathon.git
 
@@ -37,13 +53,8 @@ git config user.name "hangkathon-ci"
 git config user.email "ci@hangkathon.local"
 echo "remote=$(git remote get-url origin)"
 
-echo "== 4) systemd timer =="
-install -m 644 "$APP_DIR/deploy/hangkathon-ci.service" /etc/systemd/system/hangkathon-ci.service
-install -m 644 "$APP_DIR/deploy/hangkathon-ci.timer" /etc/systemd/system/hangkathon-ci.timer
-chmod +x "$APP_DIR/deploy/ci.sh" 2>/dev/null
-systemctl daemon-reload
-systemctl enable --now hangkathon-ci.timer >/dev/null 2>&1
-systemctl list-timers hangkathon-ci.timer --no-pager | head -3
+echo "== 4) systemd timer（全部四个，走统一入口）=="
+sh "$APP_DIR/deploy/install-timers.sh" || echo "timer 安装未全部成功，见上方输出"
 
 echo "== 5) 首次检出 =="
 if git fetch --depth 1 origin main > /tmp/hangkathon-first-fetch.log 2>&1; then

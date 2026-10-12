@@ -22,7 +22,7 @@
  *   - 所有断言都是只读或"应被拒绝"的请求，不会创建活动、不会改数据。
  */
 
-import { DEFAULT_BASE, check, get, postJson, report, req } from "../ci/lib.mjs";
+import { DEFAULT_BASE, check, get, postJson, report, req, skipGroup } from "../ci/lib.mjs";
 
 const BASE = process.env.TEST_BASE_URL ?? DEFAULT_BASE;
 const IS_LOCAL =
@@ -81,16 +81,34 @@ await run("A 信息泄露", async () => {
       leaked.push(`${path} → ${result.status}`);
     }
   }
-  check(results, "40 个敏感路径全部不可达", leaked.length === 0, leaked.join(", "));
+  // 数量从数组算出来而不是写死：原先文案说 "40 个" 但列表只有 20 条，
+  // 看到的人会以为覆盖面是实际的两倍。
+  check(results, `${SENSITIVE.length} 个敏感路径全部不可达`, leaked.length === 0, leaked.join(", "));
 
-  // 源码映射泄漏：能拿到 .map 就等于源码公开
-  const mapFile = await get(BASE, "/_next/static/chunks/turbopack-0l4z7d8qbcroh.js.map");
-  check(
-    results,
-    "source map 不可直接下载",
-    mapFile.status !== 200,
-    `实际 ${mapFile.status}`,
-  );
+  // 源码映射泄漏：能拿到 .map 就等于源码公开。
+  //
+  // 文件名**动态发现**而不是写死：原先硬编码 turbopack-0l4z7d8qbcroh.js.map，
+  // 换个构建产物名这条断言就永远"通过"（探测一个不存在的路径当然 404）——
+  // 典型的假绿。现在从首页引用到的 bundle 名推导出实际的 .map 路径；
+  // 推导不出来时明确记为 skipped（而不是悄悄放过）。
+  const home = await get(BASE, "/");
+  const bundleNames = [...home.body.matchAll(/\/_next\/static\/[^"'\s)]+?\.js/g)].map((m) => m[0]);
+  const mapPaths = [...new Set(bundleNames.map((name) => `${name}.map`))].slice(0, 5);
+  if (mapPaths.length === 0) {
+    skipGroup(results, ["source map 不可直接下载"], "前置：首页未引用到任何 /_next/static/*.js，无法推导 .map 路径");
+  } else {
+    const leakedMaps = [];
+    for (const path of mapPaths) {
+      const probe = await get(BASE, path);
+      if (probe.status === 200) leakedMaps.push(`${path} → ${probe.status}`);
+    }
+    check(
+      results,
+      `source map 不可直接下载（探测 ${mapPaths.length} 个真实产物名）`,
+      leakedMaps.length === 0,
+      leakedMaps.length ? leakedMaps.join(", ") : mapPaths[0],
+    );
+  }
 
   // 400 页面不应回显内部路径/堆栈
   const bad = await postJson(BASE, "/api/auth/signin", { broken: true });
@@ -137,6 +155,7 @@ await run("B 越权访问", async () => {
    */
   const guard = await get(BASE, "/api/admin/session");
   check(results, "GET /api/admin/session 匿名可达", guard.status === 200 || guard.status === 503, `实际 ${guard.status}`);
+  const GUARD_CHECKS = ["/api/admin/session 匿名 user 为 null", "/api/admin/session 匿名 admin 为 false", "/api/admin/session 不泄漏邮箱"];
   if (guard.status === 200) {
     let data = null;
     try {
@@ -144,9 +163,12 @@ await run("B 越权访问", async () => {
     } catch {
       /* 统一报错 */
     }
-    check(results, "/api/admin/session 匿名 user 为 null", data?.user === null, JSON.stringify(data?.user));
-    check(results, "/api/admin/session 匿名 admin 为 false", data?.admin === false, String(data?.admin));
-    check(results, "/api/admin/session 不泄漏邮箱", !/@/.test(guard.body), guard.body.slice(0, 120));
+    check(results, GUARD_CHECKS[0], data?.user === null, JSON.stringify(data?.user));
+    check(results, GUARD_CHECKS[1], data?.admin === false, String(data?.admin));
+    check(results, GUARD_CHECKS[2], !/@/.test(guard.body), guard.body.slice(0, 120));
+  } else {
+    // 503 = 该部署没有数据库，字段无从谈起：显式跳过而不是少三条断言
+    skipGroup(results, GUARD_CHECKS, `前置：/api/admin/session 返回 ${guard.status}`);
   }
 
   // 写操作必须拒绝匿名：删/改没人管的话比读更严重
@@ -257,14 +279,19 @@ await run("D 限流与暴力破解", async () => {
   const limited = codes.filter((code) => code === 429).length;
   check(results, "登录入口连续请求触发 429", limited > 0, `状态码序列 ${codes.join(",")}`);
 
-  const limitedResponse = await get(BASE, "/api/auth/signin/wechat");
-  if (limitedResponse.status === 429) {
-    check(
-      results,
-      "429 响应带 Retry-After",
-      expectRetryAfter(limitedResponse),
-      JSON.stringify(limitedResponse.headers).slice(0, 120),
-    );
+  // Retry-After 断言**不依赖上一步是否恰好出现 429**：
+  // 原先写成 `if (limitedResponse.status === 429) check(带 Retry-After)`——
+  // 限流没触发时这条断言就直接不存在了（少一条而不是失败一条）。
+  // 现在主动打到出现 429 为止；打不出来就判失败，说清"限流没生效"。
+  let retryAfterResult = null;
+  for (let i = 0; i < 30 && !retryAfterResult; i += 1) {
+    const probe = await get(BASE, "/api/auth/signin/wechat");
+    if (probe.status === 429) retryAfterResult = probe;
+  }
+  if (retryAfterResult) {
+    check(results, "429 响应带 Retry-After", expectRetryAfter(retryAfterResult), JSON.stringify(retryAfterResult.headers).slice(0, 120));
+  } else {
+    check(results, "429 响应带 Retry-After", false, "连打 50 次仍未触发 429，无法验证 Retry-After（限流未生效）");
   }
 
   // 写接口：未登录时也应在鉴权前先过限流（否则等于给爆破留了快车道）
@@ -279,6 +306,32 @@ await run("D 限流与暴力破解", async () => {
     !writeCodes.some((code) => code >= 500),
     writeCodes.join(","),
   );
+
+  // 正向路径：带 TEST_SESSION_COOKIE 时验证"有权限者能进"。
+  // 当前套件里所有授权断言都只能证明"匿名被拒"——那证明的是门锁着，
+  // 不能证明钥匙还能开门。缺了这一半，一次把鉴权写成"永远拒绝"的改动会让
+  // 全套测试更绿（拒绝更多 = 断言更通过），这是最危险的假绿方向。
+  //
+  // 没给 cookie 时**不记为 skipped**（否则每次 CI 都带一条固定跳过，
+  // 会让"跳过即失败"的策略失去意义），改为打一行提示，
+  // 并让这条缺口留在 docs/ci-testing.md 的"已知边界"里明示。
+  if (process.env.TEST_SESSION_COOKIE) {
+    const authed = await get(BASE, "/api/agent/session");
+    check(
+      results,
+      "【正向】已登录会话可读 /api/agent/session（200）",
+      authed.status === 200,
+      `实际 ${authed.status}`,
+    );
+    check(
+      results,
+      "【正向】已登录会话创建活动不再被拒（非 401/403）",
+      ![401, 403].includes((await postJson(BASE, "/api/activities", { title: "正向路径探针", subtitle: "probe" })).status),
+      "已登录会话在 /api/activities 上仍被拒 —— 权限可能被改坏了",
+    );
+  } else {
+    console.log("\n[注] 未提供 TEST_SESSION_COOKIE：本次未验证「有权限者能进」的正向路径（见 docs/ci-testing.md 已知边界）。");
+  }
 });
 
 function expectRetryAfter(result) {
@@ -348,11 +401,22 @@ await run("F 响应安全", async () => {
     scriptSrc.includes("'nonce-") && scriptSrc.includes("'self'"),
     scriptSrc.slice(0, 80),
   );
-  // 可执行内联脚本必须带 CSP 里的同一个 nonce；ld+json 是数据块（非可执行），CSP 不管它
-  const executableInline = [...home.body.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)]
+  // 可执行内联脚本必须带 CSP 里的同一个 nonce；ld+json 是数据块（非可执行），CSP 不管它。
+  //
+  // 正则里的 \b 经 JSON/heredoc 双层转义会变成退格符 \x08，前瞻静默失效 ——
+  // 本项目踩过两次。所以这里把"匹配到的标签数 > 0"本身也作为断言：
+  // 万一正则被写坏、一个都匹配不到，会**失败**而不是"零个内联脚本，检查通过"。
+  const SCRIPT_TAG_RE = new RegExp("<script(?![^>]*" + String.fromCharCode(92) + "bsrc=)([^>]*)>", "g");
+  const executableInline = [...home.body.matchAll(SCRIPT_TAG_RE)]
     .map((match) => match[0])
     .filter((tag) => !/type=["']application\/ld\+json["']/.test(tag));
   const nonced = executableInline.filter((tag) => /nonce="([^"]+)"/.test(tag));
+  check(
+    results,
+    "首页确实存在可执行内联脚本（正则自身有效性校验）",
+    executableInline.length > 0,
+    `匹配到 ${executableInline.length} 个 —— 为 0 说明正则失效或页面结构变了，而不是"没有内联脚本"`,
+  );
   check(
     results,
     "可执行内联脚本全部带 CSP 同源 nonce（ld+json 数据块除外）",
@@ -382,6 +446,9 @@ await run("F 响应安全", async () => {
     const httpBase = BASE.replace("https://", "http://");
     const plain = await get(httpBase, "/");
     check(results, "HTTP 跳转 HTTPS", [301, 302, 308].includes(plain.status), `实际 ${plain.status}`);
+  } else {
+    // 本地 http 目标没有"跳转"可言：显式跳过，避免这条断言在不适用时静默消失
+    skipGroup(results, ["HTTP 跳转 HTTPS"], "目标是 http://（本地/服务器回环），不适用 HTTPS 跳转检查");
   }
 });
 

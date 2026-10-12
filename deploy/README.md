@@ -196,13 +196,30 @@ systemctl start hangkathon-events.service          # 手动抓一轮
 
 ## 监控告警（2026-10-12 起）
 
-三层构成，任何一层不通都能被下一层补上：
+四层构成，任何一层不通都能被下一层补上：
 
 | 层 | 组件 | 覆盖 | 位置 |
 |---|---|---|---|
 | 存活探测 | Uptime Kuma（自建） | 站点、接口、容器健康 | `uptime.hangkathon.com`（Basic Auth；容器仅绑 127.0.0.1:3001，不新增公网端口） |
 | 定时任务 | backup.sh / integrity-check.sh | 备份与完整性自检成功/失败都推送 | `deploy/backup.sh`、`deploy/integrity-check.sh` |
 | 部署验证 | ci.sh 的部署后检查 | 冒烟与对抗套件失败时推送 | `deploy/ci.sh` |
+| **带外死人开关** | Healthchecks.io（托管在服务器之外） | **整机宕机 / Docker 全挂 / 网络不通**时仍能告警 | `HEALTHCHECK_PING_URL`（可选，见下） |
+
+**为什么第四层不可替代**：前三层都与被监控对象**同故障域** —— 机器没了，Kuma 和飞书脚本
+一起哑掉。临终心跳的思路是反过来：任务每轮 ping 一个托管在别处的 URL，
+超过 `Period + Grace` 没收到就由**外部**告警。参考实现
+[healthchecks/healthchecks](https://github.com/healthchecks/healthchecks)（cron 监控模型）。
+
+接线方式（`deploy/lib/common.sh` 的 `hk_ping`）：
+
+- 备份链：开始 `start` / 成功 `ok` / 失败 `fail`；
+- 自检链：由 `hk_finish` 统一 ping（通过→`ok`，有异常→`fail` 并发告警）；
+- 部署链：`start`（静默）/ 成功 `ok` / 各类失败 `fail`。这条是**最密集的心跳**（每 3 分钟），
+  整机宕机时它最先失效。
+
+未配置 `HEALTHCHECK_PING_URL` 时全部降级为一行日志，不引入新故障点。
+建议在 Healthchecks.io 建三个 check（backup / integrity / ci），周期与宽限：
+日任务给 25 小时窗口，ci 给 15 分钟窗口。
 
 告警出口：飞书自建应用（`deploy/feishu-alert.mjs`，凭据在服务器 `.env`），
 统一入口 `deploy/alert.sh`。所有调用都吞掉自身错误（退出码恒为 0）——
@@ -212,8 +229,74 @@ systemctl start hangkathon-events.service          # 手动抓一轮
 sh deploy/alert.sh "标题" "正文"          # 手工发一条
 sh deploy/backup.sh                       # 备份（含成功通知）
 sh deploy/integrity-check.sh              # 自检（仅失败时通知）
+sh deploy/healthcheck.sh                  # 路由/容器体检（有异常时退出非零，可当门禁用）
+sh deploy/install-timers.sh               # 幂等安装四个 systemd timer
+sh deploy/install-timers.sh --status      # 只看当前 timer 状态
+sh deploy/fault-injection.sh              # 本机沙箱里验证"故障下确实会失败"
+```
+
+## 定时任务（四个 timer）
+
+| timer | 时间 | 脚本 | 干什么 |
+|---|---|---|---|
+| `hangkathon-ci` | 每 3 分钟 | `deploy/ci.sh` | 拉 main、有变化就重建、部署后跑冒烟+对抗 |
+| `hangkathon-backup` | 每日 03:20 | `deploy/backup.sh` | 全库 dump + 审计 CSV + 校验和 + 保留策略 |
+| `hangkathon-integrity` | 每日 04:10 | `deploy/integrity-check.sh` | 备份校验、审计链、容器健康、磁盘、悬空镜像 |
+| `hangkathon-events` | 每日 07:30 | `deploy/events-fetch.sh` | 全球赛事抓取入库 |
+
+**安装一律走 `sh deploy/install-timers.sh`**（幂等，可重复执行）。
+2026-10-12 排查时发现：backup / integrity / events 这三个 timer 在整个仓库里出现 **0 次** ——
+没有任何 `cp` 也没有 `systemctl enable`，它们靠早期人工操作装上去，
+任何一次重建机器都无法复现，而 `docs/security-compliance.md` 已经把"每日备份/自检"
+写成检查表 8.3.1 / 8.2c 的正式答复。合规声明必须能由代码重现，所以现在有安装脚本，
+且 `scripts/ci/drift-guard.mjs` 会在 CI 里盯着这件事（少一个 timer 的安装路径就失败）。
+
+日常查看：
+
+```sh
+systemctl list-timers 'hangkathon-*' --no-pager
+systemctl status hangkathon-backup.service
+tail -30 /var/log/hangkathon-backup.log
 ```
 
 Kuma 面板的监控项在 Web 界面添加（它的 socket.io 通知配置没有稳定的无头 API）。
 注意 Kuma 自带的 Feishu 渠道只吃**群自定义机器人 webhook**；自建应用走的是
 App ID/Secret → tenant_access_token → im/v1/messages，由上面的脚本实现，两条路互不通用。
+
+## 运维脚本的共同约定（deploy/lib/common.sh）
+
+`. deploy/lib/common.sh` 提供五样东西，避免各脚本各写一份而漂移：
+
+| 函数 | 作用 | 原先的重复情况 |
+|---|---|---|
+| `hk_init <名字> [--with-env]` | 定位 APP_DIR、按需加载 `.env` 里的 DB 凭证 | — |
+| `log` | 时间戳日志（设了 `HK_LOG` 就同时落盘） | **5 份实现** |
+| `db_env` / `hk_psql` | 统一的 `POSTGRES_*` 推导；psql **不带管道**并返回真实退出码 | **7 处**凭证推导 |
+| `verify_checksum` | sha256 校验（缺 `.sha256` 也算不通过） | **2 处** |
+| `hk_check` / `hk_finish` | 自检结果汇总（计数器在**主 shell**里）、状态文件、告警、死人开关 | 原先用管道子 shell，`fail=1` 会丢 |
+| `hk_ping start\|ok\|fail` | 带外死人开关 | 原先完全缺失 |
+
+**核心约定：失败必须可见。** 这批脚本原有一类缺陷是"退出 0 但结论是错的"：
+
+- `docker inspect … | while read` —— 子 shell 里的 `fail=1` 随管道消失，容器 unhealthy 时自检报 OK；
+- `psql … || echo 0` —— 数据库连不上被读成"审计日志为空 → OK"；
+- `pg_dump | gzip` —— 退出码取的是 gzip，pg_dump 失败照样产出"成功"的坏备份；
+- `if [ "$x" -gt 1 ]` 当 `$x` 不是数字时返回 2，`if` 把它当"不成立"，
+  于是**垃圾值被当成通过**。
+
+现在有 `deploy/fault-injection.sh` 在沙箱里逐个注入这些故障，断言脚本**确实失败** ——
+这类缺陷不会让任何正常测试变红，只能这么测。改动这批脚本后请务必跑一次。
+
+## nginx 配置
+
+主站与监控面板的反代头（Host / X-Real-IP / X-Forwarded-For / X-Forwarded-Proto）
+统一写在 `deploy/nginx-proxy-common.inc`，vhost 用 `include` 引用。
+
+- **扩展名必须是 `.inc`**：宝塔的 `nginx.conf` 里有 `include .../vhost/nginx/*.conf;`
+  （http 上下文）。片段若叫 `.conf` 会被当独立配置再加载一次，
+  而 `proxy_set_header` 在 http 上下文不合法，`nginx -t` 直接失败。
+- **XFF 用 `$remote_addr` 覆盖**，不是 `$proxy_add_x_forwarded_for` 追加。
+  追加模式下客户端可自报任意 XFF，污染审计日志的可溯源 IP，并让按 IP 的限流被逐请求换 IP 绕过。
+- 部署走 `sh deploy/deploy-nginx.sh`（备份 → 写入 → `nginx -t` → reload / 回滚）。
+  **不要直接在服务器上改 vhost**（踩过一次：location 写到 server 块外）。
+

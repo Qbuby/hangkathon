@@ -13,7 +13,7 @@
  *   4. 安全响应头 —— CSP/HSTS/nosniff 等必须存在，版本号不应外泄。
  */
 
-import { DEFAULT_BASE, check, expect, get, report } from "./lib.mjs";
+import { DEFAULT_BASE, check, expect, get, precondition, report, skipGroup } from "./lib.mjs";
 
 const BASE = process.env.TEST_BASE_URL ?? DEFAULT_BASE;
 /** local = 本地无数据库模式：登录、活动相关接口本来就会返回 503，不做断言。 */
@@ -42,69 +42,84 @@ const PAGES = [
 
 for (const [path, want] of PAGES) {
   const result = await timed(path);
-  check(results, `页面 ${path}`, result.status === want, expect.status(result, want).detail);
-  if (result.status === 200) {
+  // 前置：状态码。失败时把"响应时间"这条记为 skipped 而不是让它消失 ——
+  // 原先写成 `if (status === 200) check(响应时间…)`，接口一挂就少一条断言，
+  // 汇总里还显示"全过"，这类"少数即通过"是本套件最需要防的假绿。
+  if (precondition(results, `页面 ${path}`, result.status === want, expect.status(result, want).detail)) {
     check(results, `页面 ${path} 响应时间`, result.ms < SLOW_MS, `${result.ms}ms（预算 ${SLOW_MS}ms）`);
+  } else {
+    skipGroup(results, [`页面 ${path} 响应时间`], `前置：${path} 返回 ${result.status}`);
   }
 }
 
 /** 2. API 契约：状态码 + 关键字段，防止字段悄然改名或变 null。 */
+const SESSION_FIELDS = ["configured", "database", "providers"];
 const session = await timed("/api/session");
-check(results, "GET /api/session 状态码", session.status === 200, expect.status(session, 200).detail);
-if (session.status === 200) {
+if (precondition(results, "GET /api/session 状态码", session.status === 200, expect.status(session, 200).detail)) {
   let data = null;
   try {
     data = JSON.parse(session.body);
   } catch {
     /* 下面统一报错 */
   }
-  check(results, "GET /api/session 是合法 JSON", data !== null, data === null ? session.body.slice(0, 80) : "");
-  if (data) {
-    for (const field of ["configured", "database", "providers"]) {
+  const okJson = precondition(results, "GET /api/session 是合法 JSON", data !== null, data === null ? session.body.slice(0, 80) : "");
+  if (okJson) {
+    for (const field of SESSION_FIELDS) {
       check(results, `/api/session 含字段 ${field}`, field in data, JSON.stringify(data).slice(0, 120));
     }
     check(results, "/api/session providers 是数组", Array.isArray(data.providers), typeof data.providers);
-    check(
+    check(results, "/api/session 匿名访问 user 为 null", data.user === null, JSON.stringify(data.user));
+  } else {
+    skipGroup(
       results,
-      "/api/session 匿名访问 user 为 null",
-      data.user === null,
-      JSON.stringify(data.user),
+      [...SESSION_FIELDS.map((f) => `/api/session 含字段 ${f}`), "/api/session providers 是数组", "/api/session 匿名访问 user 为 null"],
+      "前置：响应不是合法 JSON",
     );
   }
+} else {
+  skipGroup(
+    results,
+    ["GET /api/session 是合法 JSON", ...SESSION_FIELDS.map((f) => `/api/session 含字段 ${f}`), "/api/session providers 是数组", "/api/session 匿名访问 user 为 null"],
+    `前置：/api/session 返回 ${session.status}`,
+  );
 }
 
+const AGENT_FIELDS = ["/api/agent/session 含 canPublish 字段", "/api/agent/session 匿名 canPublish=false", "/api/agent/session 匿名不泄漏邮箱"];
 const agentSession = await timed("/api/agent/session");
 if (WITH_DB) {
-  check(results, "GET /api/agent/session 状态码", agentSession.status === 200, expect.status(agentSession, 200).detail);
-  if (agentSession.status === 200) {
+  if (precondition(results, "GET /api/agent/session 状态码", agentSession.status === 200, expect.status(agentSession, 200).detail)) {
     let data = null;
     try {
       data = JSON.parse(agentSession.body);
     } catch {
       /* 统一报错 */
     }
-    check(results, "/api/agent/session 含 canPublish 字段", typeof data?.canPublish === "boolean", JSON.stringify(data).slice(0, 120));
-    check(results, "/api/agent/session 匿名 canPublish=false", data?.canPublish === false, String(data?.canPublish));
-    check(results, "/api/agent/session 匿名不泄漏邮箱", !/@/.test(agentSession.body), agentSession.body.slice(0, 120));
+    check(results, AGENT_FIELDS[0], typeof data?.canPublish === "boolean", JSON.stringify(data).slice(0, 120));
+    check(results, AGENT_FIELDS[1], data?.canPublish === false, String(data?.canPublish));
+    check(results, AGENT_FIELDS[2], !/@/.test(agentSession.body), agentSession.body.slice(0, 120));
+  } else {
+    skipGroup(results, AGENT_FIELDS, `前置：/api/agent/session 返回 ${agentSession.status}`);
   }
 } else {
   check(results, "GET /api/agent/session（本地模式应 503）", agentSession.status === 503, expect.status(agentSession, 503).detail);
 }
 
+const ACTIVITY_FIELDS = ["GET /api/activities 返回 activities 数组", "公开列表不含未公开/待审核活动"];
 const activities = await timed("/api/activities");
 if (WITH_DB) {
-  check(results, "GET /api/activities 状态码", activities.status === 200, expect.status(activities, 200).detail);
-  if (activities.status === 200) {
+  if (precondition(results, "GET /api/activities 状态码", activities.status === 200, expect.status(activities, 200).detail)) {
     let data = null;
     try {
       data = JSON.parse(activities.body);
     } catch {
       /* 统一报错 */
     }
-    check(results, "GET /api/activities 返回 activities 数组", Array.isArray(data?.activities), typeof data?.activities);
+    check(results, ACTIVITY_FIELDS[0], Array.isArray(data?.activities), typeof data?.activities);
     // 公开列表绝不能漏出未公开/待审核活动：这是隐私与审核流的硬约束
     const leaked = (data?.activities ?? []).filter((item) => item.visibility !== "public" || item.reviewStatus === "pending");
-    check(results, "公开列表不含未公开/待审核活动", leaked.length === 0, `泄漏 ${leaked.length} 条`);
+    check(results, ACTIVITY_FIELDS[1], leaked.length === 0, `泄漏 ${leaked.length} 条`);
+  } else {
+    skipGroup(results, ACTIVITY_FIELDS, `前置：/api/activities 返回 ${activities.status}`);
   }
 } else {
   check(results, "GET /api/activities（本地模式应 503）", activities.status === 503, expect.status(activities, 503).detail);
@@ -128,19 +143,25 @@ for (const path of STATIC) {
 }
 
 const robots = await get(BASE, "/robots.txt");
+const ROBOTS_RULES = ["/manage", "/profile", "/api/"];
 if (robots.status === 200) {
-  for (const rule of ["/manage", "/profile", "/api/"]) {
+  for (const rule of ROBOTS_RULES) {
     check(results, `robots.txt 禁止抓取 ${rule}`, robots.body.includes(`Disallow: ${rule}`), robots.body.slice(0, 120));
   }
   check(results, "robots.txt 声明 sitemap", robots.body.includes("Sitemap:"), robots.body.slice(0, 160));
+} else {
+  skipGroup(results, [...ROBOTS_RULES.map((r) => `robots.txt 禁止抓取 ${r}`), "robots.txt 声明 sitemap"], `前置：/robots.txt 返回 ${robots.status}`);
 }
 
+const SITEMAP_CHECKS = ["sitemap.xml 是 urlset", "sitemap.xml 不是索引型", "sitemap.xml 含首页", "sitemap.xml 体积合规（<10MB）"];
 const sitemap = await get(BASE, "/sitemap.xml");
-if (sitemap.status === 200) {
-  check(results, "sitemap.xml 是 urlset", sitemap.body.includes("<urlset"), sitemap.body.slice(0, 60));
-  check(results, "sitemap.xml 不是索引型", !sitemap.body.includes("<sitemapindex"), "百度拒收 sitemapindex");
-  check(results, "sitemap.xml 含首页", sitemap.body.includes("<loc>https://"), "");
-  check(results, "sitemap.xml 体积合规（<10MB）", sitemap.body.length < 10 * 1024 * 1024, `${sitemap.body.length} 字节`);
+if (precondition(results, "sitemap.xml 可达", sitemap.status === 200, expect.status(sitemap, 200).detail)) {
+  check(results, SITEMAP_CHECKS[0], sitemap.body.includes("<urlset"), sitemap.body.slice(0, 60));
+  check(results, SITEMAP_CHECKS[1], !sitemap.body.includes("<sitemapindex"), "百度拒收 sitemapindex");
+  check(results, SITEMAP_CHECKS[2], sitemap.body.includes("<loc>https://"), "");
+  check(results, SITEMAP_CHECKS[3], sitemap.body.length < 10 * 1024 * 1024, `${sitemap.body.length} 字节`);
+} else {
+  skipGroup(results, SITEMAP_CHECKS, `前置：/sitemap.xml 返回 ${sitemap.status}`);
 }
 
 /** 4. 安全响应头与信息泄露 */

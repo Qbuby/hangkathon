@@ -3,7 +3,17 @@ name: CI
 # 合并前闸门。形态参考 shadcn-ui/ui 的 code-check.yml：**每个检查一个独立 job、
 # 彼此无依赖、并行启动**，而不是七步串在一个 job 里。好处：
 #   - 失败时看哪个 job 红就行，不用在一个 log 里翻步骤；
-#   - lint / test / audit / authz 与构建并行，总时长从「串行相加」变成「最慢的那个」。
+#   - 总时长从「串行相加」变成「最慢的那个」。
+#
+# 2026-10-12 二轮加固（对照优秀开源实现的差距台账）：
+#   · 新增 shellcheck：17 个运维脚本此前**零静态检查**；那批"静默失败"缺陷
+#     （管道吞退出码、子 shell 丢 fail、read 缺 -r）正是它的核心规则集所覆盖的。
+#     参考 koalaman/shellcheck（官方镜像 koalaman/shellcheck）。
+#   · 新增 actionlint：workflow 自身的语法/表达式错误此前无任何检查。
+#     参考 rhysd/actionlint（镜像 rhysd/actionlint）。
+#   · 新增 db 层 job：8 个迁移、append-only 触发器、限流窗口 SQL 此前**零测试**——
+#     而安全检查表 8.4.4 / 8.2b 的合规证据恰恰全在那几条 SQL 里。
+#   · authz job 去掉 npm ci：实测该脚本只 import node:fs/node:path，白装依赖。
 #
 # 部署后冒烟与对抗测试不打这里 —— 它们在服务器 deploy/ci.sh 里跑
 # （GitHub runner 访问不到内网容器；本地用 node scripts/ci/gates.mjs --with-e2e 补）。
@@ -18,13 +28,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: ESLint
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -35,12 +46,45 @@ jobs:
       - run: npm ci --registry=https://registry.npmmirror.com
       - run: npm run lint
 
+  shellcheck:
+    name: ShellCheck（运维脚本）
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # -x 跟随 `source=lib/common.sh`，让公共库的函数定义对每个脚本可见；
+      # -S warning：error+warning 卡门禁，style/info 只提示（当前已清零，
+      # 提高门槛前请先确认新增的那些是有意为之）。
+      - name: shellcheck deploy/ 与 scripts/ 下全部 shell 脚本
+        run: |
+          docker run --rm -v "$PWD:/w:ro" -w /w/deploy koalaman/shellcheck:stable \
+            -S warning -x -f gcc \
+            alert.sh backup.sh ci.sh deploy-nginx.sh deploy.sh entrypoint.sh \
+            events-fetch.sh fault-injection.sh healthcheck.sh integrity-check.sh \
+            install-timers.sh monitoring-setup.sh pentest-collect.sh restore.sh \
+            setup-ci.sh lib/common.sh lib/common-selftest.sh
+      - name: shellcheck scripts/ 下的 shell 脚本
+        run: |
+          shopt -s nullglob
+          files=(scripts/*.sh scripts/**/*.sh)
+          if [ ${#files[@]} -eq 0 ]; then echo "scripts/ 下没有 shell 脚本，跳过"; exit 0; fi
+          docker run --rm -v "$PWD:/w:ro" -w /w koalaman/shellcheck:stable -S warning -f gcc "${files[@]}"
+
+  actionlint:
+    name: actionlint（workflow 自身）
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # 检查 workflow 的语法、表达式、上下文可用性，并把 `run:` 里的 shell 片段
+      # 交给 shellcheck（上面那个 job 只管 deploy/scripts 里的脚本，不管 workflow 内联的）
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/w:ro" -w /w rhysd/actionlint:latest
+
   test:
     name: 单元测试
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -48,14 +92,46 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci --registry=https://registry.npmmirror.com
-      - run: node --test scripts/*.test.mjs scripts/douyin/*.test.mjs
+      # 文件清单由 scripts/ci/unit-tests.mjs 统一发现，与本地 gates.mjs 共用一份实现。
+      # 原先这里手写 `scripts/*.test.mjs scripts/douyin/*.test.mjs`，漏了
+      # scripts/events/events.test.mjs（4 个用例）且**静默**漏 —— CI 依旧全绿。
+      - run: node scripts/ci/unit-tests.mjs
+
+  db:
+    name: 数据库层（迁移 / 触发器 / 限流 SQL）
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: citest
+          POSTGRES_USER: citest
+          POSTGRES_DB: citest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U citest"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --registry=https://registry.npmmirror.com
+      # 这些断言的对象是 SQL 而不是 TS：append-only 触发器、外键策略、限流窗口表达式。
+      # 它们此前没有任何测试，删掉触发器或改坏窗口条件都不会让 CI 变红。
+      - run: node --test scripts/db-schema.test.mjs
+        env:
+          DATABASE_URL: postgres://citest:citest@127.0.0.1:5432/citest
 
   build:
     name: 构建（双目标）
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -68,20 +144,31 @@ jobs:
       # 的冒烟 + 对抗套件覆盖，所以不需要在 CI 里重复两次。
       - run: npm run build:vercel
       # 部署产物里绝不能出现凭据：用模式扫描而不是人工检查
-      - name: 检查产物中是否泄漏凭据
+      - name: 检查产物中是否泄漏凭据或私钥
         run: |
-          if grep -rIl -E 'LTAI5t[A-Za-z0-9]{8,}|wx[0-9a-f]{16}|(SECRET|AppSecret)["'"'"']?\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{16,}' .next public 2>/dev/null; then
+          fail=0
+          # 1) 已知凭据的具体形态（阿里云 AK / 微信 AppID / 通用 SECRET= 赋值）
+          if grep -rIl -E 'LTAI5t[A-Za-z0-9]{8,}|wx[0-9a-f]{16}|(SECRET|AppSecret|API_KEY|TOKEN)["'"'"']?\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{16,}' .next public 2>/dev/null; then
             echo "::error::构建产物中发现疑似凭据，请立即轮换并清除"
-            exit 1
+            fail=1
           fi
-          echo "未发现凭据泄漏"
+          # 2) PEM 私钥块（部署密钥泄漏是同一类事故）
+          if grep -rIl -E 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' .next public 2>/dev/null; then
+            echo "::error::构建产物中发现私钥块"
+            fail=1
+          fi
+          # 3) .env 内容被误打进产物（NEXT_PUBLIC_ 前缀之外的变量不该出现）
+          if grep -rIl -E '^(AUTH_SECRET|POSTGRES_PASSWORD|EVENTS_INGEST_TOKEN|FEISHU_APP_SECRET)=' .next public 2>/dev/null; then
+            echo "::error::构建产物中出现 .env 变量名=值 的形态"
+            fail=1
+          fi
+          [ "$fail" -eq 0 ] && echo "未发现凭据泄漏"
+          exit "$fail"
 
   audit:
     name: 依赖漏洞审计
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -96,8 +183,19 @@ jobs:
     name: 授权矩阵
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+      # 不装依赖：authz-matrix.mjs 只 import node:fs / node:path（实测确认），
+      # 原先的 npm ci 是每分钟白跑一次的大头。
+      - run: node scripts/security/authz-matrix.mjs
+
+  retina-guard:
+    name: 死代码与文档漂移
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -105,5 +203,7 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci --registry=https://registry.npmmirror.com
-      # 静态扫描：写方法无守卫、管理读接口缺 requireAdmin 即 exit 1（authz-security）
-      - run: node scripts/security/authz-matrix.mjs
+      # 运维脚本与文档的**可复现性**：timer 必须有安装脚本、nginx vhost 必须引用
+      # 公共片段、XFF 不得退回追加模式。这些是本轮实际修掉的漂移点，
+      # 用一条命令锁住，避免下次有人手改服务器后又"只有文档知道"。
+      - run: node scripts/ci/drift-guard.mjs
