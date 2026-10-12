@@ -142,7 +142,28 @@ printf 'Filesystem      Size  Used Avail Use%% Mounted on\n'
 printf '/dev/vda3        40G   %sG   12G  %s%% /\n' "${FAKE_DISK_USED:-10}" "${FAKE_DISK_PCT:-30}"
 FAKE
 
-chmod +x "$SANDBOX/bin/docker" "$SANDBOX/bin/curl" "$SANDBOX/bin/df"
+# 假 ps / pidof：自检脚本要读 dockerd 的 RSS（守护进程内存涨到 ~1.4GB 会被 OOM 杀掉，
+# 连带带走所有容器）。开发机上没有 dockerd，真实现会让这一步恒失败，
+# 把"正常路径应当通过"的场景 6 冲掉 —— 于是按同样的方式注入可控值。
+cat > "$SANDBOX/bin/ps" <<'FAKE'
+#!/bin/sh
+# 只支持自检脚本用的那一种调用：ps -o rss= -p <pid>
+for arg in "$@"; do
+  if [ "$arg" = "rss=" ]; then
+    echo "${FAKE_DOCKERD_RSS_KB:-51200}"
+    exit 0
+  fi
+done
+echo ""
+exit 0
+FAKE
+cat > "$SANDBOX/bin/pidof" <<'FAKE'
+#!/bin/sh
+if [ "${FAKE_DOCKERD_PRESENT:-1}" = "1" ]; then echo 4242; fi
+exit 0
+FAKE
+
+chmod +x "$SANDBOX/bin/docker" "$SANDBOX/bin/curl" "$SANDBOX/bin/df" "$SANDBOX/bin/ps" "$SANDBOX/bin/pidof"
 
 # 沙箱执行器。用法：
 #   run_sandbox <casedir> <docker_mode> <db_mode> -- <命令...>

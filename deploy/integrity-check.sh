@@ -36,6 +36,7 @@ BACKUP_DIR="${BACKUP_DIR:-/var/backups/hangkathon}"
 STATUS_FILE="${STATUS_FILE:-/var/run/hangkathon-integrity.status}"
 DISK_ALERT_PCT="${DISK_ALERT_PCT:-90}"
 DANGLING_ALERT_COUNT="${DANGLING_ALERT_COUNT:-15}"
+DOCKERD_ALERT_MB="${DOCKERD_ALERT_MB:-900}"
 APP_CONTAINER="${APP_CONTAINER:-hangkathon}"
 BACKUP_MAX_AGE="${BACKUP_MAX_AGE:-93600}"
 
@@ -134,19 +135,51 @@ else
   hk_check 1 "磁盘使用率 ${DISK}%"
 fi
 
-# 悬空镜像：每次 CI 重建都留下一个 <none> layer，58 个就吃掉十几 GB ——
-# 这是磁盘被打满的真实原因（2026-10-12 观察到 99%）。这是自检里唯一能
-# **提前**发现它的地方。清理方式是 `docker image prune -f`，
-# 绝不要用 `docker system prune`（会连运行中的容器和 compose 网络一起删，踩过）。
+# 悬空镜像：每次 CI 重建都留下一个 <none> layer（实测 2026-10-12 有 31 个）——
+# 它们会稳定占用磁盘，是磁盘水位上涨的主要来源。这里**只统计、只告警，不自动删**：
+# 清理是人工决策（`docker image prune -f`），自检脚本不该在半夜动宿主机的镜像。
+#
+# 三条纪律：
+#   1. **不用 `docker system df`**：2026-10-12 实测这条命令在本机会长时间挂住
+#      （它要遍历所有层算可回收空间），而自检脚本被它拖住时，systemd 那边的
+#      TimeoutStartSec 会把整次自检判成失败 —— 一个查询命令不该有这种能力。
+#      改用 `docker images -f dangling=true -q | wc -l`，快且够用。
+#   2. **绝不 `docker system prune`**（历史事故：会删掉运行中的容器与 compose 网络，站点直接 502）。
+#   3. 计划任务是每日 04:10，比 CI 每次重建滞后最多一天；这只是个提醒，不是实时看板。
 DANGLING="$(docker images -f 'dangling=true' -q 2>/dev/null | wc -l || true)"
 DANGLING="$(printf '%s' "$DANGLING" | tr -d '[:space:]')"
-DANGLING_GB="$(docker system df 2>/dev/null | awk '/^Images/ {print $4}')"
 if ! is_int "$DANGLING"; then
   hk_check 0 "无法统计悬空镜像（返回 '$DANGLING'，docker 不可用？）"
 elif [ "$DANGLING" -ge "$DANGLING_ALERT_COUNT" ]; then
-  hk_check 0 "悬空镜像 $DANGLING 个（阈值 ${DANGLING_ALERT_COUNT}），可回收 ${DANGLING_GB:-未知}；执行 docker image prune -f"
+  hk_check 0 "悬空镜像 $DANGLING 个（阈值 ${DANGLING_ALERT_COUNT}），执行 docker image prune -f 回收（不要用 docker system prune）"
 else
-  hk_check 1 "悬空镜像 $DANGLING 个（可回收 ${DANGLING_GB:-未知}）"
+  hk_check 1 "悬空镜像 $DANGLING 个"
+fi
+
+# dockerd 内存：这台 2C2G 机器上 dockerd 的 RSS 会缓慢增长，涨到 ~1.4GB 时被内核
+# OOM 杀掉，**连带把三个容器一起带走**，站点变 502 且不会自己恢复
+# （restart: unless-stopped 不覆盖"守护进程整个没了"这种情况）。
+#
+# 2026-10-12 复盘：当天 13 次 dockerd OOM 集中爆发在一次排查过程中 ——
+# 每次都是「dockerd 的 RSS 涨到 ~1.4GB → 内核 OOM 杀 dockerd → 三个容器一起消失 → 502」，
+# 且不会自愈（容器 restart 策略不覆盖"守护进程整个没了"）。
+# 触发点之一是 `docker system df`（宝塔面板的 docker 模块也用它，
+# /www/server/panel/class/btdockerModel/statusModel.py:282）：这条命令要遍历全部镜像层
+# 算可回收空间，在本机会长时间挂住、把 dockerd RSS 顶到 GB 级。
+# 我一度把它抄进了本文件，等于给生产环境装了个定时炸弹，已移除。
+# 教训：**往关键脚本里加外部命令前，先确认它在这台机器上是稳定的** ——
+# 一个"只是查一下"的命令不该有把站点打挂的能力。
+#
+# 这里只做检测 + 告警：超过阈值就该人工 `systemctl restart docker`（约 30 秒，
+# 容器的 restart 策略会把它们带回来）。自动重启会打断正在跑的备份/部署，风险更大。
+DOCKERD_RSS_KB="$(ps -o rss= -p "$(pidof dockerd 2>/dev/null)" 2>/dev/null | tr -d '[:space:]' || true)"
+DOCKERD_ALERT_MB="${DOCKERD_ALERT_MB:-900}"
+if ! is_int "$DOCKERD_RSS_KB"; then
+  hk_check 0 "读不到 dockerd 的内存占用（ps 返回 '$DOCKERD_RSS_KB'）"
+elif [ "$((DOCKERD_RSS_KB / 1024))" -ge "$DOCKERD_ALERT_MB" ]; then
+  hk_check 0 "dockerd 内存 $((DOCKERD_RSS_KB / 1024))MB（阈值 ${DOCKERD_ALERT_MB}MB）—— 接近 OOM 会在杀守护进程时带走所有容器，执行 systemctl restart docker"
+else
+  hk_check 1 "dockerd 内存 $((DOCKERD_RSS_KB / 1024))MB"
 fi
 
 hk_finish \
