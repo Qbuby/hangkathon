@@ -202,6 +202,30 @@ for (const dead of ["priority", "changeFrequency"]) {
   }
 }
 
+/**
+ * 已下线地址的 410 必须一直挂在 middleware 上，且必须有测试守着。
+ *
+ * 为什么值得一条守卫：这条逻辑的失效方式是**静默**的 —— 有人重构 middleware
+ * （比如为了改 CSP 重写整个函数体）时顺手删掉那个 if 分支，线上表现不是报错，
+ * 而是"已下线的地址又变回 404"。没人会收到告警，只有下次翻索引时才发现。
+ */
+const mw = read("middleware.ts");
+if (!mw.includes("retiredActivitySlugPath")) {
+  problems.push("middleware.ts 里没有已下线地址的 410 分支 —— 它会静默退化成 404，没有任何报错");
+}
+if (!mw.includes("status: 410")) {
+  problems.push("middleware.ts 里没有 status: 410 —— 判定逻辑在但状态码不是 410");
+}
+// 顺序断言：.net 是整站跳转，在它上面出 410 与"只做跳转"矛盾
+const hostGuardAt = mw.indexOf("hostNeedsRedirect(request.headers.get");
+const slugGuardAt = mw.indexOf("retiredActivitySlugPath(url.pathname)");
+if (hostGuardAt < 0 || slugGuardAt < 0 || hostGuardAt > slugGuardAt) {
+  problems.push("middleware.ts 里必须先判跳转域名再判已下线 slug —— 顺序反了之后 .net 上会出 410");
+}
+if (!existsSync("scripts/seo-retired.test.mjs")) {
+  problems.push("缺少 scripts/seo-retired.test.mjs —— 410 判定（含「不该命中」的反例）没有回归防护");
+}
+
 /* ── 6. 告警链路：死人开关必须真的被调到 ─────────────────────────────────── */
 
 const commonLib = read("deploy/lib/common.sh");

@@ -180,6 +180,96 @@ for (const path of ["/manage", "/auth-error"]) {
   check(results, `SEO ${path} 带 noindex`, /noindex/i.test(robots), `robots: "${robots}"`);
 }
 
+/* ── 3b. 已下线的页面必须给出正确的"消失信号" ─────────────────────────── */
+
+/**
+ * 这组断言来自一个真实问题（2026-10-13 用户在 Google 里搜到）：
+ * 旧活动页 `/activities/midautumn-poetry` 仍有索引。它的**内容早已删除**
+ * （2026-09-22），但搜索结果里的描述还是站点级兜底文案 ——
+ * 也就是一个已无内容的地址被当成了有效页面。
+ *
+ * 现在这两个地址返回 **410 Gone** 而不是 404（middleware 里判定，见 lib/seo/retired-slugs.ts）。
+ * 为什么不用 404：两者都表达"不该收录"，但 404 留了"可能回来"的余地，410 明说
+ * "永久没了"。既然确知是永久下线，就不该让搜索引擎去猜。
+ *
+ * **但"信号对了"不等于"索引立刻消失"**：搜索引擎处理状态码变更要数天到两周。
+ * 这里锁住的是"我们的信号一直是对的"，不是"索引已经清了" ——
+ * 后者只能去 Search Console 的「已编入索引的网页」里看趋势，脚本查不到。
+ */
+const LEGACY_DELETED_SLUGS = ["midautumn-poetry", "shop-ai-assistant", "city-memory-map"];
+for (const slug of LEGACY_DELETED_SLUGS) {
+  const path = `/activities/${slug}`;
+  const response = await get(BASE, path);
+
+  // 绝不能再是 200 —— 那意味着内容又被种回库里了，同时说明 middleware 的名单
+  // 与已发布列表撞车（scripts/seo-retired.test.mjs 也断言这一点）。
+  check(results, `SEO 已下线页面 ${path} 不是 200`, response.status !== 200, `实际 ${response.status}`);
+
+  if (response.status === 410) {
+    // 410 是主路径：确认响应体真的把它当"永久下线"处理
+    check(results, `SEO ${path} 带 noindex（410 双保险）`, /noindex/i.test(response.body), "410 语义已足够，noindex 是文档内的第二道");
+    check(results, `SEO ${path} 的 x-robots-tag 为 noindex`, /noindex/i.test(response.headers["x-robots-tag"] ?? ""), `实际 "${response.headers["x-robots-tag"] ?? "无"}"`);
+    // 一个已经下线的地址不该再复述那场活动的任何内容（旧文案出现在摘要里正是本次要修的问题）
+    check(results, `SEO ${path} 的 410 页面不复述原活动文案`, !/中秋|诗会/.test(response.body), "410 页面里出现了已下线活动的内容");
+  } else if (response.status === 404) {
+    // 404 是可接受的回退：middleware 未生效（比如走了静态导出）时，兜底页也必须 noindex
+    const robotsMeta = /<meta[^>]*name=["']robots["'][^>]*content=["']([^"']*)["']/.exec(response.body)?.[1] ?? "";
+    check(results, `SEO ${path} 回退为 404 时页面带 noindex`, /noindex/i.test(robotsMeta), `robots: "${robotsMeta}"`);
+  } else if ([301, 302, 307, 308].includes(response.status)) {
+    // 跳走也算正确处理：旧域名整体跳主站，不返回内容
+    check(results, `SEO ${path} 重定向离开（可接受）`, true, `实际 ${response.status}`);
+  } else {
+    check(results, `SEO ${path} 状态码合规（410 / 404 / 3xx）`, false, `实际 ${response.status}`);
+  }
+}
+
+// 另一个方向：内容真的没了，兜底页面就不能再复述它
+const deleted = await get(BASE, `/activities/${LEGACY_DELETED_SLUGS[0]}`);
+check(
+  results,
+  "SEO 已下线活动的描述未泄漏原活动文案",
+  !/中秋|诗会/.test(deleted.body),
+  "页面里出现了已下线活动的内容 —— 说明它被重新种回库里了",
+);
+
+/* ── 3c. 410 只对确知永久下线的地址生效，不能误伤 ─────────────────────── */
+
+/**
+ * 410 的语义价值全靠"它只出现在确定的终局上"。如果拼错的地址也开始返回 410，
+ * 这个信号就退化成"所有找不到的地址都一样"，不如直接用 404。
+ * 下面两条断言守住那个边界。
+ *
+ * 注意"拼错地址应 404"这条**只对带数据库的部署成立**：无数据库的部署（Vercel 那份）
+ * 服务端查不到任何活动是正常的，活动详情由客户端接管，所以它会返回 200。
+ * 这是**目标本身**决定的前提，不是"因为某步失败所以测不了"—— 按本仓库的约定
+ * （见 deploy/ci.sh 里 HTTPS 跳转那处的说明）不记 skipped，只打一行说明。
+ */
+const hasServerData = (await get(BASE, "/api/activities")).status === 200;
+if (hasServerData) {
+  const typo = await get(BASE, "/activities/zzz-definitely-not-a-real-slug");
+  check(results, "SEO 拼错的地址仍是 404（不是 410）", typo.status === 404, `实际 ${typo.status} —— 410 必须只留给确知永久下线的地址`);
+} else {
+  console.log("[说明] 目标无服务端数据（/api/activities 非 200），跳过「拼错地址应 404」—— 该形态由客户端接管，本地/无库部署上必然不是 404");
+}
+
+const listed = await get(BASE, "/activities");
+if (listed.status === 200) {
+  // 列表页上能找到的活动，必须全都还能打开 —— 防止 middleware 名单与已发布列表撞车
+  const slugs = [...listed.body.matchAll(/href="\/activities\/([a-z0-9-]+)"/g)].map((m) => m[1]);
+  const unique = [...new Set(slugs)].filter((slug) => !LEGACY_DELETED_SLUGS.includes(slug));
+  if (unique.length > 0) {
+    const probed = await Promise.all(unique.slice(0, 10).map(async (slug) => ({ slug, response: await get(BASE, `/activities/${slug}`) })));
+    const broken = probed.filter((item) => item.response.status !== 200);
+    check(
+      results,
+      "SEO 活动列表里的活动都还能打开（没有活动被误判为 410）",
+      broken.length === 0,
+      broken.map((item) => `${item.slug}:${item.response.status}`).join(", ") || `探测 ${probed.length} 个`,
+    );
+  }
+}
+
+
 /* ── 4. robots.txt 与 sitemap ─────────────────────────────────────────── */
 
 const robots = await get(BASE, "/robots.txt");

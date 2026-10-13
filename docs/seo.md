@@ -5,7 +5,47 @@
 其 `seo-technical` / `seo-schema` / `seo-sitemap` / `seo-geo` 四组规范）。
 
 检查方式：`TEST_BASE_URL=http://127.0.0.1:3210 node scripts/seo/audit.mjs`
-（76 条断言；已接入服务器 `deploy/ci.sh` 的部署后检查与本地 `gates.mjs --with-e2e`）
+（89 条断言；已接入服务器 `deploy/ci.sh` 的部署后检查与本地 `gates.mjs --with-e2e`）
+
+## 〇、已下线的页面：410 Gone
+
+起因是一个真实反馈（2026-10-13）：在 Google 里仍能搜到
+`hangkathon.net/activities/midautumn-poetry`。查证结果是——**这不是一个活着的页面**：
+
+| | 实际状态 |
+|---|---|
+| 内容 | 2026-09-22 那次上线清理时就删了，生产库里只剩 `guoqing-77` |
+| 生产库 | 无该 slug 的任何行 |
+| sitemap | 不含该 URL（只有 5 条） |
+| `.com`（自托管，canonical 目标） | 404（改前）/ 410（改后），带 `noindex` |
+| `.net`（Vercel 部署） | 308 跳到 `.com`，不返回任何内容 |
+| 搜索摘要里那句描述 | 站点级兜底文案（`app/about/page.tsx` 与 `lib/seo/schema.ts` 各一份），不是残留的页面内容 |
+
+也就是说：**这是一条陈旧的索引，不是线上还有一页。** 索引的清除在搜索引擎侧，
+通常要数天到两周。代码能做的是把"这页永久没了"这个信号表达准确，并让它一直准确。
+
+改动（`middleware.ts` + `lib/seo/retired-slugs.ts` + `lib/seo/retired-page.ts`）：
+
+- 名单里的 slug（`midautumn-poetry` / `shop-ai-assistant` / `city-memory-map`）返回
+  **410 Gone**，自带 `noindex`、`x-robots-tag: noindex`、`cache-control: no-store`。
+- **只在非跳转域名上生效**：`hangkathon.net` / `www.hangkathon.net` 仍是 308 到主站。
+  middleware 里先判 host 再判 slug，顺序反了 `.net` 上会出 410，与"这个域名只做跳转"矛盾。
+- 判定只认恰好一层 `/activities/<slug>`（含结尾斜杠、百分号编码、大小写变体）；
+  **拼错的地址仍然是 404**。混合两者会让 410 退化成"所有找不到的地址都一样"，
+  那还不如直接用 404。
+
+关于 410 与 404 的关系，说清楚边界：**没有实测证据表明 410 比 404 更快被移出索引**；
+两者都表达"不该收录"。选 410 的理由是信号精确——对一个确知不会回来的地址，
+不该用留了余地的 404 去表达。不要把它当作"加速下线"的手段。
+
+为什么放在 middleware 而不是活动详情页：App Router 的 `notFound()` **只能**产出 404，
+没有把它改成 410 的办法；要赶在渲染之前决定状态码，只能在 middleware 这一层。
+
+守卫：`scripts/seo-retired.test.mjs`（6 个用例，含"不该命中"的反例与
+"名单不得与已发布列表撞车"的不变量）、`scripts/seo/audit.mjs` 第 3b/3c 组，
+以及 `scripts/ci/drift-guard.mjs` 里对 middleware 三个判定点的静态检查——
+那条守卫防的是**静默退化**：有人重构 middleware 时删掉 410 分支，线上不会有任何报错，
+只是已下线的地址又变回 404，直到下次翻索引才发现。
 
 ## 一、结构化数据（JSON-LD）
 
@@ -51,7 +91,12 @@
 
 - **渲染**：所有对外内容页都是服务端组件或 `force-dynamic`，正文与 meta 在首个 HTML 里。
   唯一客户端组件是管理端（本来就不该被收录）。
-- **canonical**：每个可收录页自指且唯一；`/manage`、`/auth-error` 带 `noindex`。
+- **canonical**：每个可收录页自指且唯一；`/manage`、`/auth-error` 带 `noindex`；
+  已永久下线的地址走 410（见第〇节）。
+- **带数据库的部署上，查不到的活动必须 404**：否则任何路径都会拿到
+  HTTP 200 + 一句"没有找到这场活动"，状态码撒谎会让爬虫把无限多的垃圾 URL 当成有效页收录。
+  无数据库的部署（Vercel 那份）不能这么判——用户自建活动只存在浏览器里，
+  服务端查不到是正常的，由客户端接管。
 - **robots.txt**：显式声明 AI 搜索类与训练类爬虫（见下）。
 - **sitemap**：只含公开已发布的活动；`lastmod` 用库里的真实 `createdAt`；
   **不输出 `priority` / `changefreq`**（Google 明确忽略）；单文件 45,000 条截断

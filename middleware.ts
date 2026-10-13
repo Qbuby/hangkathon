@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { retiredActivitySlugPath } from "./lib/seo/retired-slugs";
+import { hostNeedsRedirect, retiredPageHtml } from "./lib/seo/retired-page";
 
 /**
- * CSP nonce 中间件（安全评估 P2#7：去掉 script-src 'unsafe-inline' 的实际豁免）。
+ * CSP nonce 中间件（安全评估 P2#7：去掉 script-src 'unsafe-inline' 的实际豁免），
+ * 外加一件事：**已永久下线的活动地址返回 410 Gone**（2026-10-13）。
  *
+ * ── CSP 部分 ─────────────────────────────────────────────────────────────
  * 每个文档请求生成一次性 nonce 写进 CSP；支持 CSP3 的浏览器看到 nonce 后会忽略
  * 'unsafe-inline'，内联脚本必须有 nonce 才能执行（Next 的水合脚本会自动从 CSP 头读取
  * nonce；我们自己的引导脚本已外置为 public/motion-boot.js）。'unsafe-inline' 保留为
@@ -10,6 +14,18 @@ import { NextResponse } from "next/server";
  *
  * 注意：nonce 逐请求变化，带 nonce 的页面必须动态渲染（根布局 export const dynamic），
  * 静态预渲染的 HTML 无法逐请求注入 nonce——这是刻意放弃静态化的原因，本站体量可接受。
+ *
+ * ── 410 部分 ────────────────────────────────────────────────────────────
+ * 为什么在 middleware 里做，而不是活动详情页：App Router 的 `notFound()`
+ * **只能**产出 404，没有把它改成 410 的办法。要在渲染之前决定状态码，只能在这层。
+ *
+ * 为什么不能靠 404 的 noindex：能 —— 现在的 404 已经带 noindex 了。410 是更明确的
+ * 补充信号：它明说"永久没了"，而 404 留了"可能回来"的余地。代价只有这一个判断，
+ * 收益是让搜索引擎对"确定的下线"和"可能回来"不再同等对待。
+ *
+ * 顺序很重要：**先判跳转域名，再判 410**。`hangkathon.net` 是整站 308 到主站的部署，
+ * 在它上面把某个路径变成 410 会与"这个域名只做跳转"矛盾。判 host 之后无论
+ * Next 内部的路由/redirects 顺序如何变化，.net 的行为都由 next.config 的 redirects 决定。
  */
 
 const CSP = (nonce: string) =>
@@ -32,6 +48,27 @@ const CSP = (nonce: string) =>
 export function middleware(request: Request) {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   const nonce = btoa(String.fromCharCode(...bytes));
+  const url = new URL(request.url);
+
+  if (!hostNeedsRedirect(request.headers.get("host")) && retiredActivitySlugPath(url.pathname)) {
+    /**
+     * 410 响应体是自包含 HTML（lib/seo/retired-page.ts，里面写清了它为什么不能有脚本）。
+     * 这里仍然挂 CSP：这个页面本身没有脚本，但保持"所有 HTML 响应都带同样的 CSP"
+     * 这条不变量，比"这个页面反正不需要所以跳过"更容易在以后演进时不漏。
+     * 头部的 robots noindex 已经写在 HTML 里，不在这里重复。
+     */
+    return new NextResponse(retiredPageHtml(), {
+      status: 410,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": CSP(nonce),
+        // 410 是个状态，不是内容：别让 CDN/浏览器把这份响应缓存很久，
+        // 也避免它被当成某个中间层的瞬时错误而重试。
+        "cache-control": "no-store",
+        "x-robots-tag": "noindex",
+      },
+    });
+  }
 
   // CSP 必须同时挂在请求头上下传：Next 的渲染层从【请求头】的 CSP 里读 nonce，
   // 才会把它注入到水合/flight 内联脚本上（只设响应头的话脚本全部裸奔，实测踩过）。
