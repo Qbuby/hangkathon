@@ -5,7 +5,8 @@
 其 `seo-technical` / `seo-schema` / `seo-sitemap` / `seo-geo` 四组规范）。
 
 检查方式：`TEST_BASE_URL=http://127.0.0.1:3210 node scripts/seo/audit.mjs`
-（89 条断言；已接入服务器 `deploy/ci.sh` 的部署后检查与本地 `gates.mjs --with-e2e`）
+（生产 90 条断言、本地无库 89 条 —— 有一条只对带数据库的部署成立，见第 3c 组；
+已接入服务器 `deploy/ci.sh` 的部署后检查与本地 `gates.mjs --with-e2e`）
 
 ## 〇、已下线的页面：410 Gone
 
