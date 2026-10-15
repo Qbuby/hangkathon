@@ -26,3 +26,6 @@
 *.ico binary
 *.woff binary
 *.woff2 binary
+
+# .env.example 也钉 LF：它是模板文件，被人 copy 到服务器当 .env 用，CRLF 会让某些读取器多读一个 
+.env.example text eol=lf

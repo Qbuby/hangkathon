@@ -5,6 +5,7 @@ import { submitAgentApplication } from "@/lib/server/agents";
 import { databaseRequired, handleRouteError, jsonError } from "@/lib/server/http";
 import { enforceRateLimit, RULES } from "@/lib/server/rate-limit";
 import { requireUser } from "@/lib/server/users";
+import { notifyAgentApplication } from "@/lib/server/feishu-webhook";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     const email = (body?.email ?? user.email).trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return jsonError(400, "邮箱格式不正确");
 
-    const application = await submitAgentApplication(user, {
+    const { application, previousStatus } = await submitAgentApplication(user, {
       contactName,
       organization: body?.organization?.trim() ?? "",
       phone,
@@ -64,6 +65,33 @@ export async function POST(request: Request) {
       },
       request,
     );
+
+    /**
+     * 飞书群通知是**旁路**：申请已经写库、已经记审计，这里之后无论成功失败都照常返回 201。
+     * 所以刻意不 await —— 慢或者挂都不该让申请人多等几秒（notifyAgentApplication 自身
+     * 永不抛异常，内部 5 秒超时）。
+     *
+     * 「上一份还是待审核」就不通知：那次提交没有带来新信息，只是刷新了时间戳，
+     * 而用户可以在 60 秒内点 5 次（write 限流），不去重就是往通知群里刷 5 条一模一样的。
+     * 首次提交与被驳回后的重交都会通知 —— 那两种是真有新内容要人看。
+     */
+    if (previousStatus !== "pending") {
+      void notifyAgentApplication({
+        id: application.id,
+        contactName: application.contactName,
+        organization: application.organization,
+        phone: application.phone,
+        email: application.email,
+        statement: application.statement,
+        userEmail: application.userEmail,
+        userName: application.userName,
+        createdAt: application.createdAt,
+        previousStatus,
+      }).then((result) => {
+        if (!result.sent) console.error(`[feishu] 代理商申请通知未送达：${result.reason ?? "未知原因"}`);
+      });
+    }
+
     return NextResponse.json({ application }, { status: 201 });
   } catch (error) {
     if (error instanceof AdminActionError) return jsonError(error.status, error.message);

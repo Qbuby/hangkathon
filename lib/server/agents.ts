@@ -56,11 +56,15 @@ export type AgentApplyInput = {
 /**
  * 提交（或重新提交）申请：一个用户一份，重复提交即覆盖并回到 pending。
  * 已通过的申请不允许再改 —— 那时身份已经生效，要走收回流程。
+ *
+ * 返回 `previousStatus` 是为了下游能区分"首次提交"与"在待审核状态下又点了一次提交"：
+ * 后者没有带来任何新信息（内容一样就只是刷新了时间戳），不该往通知群里刷屏。
+ * 调用方据此决定要不要通知，**不代表**可以不通知首次提交。
  */
 export async function submitAgentApplication(
   user: ServerUser,
   input: AgentApplyInput,
-): Promise<AgentApplicationRow> {
+): Promise<{ application: AgentApplicationRow; previousStatus: AgentApplicationRow["status"] | null }> {
   const db = getDb();
   const existing = await getMyAgentApplication(user.id);
   if (existing?.status === "approved") {
@@ -73,7 +77,7 @@ export async function submitAgentApplication(
     phone: input.phone.trim(),
     email: input.email.trim(),
     statement: input.statement.trim(),
-    status: "pending",
+    status: "pending" as const,
     reviewNote: null,
     reviewedAt: null,
     updatedAt: new Date(),
@@ -85,7 +89,7 @@ export async function submitAgentApplication(
   }
   const fresh = await getMyAgentApplication(user.id);
   if (!fresh) throw new AdminActionError(500, "申请写入失败");
-  return fresh;
+  return { application: fresh, previousStatus: existing?.status ?? null };
 }
 
 /** 管理端：全部申请（带申请人信息），待审核在前。 */

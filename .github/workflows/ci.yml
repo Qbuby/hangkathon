@@ -158,8 +158,15 @@ jobs:
             fail=1
           fi
           # 3) .env 内容被误打进产物（NEXT_PUBLIC_ 前缀之外的变量不该出现）
-          if grep -rIl -E '^(AUTH_SECRET|POSTGRES_PASSWORD|EVENTS_INGEST_TOKEN|FEISHU_APP_SECRET)=' .next public 2>/dev/null; then
+          if grep -rIl -E '^(AUTH_SECRET|POSTGRES_PASSWORD|EVENTS_INGEST_TOKEN|FEISHU_APP_SECRET|FEISHU_WEBHOOK_URL)=' .next public 2>/dev/null; then
             echo "::error::构建产物中出现 .env 变量名=值 的形态"
+            fail=1
+          fi
+          # 4) 飞书群机器人 webhook 字面量：它等同于密码，被拿到就能往群里发消息。
+          #    drift-guard 在源码层已经拦了一道，这里是产物层的第二道 ——
+          #    源码那层漏了（比如从依赖里带进来），这层还能兜住。
+          if grep -rIl -E 'open-apis/bot/v2/hook/[A-Za-z0-9_-]{8,}' .next public 2>/dev/null; then
+            echo "::error::构建产物中出现硬编码的飞书群机器人 webhook"
             fail=1
           fi
           [ "$fail" -eq 0 ] && echo "未发现凭据泄漏"

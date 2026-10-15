@@ -226,6 +226,53 @@ if (!existsSync("scripts/seo-retired.test.mjs")) {
   problems.push("缺少 scripts/seo-retired.test.mjs —— 410 判定（含「不该命中」的反例）没有回归防护");
 }
 
+/* ── 5c. 凭据不入源码 ─────────────────────────────────────────────────────── */
+
+/**
+ * 飞书群机器人 webhook URL 等同于密码：拿到它就能往群里发消息。
+ * 这是本仓库里**唯一一个会被写进应用源码**的凭据（其余都在 .env / 服务器侧），
+ * 所以要在源码层面盯着 —— 只扫构建产物不够：产物扫描发生在构建之后，
+ * 而硬编码的字面量早就跟着 git 走了一圈了。
+ */
+const SECRET_LITERAL_PATTERNS = [
+  { label: "飞书群机器人 webhook", pattern: /open-apis\/bot\/v2\/hook\/[A-Za-z0-9_-]{8,}/ },
+];
+// 只扫会被打进产物或直接跑的目录；docs 与 .env.example 里写形态说明是允许的
+// （.env.example 里的示例是 <uuid> 占位，匹配不到"像凭据"的形态）。
+const sourceFiles = (dir, out = []) => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      // 与 discoverTests 同一条排除：第三方快照与构建产物里全是别人的凭据形态
+      if (!["node_modules", ".next", "dist", "vendor", ".git"].includes(entry.name)) sourceFiles(full, out);
+    } else if (/\.(ts|tsx|mjs|js|sh)$/.test(entry.name)) {
+      out.push(full);
+    }
+  }
+  return out;
+};
+
+for (const dir of ["app", "lib", "scripts", "deploy", "db"]) {
+  if (!existsSync(dir)) continue;
+  for (const file of sourceFiles(dir)) {
+    const body = read(file);
+    for (const { label, pattern } of SECRET_LITERAL_PATTERNS) {
+      if (pattern.test(body)) {
+        problems.push(`${rel(file)}：出现硬编码的${label} —— 它等同于密码，只能放服务器 .env（读 env.FEISHU_WEBHOOK_URL）`);
+      }
+    }
+  }
+}
+
+// 通知是旁路：被删掉不会报错，只会让"有人提交申请"这件事静默地没人知道
+const agentRoute = read("app/api/agent/application/route.ts");
+if (!agentRoute.includes("notifyAgentApplication")) {
+  problems.push("app/api/agent/application/route.ts 没有接飞书通知 —— 提交代理商申请时群里收不到提醒，且不会报错");
+}
+if (/await\s+notifyAgentApplication/.test(agentRoute)) {
+  problems.push("app/api/agent/application/route.ts 里 await 了通知 —— 它是旁路，await 会让申请人等飞书响应");
+}
+
 /* ── 6. 告警链路：死人开关必须真的被调到 ─────────────────────────────────── */
 
 const commonLib = read("deploy/lib/common.sh");
