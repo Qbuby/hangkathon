@@ -88,6 +88,39 @@ export function verifyFeishuSignature(
 }
 
 /**
+ * **只解密、不验签**，返回明文 JSON —— 唯一用途是应答 `url_verification` 握手。
+ *
+ * 为什么需要它（2026-10-15 实测踩到）：
+ *   开启加密策略后，飞书发来的地址校验请求是**加密但不带签名头**的
+ *   （实测 `ua=Go-http-client/1.1`、body 只有 `{encrypt}`、
+ *   `x-lark-request-timestamp/nonce/signature` 三个头全缺）。
+ *   而 `parseInbound` 是「先验签后解密」，于是这个请求在解密之前就被挡掉了 ——
+ *   报错是"缺少验签请求头"，飞书那边显示成"返回数据不是合法的JSON格式"。
+ *
+ *   这是个顺序错误：握手是**建立信任的第一步**，它本身不可能用
+ *   还没建立起来的信任来证明自己。
+ *
+ * 放开验签是否安全：这个函数的结果**只用于回显 challenge**，不读库、不落状态、
+ * 不返回任何站内数据。它确实是完整解密（需要真实密钥，解不开就是解不开），
+ * 不是明文旁路。而真正的事件一律走 parseInbound，那里验签是强制的。
+ */
+export function peekDecrypted(rawBody: string, encryptKey: string): Record<string, unknown> | null {
+  let outer: Record<string, unknown>;
+  try {
+    outer = JSON.parse(rawBody) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  // 明文形态：本来就没加密，直接用（此时也不需要密钥）
+  if (typeof outer.encrypt !== "string") return outer;
+  try {
+    return JSON.parse(decryptFeishuPayload(encryptKey, outer.encrypt)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 解析入站请求：验签 → （必要时）解密 → 返回事件 JSON。
  * 验签对象是**原始 body**（飞书签的就是它），所以解密必须发生在验签之后。
  */

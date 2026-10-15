@@ -82,6 +82,41 @@ test("解密：encrypt 字段走 AES-256-CBC，且解密发生在验签之后", 
   assert.match(bad.reason, /签名/);
 });
 
+test("peekDecrypted 能解开**不带签名**的加密握手，而 parseInbound 仍然拒绝它", async () => {
+  const { peekDecrypted, parseInbound } = await loadApi();
+  const plain = JSON.stringify({ challenge: "unsigned-challenge", token: "tok", type: "url_verification" });
+  const key = createHash("sha256").update(KEY).digest();
+  const iv = Buffer.from("0123456789abcdef");
+  const c = createCipheriv("aes-256-cbc", key, iv);
+  const cipherBytes = Buffer.concat([c.update(plain, "utf8"), c.final()]);
+  const envelope = JSON.stringify({ encrypt: Buffer.concat([iv, cipherBytes]).toString("base64") });
+
+  /**
+   * 2026-10-15 实际踩到的坑：开了加密策略后，飞书发来的地址校验请求是
+   * **加密但不带签名头**的（实测 timestamp/nonce/signature 三个头全缺）。
+   * 而 parseInbound 是"先验签后解密"，于是在解密之前就把请求挡掉了。
+   * 握手是建立信任的第一步，本来就不可能用还没建立的信任自证 ——
+   * 所以握手改走 peekDecrypted（只解密、不验签）。
+   */
+  const peeked = peekDecrypted(envelope, KEY);
+  assert.equal(peeked?.type, "url_verification", "握手必须能解开");
+  assert.equal(peeked?.challenge, "unsigned-challenge");
+
+  // **同一个请求**走事件路径必须仍然被拒 —— 放开握手不等于放开事件
+  const asEvent = parseInbound(envelope, {}, KEY, now());
+  assert.equal(asEvent.ok, false, "无签名的事件必须拒绝");
+  assert.match(asEvent.reason, /验签/);
+
+  // 明文形态（还没配密钥时）也要能读
+  const plaintext = JSON.stringify({ challenge: "plain", type: "url_verification" });
+  assert.equal(peekDecrypted(plaintext, KEY)?.challenge, "plain");
+  // 密钥不对就解不开 —— peek 不是绕过加密的后门
+  assert.equal(peekDecrypted(envelope, "wrong-key"), null);
+  // 畸形输入不抛错
+  assert.equal(peekDecrypted("not json", KEY), null);
+  assert.equal(peekDecrypted(JSON.stringify({ encrypt: "AAAA" }), KEY), null);
+});
+
 test("入站解析：非 JSON / 畸形 encrypt 都被拒", async () => {
   const { parseInbound } = await loadApi();
   const notJson = "not json";
@@ -185,22 +220,31 @@ test("url_verification 握手必须在密钥检查之前（死锁过一次）", 
 
   const challengeAt = code.indexOf('"url_verification"');
   /**
-   * 必须匹配**调用点** `const encryptKey = requireEncryptKey()`：
-   * 直接找 "requireEncryptKey()" 会命中函数定义，而定义写在 POST 上面，
-   * 于是断言会永远判成"密钥检查在前"，把正确的实现也报成错的（第二版踩过）。
+   * 锚点要选对：**不是** `requireEncryptKey()` 的调用，而是它失败后的那个 503。
+   * 加密握手的 challenge 藏在密文里，必须先拿到密钥才能解出来 —— 所以取密钥当然在前；
+   * 真正的不变量是「challenge 应答必须排在 503 拒绝之前」。
+   * （第一版锚在 requireEncryptKey() 上，第二版改成锚在 503 上才对。）
    */
-  const keyCheckAt = code.indexOf("const encryptKey = requireEncryptKey()");
+  const notConfiguredAt = code.indexOf('"not configured"');
   assert.ok(challengeAt > 0, "代码里必须有 url_verification 分支");
-  assert.ok(keyCheckAt > 0, "代码里必须有 requireEncryptKey 的调用点");
+  assert.ok(notConfiguredAt > 0, "代码里必须有未配置密钥的 503 拒绝");
   assert.ok(
-    challengeAt < keyCheckAt,
-    "url_verification 握手必须在 requireEncryptKey 之前处理 —— 否则后台永远验证不通过（死锁）",
+    challengeAt < notConfiguredAt,
+    "url_verification 握手必须在「未配置密钥 → 503」之前处理 —— 否则后台永远验证不通过（死锁）",
   );
 
+  // 握手必须能处理**加密**信封：开了加密策略后飞书发的是 {encrypt}，且不带签名头。
+  // 所以握手路径用 peekDecrypted（只解密不验签），而不是会先验签的 parseInbound。
+  assert.match(code, /peekDecrypted\(rawBody, encryptKey\)/,
+    "握手必须走只解密不验签的 peekDecrypted —— 加密后的握手不带签名头");
+  // 真正的事件路径仍然强制验签：不能因为放开握手就连事件也放开了
+  const eventPath = code.slice(challengeAt);
+  assert.match(eventPath, /parseInbound\(rawBody/, "事件路径必须走 parseInbound（强制验签）");
+  assert.match(eventPath, /if \(!parsed\.ok\)/, "事件路径必须检查 parsed.ok");
+
   // 握手分支只能原样回显 challenge，不能顺手做别的事（不读库、不落状态）
-  assert.match(code, /NextResponse\.json\(\{ challenge: maybeChallenge\.challenge \}\)/,
+  assert.match(code, /NextResponse\.json\(\{ challenge: peeked\.challenge \}\)/,
     "必须原样回显 challenge");
-  // 加密开启后 challenge 可能包在 encrypt 里 —— 那条路走 parseInbound，也要能应答
   assert.match(code, /payload\.type === "url_verification"/, "加密模式下的 challenge 也要能应答");
 });
 

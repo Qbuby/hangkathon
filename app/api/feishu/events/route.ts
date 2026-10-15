@@ -5,6 +5,7 @@ import {
   confirmCard,
   markEventOnce,
   parseInbound,
+  peekDecrypted,
   replyToMessage,
   resultCard,
   sendChatCard,
@@ -77,7 +78,7 @@ function describeInbound(rawBody: string, request: Request): string {
   try {
     const parsed = JSON.parse(rawBody) as Record<string, unknown>;
     const keys = Object.keys(parsed).join(",");
-    shape = `json keys=[${keys}] type=${JSON.stringify(parsed.type ?? null)} hasEncrypt=${typeof parsed.encrypt === "string"}`;
+    shape = `json keys=[${keys}] type=${JSON.stringify(parsed.type ?? null)} hasEncrypt=${typeof parsed.encrypt === "string"} signed=${Boolean(request.headers.get("x-lark-signature"))}`;
   } catch {
     const sanitized = rawBody
       .replace(/[\x00-\x1f\x7f]/g, " ")
@@ -85,6 +86,15 @@ function describeInbound(rawBody: string, request: Request): string {
     shape = `non-json prefix="${sanitized}"`;
   }
   return `ct=${contentType} ua=${userAgent} bytes=${rawBody.length} ${shape}`;
+}
+
+/** 没有密钥时也要能读明文握手，所以单独留一个不抛异常的 JSON.parse。 */
+function safeJsonParse(raw: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(request: Request) {
@@ -95,22 +105,28 @@ export async function POST(request: Request) {
   console.error(`[feishu-bot] 收到入站请求：${describeInbound(rawBody, request)}`);
 
   /**
-   * ── url_verification 握手必须放在最前面，且不需要任何密钥 ──────────────
+   * ── url_verification 握手：最先处理，且**不要求验签** ──────────────────
    *
-   * 飞书后台点「保存」时会 POST 一个 `challenge` 握手，要求我们**原样回 JSON** 才算地址有效。
-   * 这个握手是**不签名、不加密**的 —— 它出现的时候开发者还没机会去配 Encrypt Key。
+   * 这是本文件踩过两次坑的地方，事实记全（2026-10-15）：
    *
-   * 原先的实现把 `requireEncryptKey()` 放在前面，没配就回 503，于是后台永远拿不到
-   * 合法 JSON（2026-10-15 用户实际撞上，看起来像"URL 不合法"）。
+   *   ① 飞书点「保存」时会 POST 一个 challenge 握手，要求原样回 JSON。最初把它排在
+   *      `requireEncryptKey()` 之后 → 没配密钥就 503 → 后台报「返回数据不是合法的JSON格式」，
+   *      看着像 URL 不合法，其实是死锁。
+   *   ② 排到前面之后仍然 401，日志显示**三个验签头一个都没有**
+   *      （`ua=Go-http-client/1.1`、body 只有 `{encrypt}`、signature 三头全缺）。
+   *      原因是 `parseInbound` 「先验签后解密」，而开了加密策略后飞书发来的握手是
+   *      **加密但不带签名**的 —— 握手是建立信任的第一步，不可能用还没建立的信任自证。
    *
-   * 放开验签在这里是安全的：下面两个分支都**只把 challenge 原样回显**，
-   * 不读库、不落状态、不返回任何站内数据。它们唯一的作用是确认这个 URL 活着。
+   * 所以这里用 `peekDecrypted`（只解密、不验签）把 challenge 取出来回显。
+   * 这是安全的：结果**只用于回显一个字符串**，不读库、不落状态、不返回任何站内数据；
+   * 而且它是完整解密，解不开就是解不开。**真正的事件一律走下面的 parseInbound，
+   * 那里验签是强制的**（伪造签名 / 无签名头 → 401，均已实测）。
    *
-   * **两种编码都要认**（第二种是实际踩到的）：JSON 体，以及
-   * `application/x-www-form-urlencoded` 的表单体。后者用 JSON.parse 会直接抛，
-   * 于是 falls through 到密钥检查 —— 症状和"加密了"一模一样，光看日志分不出来。
+   * 三种形态都认（都实测踩到过）：明文 JSON、加密信封、表单编码。
    */
+  const encryptKey = requireEncryptKey();
   const contentType = (request.headers.get("content-type") ?? "").toLowerCase();
+
   if (contentType.includes("application/x-www-form-urlencoded")) {
     const form = new URLSearchParams(rawBody);
     const challenge = form.get("challenge");
@@ -118,17 +134,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ challenge });
     }
   } else {
-    try {
-      const maybeChallenge = JSON.parse(rawBody) as { challenge?: unknown; type?: unknown };
-      if (maybeChallenge.type === "url_verification" && typeof maybeChallenge.challenge === "string") {
-        return NextResponse.json({ challenge: maybeChallenge.challenge });
-      }
-    } catch {
-      // 不是合法 JSON：交给下面的验签路径去拒绝（那里会给出更准确的拒绝理由）
+    const peeked = encryptKey ? peekDecrypted(rawBody, encryptKey) : safeJsonParse(rawBody);
+    if (peeked?.type === "url_verification" && typeof peeked.challenge === "string") {
+      return NextResponse.json({ challenge: peeked.challenge });
     }
   }
 
-  const encryptKey = requireEncryptKey();
   if (!encryptKey) {
     console.error("[feishu-bot] 未配置 FEISHU_ENCRYPT_KEY，拒绝所有入站请求");
     return new NextResponse("not configured", { status: 503 });
