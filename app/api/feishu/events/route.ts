@@ -58,36 +58,74 @@ function requireEncryptKey(): string | null {
   return process.env.FEISHU_ENCRYPT_KEY?.trim() || null;
 }
 
+/**
+ * 把入站请求的**形状**记下来（不记内容）。
+ *
+ * 为什么需要它：2026-10-15 排查时，"后台报返回数据不是合法 JSON"这个现象有两种完全不同的
+ * 可能 —— ① 用户已经打开了加密策略，飞书发的是 `{"encrypt":"…"}`；② 飞书发的是表单编码
+ * 而不是 JSON。两者都会走到"未配置密钥"那行日志，**光看日志分不出来**，于是只能靠猜，
+ * 而猜错一次就是用户再等一个部署周期。所以这里把 content-type / UA / 字节数 /
+ * 顶层键名 / 有没有 encrypt 记下来 —— 一行就能分辨，且不泄漏任何消息内容。
+ *
+ * 非 JSON 时只记清洗后的前 80 个字符：控制字符先清掉（否则外部内容能往日志里注入换行），
+ * 截断防止刷屏。飞书的握手 challenge 本身不是敏感信息。
+ */
+function describeInbound(rawBody: string, request: Request): string {
+  const contentType = request.headers.get("content-type") ?? "(none)";
+  const userAgent = request.headers.get("user-agent") ?? "(none)";
+  let shape: string;
+  try {
+    const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+    const keys = Object.keys(parsed).join(",");
+    shape = `json keys=[${keys}] type=${JSON.stringify(parsed.type ?? null)} hasEncrypt=${typeof parsed.encrypt === "string"}`;
+  } catch {
+    const sanitized = rawBody
+      .replace(/[\x00-\x1f\x7f]/g, " ")
+      .slice(0, 80);
+    shape = `non-json prefix="${sanitized}"`;
+  }
+  return `ct=${contentType} ua=${userAgent} bytes=${rawBody.length} ${shape}`;
+}
+
 export async function POST(request: Request) {
   const blocked = databaseRequired();
   if (blocked) return blocked;
 
   const rawBody = await request.text().catch(() => "");
+  console.error(`[feishu-bot] 收到入站请求：${describeInbound(rawBody, request)}`);
 
   /**
    * ── url_verification 握手必须放在最前面，且不需要任何密钥 ──────────────
    *
-   * 飞书后台点「保存」时会 POST 一个 `{"challenge":"…","type":"url_verification"}`，
-   * 要我们**原样回 JSON** 才算地址有效。这个握手请求是**不签名、不加密**的 ——
-   * 它出现的时候开发者还没机会去配 Encrypt Key。
+   * 飞书后台点「保存」时会 POST 一个 `challenge` 握手，要求我们**原样回 JSON** 才算地址有效。
+   * 这个握手是**不签名、不加密**的 —— 它出现的时候开发者还没机会去配 Encrypt Key。
    *
    * 原先的实现把 `requireEncryptKey()` 放在前面，没配就回 503，于是后台永远拿不到
-   * 合法 JSON，页面报「返回数据不是合法的JSON格式」（2026-10-15 用户实际撞上）。
-   * 看起来像"URL 不合法"，实际是死锁：必须先握手成功，才轮到去加密策略页取密钥。
+   * 合法 JSON（2026-10-15 用户实际撞上，看起来像"URL 不合法"）。
    *
-   * 放开验签在这里是安全的：这个分支**只把请求里的 challenge 原样回显**，
-   * 不做任何状态变更、不读库、不返回任何站内数据。它唯一的作用是确认这个 URL 活着。
+   * 放开验签在这里是安全的：下面两个分支都**只把 challenge 原样回显**，
+   * 不读库、不落状态、不返回任何站内数据。它们唯一的作用是确认这个 URL 活着。
    *
-   * 注意加密开启后飞书可能把 challenge 也包在 `encrypt` 里，那条路径仍走下面的
-   * parseInbound（此时密钥已存在，验签通过后再解出 challenge），两条路都覆盖到了。
+   * **两种编码都要认**（第二种是实际踩到的）：JSON 体，以及
+   * `application/x-www-form-urlencoded` 的表单体。后者用 JSON.parse 会直接抛，
+   * 于是 falls through 到密钥检查 —— 症状和"加密了"一模一样，光看日志分不出来。
    */
-  try {
-    const maybeChallenge = JSON.parse(rawBody) as { challenge?: unknown; type?: unknown };
-    if (maybeChallenge.type === "url_verification" && typeof maybeChallenge.challenge === "string") {
-      return NextResponse.json({ challenge: maybeChallenge.challenge });
+  const contentType = (request.headers.get("content-type") ?? "").toLowerCase();
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    const form = new URLSearchParams(rawBody);
+    const challenge = form.get("challenge");
+    if (form.get("type") === "url_verification" && challenge) {
+      return NextResponse.json({ challenge });
     }
-  } catch {
-    // 不是合法 JSON：交给下面的验签路径去拒绝（那里会给出更准确的拒绝理由）
+  } else {
+    try {
+      const maybeChallenge = JSON.parse(rawBody) as { challenge?: unknown; type?: unknown };
+      if (maybeChallenge.type === "url_verification" && typeof maybeChallenge.challenge === "string") {
+        return NextResponse.json({ challenge: maybeChallenge.challenge });
+      }
+    } catch {
+      // 不是合法 JSON：交给下面的验签路径去拒绝（那里会给出更准确的拒绝理由）
+    }
   }
 
   const encryptKey = requireEncryptKey();
