@@ -226,15 +226,25 @@ export async function replyToMessage(messageId: string, text: string, env?: Node
  * 刻意用宽松类型而不是逐字段建模：卡片的 schema 由飞书定义且会演进，
  * 我们只用到 schema/header/body/elements 这几处，**建模越细，升级时越容易被自己的类型卡住**。
  */
+/**
+ * 卡片结构说明（这段是 2026-10-15 拿真实接口试出来的，别凭直觉改）：
+ *
+ * - **必须写 `"schema": "2.0"`**。不写时飞书按 1.0 解析，而 1.0 的元素在**顶层**
+ *   `elements`，于是 2.0 写法里的 `body.elements` 被整个忽略 ——
+ *   表现是「标题能渲染、正文一片空白」，且接口返回 code=0、**没有任何报错**。
+ * - **2.0 不支持 `note` 与 `action` 两个标签**。实测报错原文：
+ *   `cards of schema V2 no longer support this capability ... unsupported tag note`。
+ *   所以小字说明改用 `markdown`，按钮改成**直接作为 `body.elements` 的元素**
+ *   （而不是 1.0 那种 `{tag:"action", actions:[...]}` 的容器）。
+ *   （1.0 的写法也仍然可用，实测 code=0；我们统一走 2.0，别混着写。）
+ */
 export type FeishuCard = Record<string, unknown>;
+
+const CARD_FOOTNOTE = "来自杭客松管理端 · 命令：@杭客松 帮助";
 
 /** 一张纯文本卡片（无按钮），用于列表类结果。 */
 export function textCard(title: string, lines: string[], template = "blue"): FeishuCard {
   return {
-    // **必须声明 schema 2.0**（2026-10-15 实测踩到）：飞书卡片有两套结构，
-    // 不写 schema 时按 1.0 解析 —— 1.0 的元素在**顶层** `elements`，于是
-    // 2.0 写法里的 `body.elements` 被整个忽略，表现为「标题能渲染、正文一片空白」。
-    // 这种失败不报任何错，只能靠肉眼发现，所以下面那条单测把它钉死。
     schema: "2.0",
     config: { wide_screen_mode: true },
     header: { title: { tag: "plain_text", content: title }, template },
@@ -242,7 +252,7 @@ export function textCard(title: string, lines: string[], template = "blue"): Fei
       elements: [
         { tag: "markdown", content: lines.join("\n") },
         { tag: "hr" },
-        { tag: "note", elements: [{ tag: "plain_text", content: "来自杭客松管理端 · 命令：@杭客松 帮助" }] },
+        { tag: "markdown", content: `<font color='grey'>${CARD_FOOTNOTE}</font>` },
       ],
     },
   };
@@ -251,8 +261,8 @@ export function textCard(title: string, lines: string[], template = "blue"): Fei
 /**
  * 确认卡片：所有**写操作**都必须先过这一张，不允许「一句话直接执行」。
  *
- * 理由是这套东西的危险不在于鉴权（鉴权做对了），而在于**误操作**和**可被诱导**：
- * 群里有人贴了一段看起来像命令的文本、或者手滑多打了一次，都不该立刻生效。
+ * 理由是这套东西的危险不在于鉴权（鉴权做对了），而在于**误操作**与**可被诱导**：
+ * 群里有人贴了一段看起来像命令的文本、或者手滑多点一次，都不该立刻生效。
  * 卡片回调会再校验一次操作者身份，并且回调体由飞书签名，攻击者无法凭空构造。
  */
 export function confirmCard(title: string, body: string, actionValue: Record<string, string>, danger = false): FeishuCard {
@@ -263,15 +273,15 @@ export function confirmCard(title: string, body: string, actionValue: Record<str
     body: {
       elements: [
         { tag: "markdown", content: body },
-        { tag: "action", actions: [
-          { tag: "button", text: { tag: "plain_text", content: danger ? "确认执行（不可撤销）" : "确认执行" }, type: "danger", value: actionValue },
-          { tag: "button", text: { tag: "plain_text", content: "取消" }, type: "default", value: { cancel: "1" } },
-        ] },
-        { tag: "note", elements: [{ tag: "plain_text", content: "这张卡片只对管理员可见有效；确认后同样写入审计日志。" }] },
+        // 2.0 里按钮直接当元素用；`action` 容器标签在 2.0 已不支持
+        { tag: "button", text: { tag: "plain_text", content: danger ? "确认执行（不可撤销）" : "确认执行" }, type: danger ? "danger" : "primary", value: actionValue },
+        { tag: "button", text: { tag: "plain_text", content: "取消" }, type: "default", value: { cancel: "1" } },
+        { tag: "markdown", content: "<font color='grey'>这张卡片只对管理员有效；确认后同样写入审计日志。</font>" },
       ],
     },
   };
 }
+
 
 /** 卡片回调后把原卡片替换成终态，避免按钮被重复点击。 */
 export function resultCard(title: string, lines: string[], ok: boolean): FeishuCard {

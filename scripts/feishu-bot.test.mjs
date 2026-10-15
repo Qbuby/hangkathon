@@ -149,11 +149,25 @@ test("卡片必须声明 schema 2.0，否则正文会被整块忽略（渲染成
 
   // 确认卡片必须真的带两个按钮，且按钮 value 里有命令串
   const c = cards.confirmCard;
-  const action = c.body.elements.find((e) => e.tag === "action");
-  assert.ok(action, "确认卡片必须有 action 元素");
-  assert.equal(action.actions.length, 2, "必须有「确认」与「取消」两个按钮");
-  assert.deepEqual(action.actions[0].value, { command: "下线 x" });
-  assert.deepEqual(action.actions[1].value, { cancel: "1" });
+  const buttons = c.body.elements.filter((e) => e.tag === "button");
+  assert.equal(buttons.length, 2, "必须有「确认」与「取消」两个按钮");
+  assert.deepEqual(buttons[0].value, { command: "下线 x" });
+  assert.deepEqual(buttons[1].value, { cancel: "1" });
+
+  /**
+   * 2.0 **不支持** `note` 与 `action` 两个标签（实测报错：
+   * `cards of schema V2 no longer support this capability ... unsupported tag note`）。
+   * 用了它们整张卡片会 400，而 1.0 的写法（顶层 elements + action）在 2.0 语境下
+   * 又会被忽略成空白卡片 —— 两种症状完全不同，所以这里逐个标签钉死。
+   */
+  for (const [name, card] of Object.entries(cards)) {
+    for (const el of card.body.elements) {
+      assert.notEqual(el.tag, "note", `${name} 用了 2.0 不支持的 note 标签`);
+      assert.notEqual(el.tag, "action", `${name} 用了 2.0 不支持的 action 标签`);
+    }
+  }
+  // 小字说明改用 markdown 承载，内容不能丢
+  assert.ok(c.body.elements.some((e) => e.tag === "markdown" && String(e.content).includes("审计日志")), "确认卡片的小字说明要保留");
 });
 
 test("入站解析：非 JSON / 畸形 encrypt 都被拒", async () => {
