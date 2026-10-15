@@ -74,24 +74,34 @@ export function parseCommand(text: string): ParsedCommand | null {
 }
 
 /**
- * 解析 `FEISHU_ADMINS` 白名单：`open_id=邮箱` 逗号分隔。
+ * 解析 `FEISHU_ADMINS` 白名单：`open_id=邮箱` 逗号分隔；**一个 open_id 可以绑多个邮箱**
+ * （用 `|` 分隔）。
  *
  * 例：`ou_aaa=owner@example.com,ou_bbb=ops@example.com`
  * 用 open_id 而不是邮箱做键，是因为消息事件里**只有 open_id**（飞书不在消息事件里给邮箱）。
+ *
+ * 为什么一个 open_id 允许绑多个邮箱（2026-10-15）：同一个人往往有多个站内账号
+ * （微信登录合成一个、邮箱登录若干个），而飞书这边只有一个 open_id，且**无法从事件里
+ * 反查是哪个站内账号**。与其猜一个（猜错就是用户再等一轮"还是不行"），
+ * 不如全绑上，取第一个能解析成 admin 的身份 —— 它们本来就是同一个人。
  */
-export function parseAdminBindings(raw: string | undefined | null): Map<string, string> {
-  const map = new Map<string, string>();
+export function parseAdminBindings(raw: string | undefined | null): Map<string, string[]> {
+  const map = new Map<string, string[]>();
   for (const item of (raw ?? "").split(",")) {
     const entry = item.trim();
     if (!entry) continue;
     const at = entry.indexOf("=");
     if (at <= 0) continue;
     const openId = entry.slice(0, at).trim();
-    const email = entry.slice(at + 1).trim().toLowerCase();
-    // 只接受 ou_ 开头的 open_id 与像邮箱的值，避免 .env 里写错格式后静默半生效
+    // 只接受 ou_ 开头的 open_id，避免 .env 里写错格式后静默半生效
     if (!/^ou_[A-Za-z0-9]+$/.test(openId)) continue;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
-    map.set(openId, email);
+    const emails: string[] = [];
+    for (const raw of entry.slice(at + 1).split("|")) {
+      const email = raw.trim().toLowerCase();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !emails.includes(email)) emails.push(email);
+    }
+    if (emails.length === 0) continue;
+    map.set(openId, [...(map.get(openId) ?? []), ...emails]);
   }
   return map;
 }
@@ -101,8 +111,10 @@ export type ResolvedOperator = { openId: string; user: ServerUser; email: string
 /**
  * 把 open_id 解析成站内管理员用户。
  *
- * 找不到就返回 null —— 调用方必须按"未授权"处理。这里刻意**不做任何降级**：
- * 宁可把一个配错的管理员挡在门外，也不要让远程操作以一个查不到的身份落到库里。
+ * 一个 open_id 可能绑了多个站内邮箱（同一个人有多个账号），按顺序取**第一个
+ * 能查到且确实是 admin 的**。全都查不到就返回 null —— 调用方必须按"未授权"处理。
+ * 这里刻意**不做任何降级**：宁可把一个配错的管理员挡在门外，
+ * 也不要让远程操作以一个查不到的身份落到库里。
  */
 export async function resolveOperator(
   openId: string | null | undefined,
@@ -110,13 +122,15 @@ export async function resolveOperator(
 ): Promise<ResolvedOperator | null> {
   const openIdValue = (openId ?? "").trim();
   if (!openIdValue) return null;
-  const binding = parseAdminBindings(env.FEISHU_ADMINS).get(openIdValue);
-  if (!binding) return null;
+  const bindings = parseAdminBindings(env.FEISHU_ADMINS).get(openIdValue);
+  if (!bindings || bindings.length === 0) return null;
   const { getUserByEmail } = await import("./users");
-  const user = await getUserByEmail(binding);
-  // 必须真的是管理员：白名单里写了一个普通用户的邮箱时不能放行
-  if (!user || user.role !== "admin") return null;
-  return { openId: openIdValue, user, email: binding };
+  for (const email of bindings) {
+    const user = await getUserByEmail(email);
+    // 必须真的是管理员：白名单里写了一个普通用户的邮箱时不能放行（继续试下一个）
+    if (user && user.role === "admin") return { openId: openIdValue, user, email };
+  }
+  return null;
 }
 
 /* ────────────────────────── 命令元数据 ────────────────────────── */

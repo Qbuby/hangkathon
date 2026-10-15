@@ -97,6 +97,21 @@ function safeJsonParse(raw: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * 旁路调用：不抛异常，但**必须留下痕迹**。
+ *
+ * 这段代码原先到处是 `.catch(() => {})`，结果 2026-10-15 出了个很难查的现象：
+ * 用户发了命令、日志显示鉴权正常拦截，但机器人**一声不吭** —— 回复失败了，
+ * 而失败被空 catch 吞得干干净净。这正是本仓库反复吃的那类"静默失败"：
+ * 现象在用户侧，原因在日志里查不到。空 catch 只在两种地方站得住：
+ * 审计写入（audit.ts 自身永不抛）、以及这里这种"失败也不该影响主流程"的旁路。
+ */
+function bestEffort(label: string, work: Promise<unknown>): void {
+  work.catch((error) => {
+    console.error(`[feishu-bot] ${label} 失败：${String(error instanceof Error ? error.message : error)}`);
+  });
+}
+
 export async function POST(request: Request) {
   const blocked = databaseRequired();
   if (blocked) return blocked;
@@ -226,17 +241,20 @@ async function handleMessage(event: FeishuEvent | undefined) {
       method: "POST",
       path: "/api/feishu/events",
       detail: { stage: "command", openId: openId ?? null, chatId, command: command.name },
-    }).catch(() => {});
+    });
     console.error(`[feishu-bot] 拒绝未授权的 open_id=${openId ?? "(空)"} 的命令「${command.name}」`);
-    await replyToMessage(
-      messageId,
-      "未授权：你的账号不在杭客松机器人管理员白名单里。如需开通，请让管理员在服务器 .env 的 FEISHU_ADMINS 里加入你的 open_id（该次请求已记入管理端审计日志，可在 /manage 查看）。",
-    ).catch(() => {});
+    bestEffort(
+      "回复未授权提示",
+      replyToMessage(
+        messageId,
+        "未授权：你的账号不在杭客松机器人管理员白名单里。如需开通，请让管理员在服务器 .env 的 FEISHU_ADMINS 里加入你的 open_id（该次请求已记入管理端审计日志，可在 /manage 查看）。",
+      ),
+    );
     return;
   }
 
   if (command.name === "帮助") {
-    await replyToMessage(messageId, helpText()).catch(() => {});
+    bestEffort("回复帮助", replyToMessage(messageId, helpText()));
     return;
   }
 
@@ -244,9 +262,9 @@ async function handleMessage(event: FeishuEvent | undefined) {
     try {
       const plan = await planWriteCommand(command.name, command.args);
       await sendChatCard(chatId, confirmCard(plan.title, plan.body, { command: plan.command }, plan.danger));
-      await replyToMessage(messageId, "已生成确认卡片，请核对后点「确认执行」。").catch(() => {});
+      bestEffort("回复确认卡片提示", replyToMessage(messageId, "已生成确认卡片，请核对后点「确认执行」。"));
     } catch (error) {
-      await replyToMessage(messageId, commandErrorText(error)).catch(() => {});
+      bestEffort("回复命令错误", replyToMessage(messageId, commandErrorText(error)));
     }
     return;
   }
@@ -255,7 +273,7 @@ async function handleMessage(event: FeishuEvent | undefined) {
     const result = await runReadCommand(command.name, command.args);
     await sendChatCard(chatId, textCard(`杭客松 · ${command.name}`, result.text.split("\n")));
   } catch (error) {
-    await replyToMessage(messageId, commandErrorText(error)).catch(() => {});
+    bestEffort("回复命令错误", replyToMessage(messageId, commandErrorText(error)));
   }
 }
 
@@ -291,7 +309,7 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       method: "POST",
       path: "/api/feishu/events",
       detail: { stage: "card-action", openId: openId ?? null, command },
-    }).catch(() => {});
+    });
     return NextResponse.json({ card: resultCard("未授权", ["你的账号不在管理员白名单里，本次操作没有执行。"], false) });
   }
 
@@ -312,7 +330,7 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
        * 审计日志一旦 append-only 就改不了，缺了这个字段以后没法补。
        */
       detail: { via: "feishu", feishuOpenId: operator.openId, command, args },
-    }).catch(() => {});
+    });
     console.error(`[feishu-bot] ${operator.email} 通过飞书执行：${command}`);
     return NextResponse.json({ card: resultCard(`已执行：${command.split(/\s+/)[0]}`, result.lines, true) });
   } catch (error) {
@@ -324,7 +342,7 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       method: "POST",
       path: "/api/feishu/events",
       detail: { via: "feishu", feishuOpenId: operator.openId, command, args, error: text },
-    }).catch(() => {});
+    });
     console.error(`[feishu-bot] 命令失败：${command}`, error);
     return NextResponse.json({ card: resultCard("执行失败", [text], false) });
   }

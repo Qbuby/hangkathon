@@ -182,7 +182,17 @@ test("白名单解析：只接受 ou_ 开头的 open_id 与合法邮箱，格式
 
   const map = parseAdminBindings("ou_aaa=Owner@Example.com, ou_bbb=ops@example.com");
   assert.equal(map.size, 2);
-  assert.equal(map.get("ou_aaa"), "owner@example.com", "邮箱要归一化小写");
+  assert.deepEqual(map.get("ou_aaa"), ["owner@example.com"], "邮箱要归一化小写");
+
+  // 一个 open_id 可以绑多个站内邮箱（同一个人有多个账号，而飞书事件里只有 open_id、
+  // 反查不出是哪个站内账号 —— 猜一个错就是用户再等一轮"还是不行"）
+  const multi = parseAdminBindings("ou_ccc=a@example.com|A@Example.com|b@example.com");
+  assert.deepEqual(multi.get("ou_ccc"), ["a@example.com", "a@example.com", "b@example.com"].filter((v, i, arr) => arr.indexOf(v) === i));
+  // 分隔项里混进非邮箱的值，整项都不该被采纳
+  assert.equal(parseAdminBindings("ou_ddd=ok@example.com|bad-value").get("ou_ddd")?.length, 1);
+  // 重复的 open_id 分多次出现要合并，而不是后者覆盖前者
+  const merged = parseAdminBindings("ou_eee=a@example.com,ou_eee=b@example.com");
+  assert.deepEqual(merged.get("ou_eee"), ["a@example.com", "b@example.com"]);
 
   // 这些都要被忽略而不是部分生效
   const bad = parseAdminBindings(
@@ -202,8 +212,11 @@ test("resolveOperator：查不到站内用户就返回 null（绝不为远程操
   assert.match(source, /import\("\.\/users"\)/, "users 模块应当动态 import（避免把会话依赖拉进来）");
   assert.match(source, /getUserByEmail/);
   assert.equal(/\bensureUser\b/.test(source), false, "resolveOperator 绝不能调用 ensureUser（它会 upsert 造账号）");
-  // 白名单里写了非管理员也必须挡住
-  assert.match(source, /user\.role !== "admin"/, "白名单里的非管理员不能放行");
+  // 白名单里写了非管理员也必须挡住（现在是「命中就 return，全部不命中才 null」的循环形态）
+  assert.match(source, /user && user\.role === "admin"/, "白名单里的非管理员不能放行");
+  assert.match(source, /return null;\s*\}/, "全部绑定邮箱都解析不出 admin 时必须返回 null");
+  // 一个 open_id 绑多个邮箱：逐个试，而不是只试第一个就放弃
+  assert.match(source, /for \(const email of bindings\)/, "多个绑定邮箱要逐个尝试");
 });
 
 test("url_verification 握手必须在密钥检查之前（死锁过一次）", () => {
