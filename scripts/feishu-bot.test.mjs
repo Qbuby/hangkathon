@@ -117,6 +117,45 @@ test("peekDecrypted 能解开**不带签名**的加密握手，而 parseInbound 
   assert.equal(peekDecrypted(JSON.stringify({ encrypt: "AAAA" }), KEY), null);
 });
 
+test("卡片必须声明 schema 2.0，否则正文会被整块忽略（渲染成空白卡片）", async () => {
+  const { textCard, confirmCard, resultCard } = await loadApi();
+
+  /**
+   * 2026-10-15 线上实测踩到：卡片标题能渲染、正文一片空白。
+   * 原因是飞书卡片有两套结构 —— 不写 `schema` 时按 **1.0** 解析，
+   * 而 1.0 的元素在**顶层** `elements`，所以 2.0 写法里的 `body.elements` 被忽略。
+   *
+   * 这个失败**不报任何错**：接口返回 code=0，日志里也干净，只有肉眼能发现。
+   * 所以必须由单测钉死。
+   */
+  const cards = {
+    textCard: textCard("标题", ["第一行", "第二行"]),
+    confirmCard: confirmCard("确认", "正文", { command: "下线 x" }),
+    resultCard: resultCard("已执行", ["做了"], true),
+  };
+  for (const [name, card] of Object.entries(cards)) {
+    assert.equal(card.schema, "2.0", `${name} 必须声明 schema: "2.0"，否则正文被忽略`);
+    assert.ok(Array.isArray(card.body?.elements), `${name} 必须把元素放在 body.elements`);
+    assert.ok(card.body.elements.length > 0, `${name} 的 body 不能是空的`);
+    // 顶层 elements 是 1.0 的写法，与 2.0 混用会让人误以为内容有了
+    assert.equal(card.elements, undefined, `${name} 不该用 1.0 的顶层 elements`);
+    assert.ok(card.header?.title?.content, `${name} 必须有标题`);
+  }
+
+  // 内容真的进了卡片，而不是只有壳
+  const t = cards.textCard;
+  assert.ok(t.body.elements.some((e) => e.tag === "markdown" && e.content.includes("第一行")));
+  assert.ok(t.body.elements.some((e) => e.tag === "hr"));
+
+  // 确认卡片必须真的带两个按钮，且按钮 value 里有命令串
+  const c = cards.confirmCard;
+  const action = c.body.elements.find((e) => e.tag === "action");
+  assert.ok(action, "确认卡片必须有 action 元素");
+  assert.equal(action.actions.length, 2, "必须有「确认」与「取消」两个按钮");
+  assert.deepEqual(action.actions[0].value, { command: "下线 x" });
+  assert.deepEqual(action.actions[1].value, { cancel: "1" });
+});
+
 test("入站解析：非 JSON / 畸形 encrypt 都被拒", async () => {
   const { parseInbound } = await loadApi();
   const notJson = "not json";

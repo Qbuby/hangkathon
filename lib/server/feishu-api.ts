@@ -231,6 +231,11 @@ export type FeishuCard = Record<string, unknown>;
 /** 一张纯文本卡片（无按钮），用于列表类结果。 */
 export function textCard(title: string, lines: string[], template = "blue"): FeishuCard {
   return {
+    // **必须声明 schema 2.0**（2026-10-15 实测踩到）：飞书卡片有两套结构，
+    // 不写 schema 时按 1.0 解析 —— 1.0 的元素在**顶层** `elements`，于是
+    // 2.0 写法里的 `body.elements` 被整个忽略，表现为「标题能渲染、正文一片空白」。
+    // 这种失败不报任何错，只能靠肉眼发现，所以下面那条单测把它钉死。
+    schema: "2.0",
     config: { wide_screen_mode: true },
     header: { title: { tag: "plain_text", content: title }, template },
     body: {
@@ -252,6 +257,7 @@ export function textCard(title: string, lines: string[], template = "blue"): Fei
  */
 export function confirmCard(title: string, body: string, actionValue: Record<string, string>, danger = false): FeishuCard {
   return {
+    schema: "2.0",
     config: { wide_screen_mode: true },
     header: { title: { tag: "plain_text", content: title }, template: danger ? "red" : "orange" },
     body: {
