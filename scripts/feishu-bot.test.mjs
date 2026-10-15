@@ -171,6 +171,39 @@ test("resolveOperator：查不到站内用户就返回 null（绝不为远程操
   assert.match(source, /user\.role !== "admin"/, "白名单里的非管理员不能放行");
 });
 
+test("url_verification 握手必须在密钥检查之前（死锁过一次）", () => {
+  const raw = readFileSync(new URL("../app/api/feishu/events/route.ts", import.meta.url), "utf8");
+  /**
+   * 先把注释剥掉再看位置。
+   * 第一版没剥，于是 indexOf("url_verification") 命中的是文件头那段**注释**里对流程的
+   * 描述 —— 顺序断言"通过"了，但验的根本不是代码。这种假绿比没有断言更糟。
+   */
+  const code = raw
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/^\s*\/\/.*$/gm, " ")
+    .replace(/\s+/g, " ");
+
+  const challengeAt = code.indexOf('"url_verification"');
+  /**
+   * 必须匹配**调用点** `const encryptKey = requireEncryptKey()`：
+   * 直接找 "requireEncryptKey()" 会命中函数定义，而定义写在 POST 上面，
+   * 于是断言会永远判成"密钥检查在前"，把正确的实现也报成错的（第二版踩过）。
+   */
+  const keyCheckAt = code.indexOf("const encryptKey = requireEncryptKey()");
+  assert.ok(challengeAt > 0, "代码里必须有 url_verification 分支");
+  assert.ok(keyCheckAt > 0, "代码里必须有 requireEncryptKey 的调用点");
+  assert.ok(
+    challengeAt < keyCheckAt,
+    "url_verification 握手必须在 requireEncryptKey 之前处理 —— 否则后台永远验证不通过（死锁）",
+  );
+
+  // 握手分支只能原样回显 challenge，不能顺手做别的事（不读库、不落状态）
+  assert.match(code, /NextResponse\.json\(\{ challenge: maybeChallenge\.challenge \}\)/,
+    "必须原样回显 challenge");
+  // 加密开启后 challenge 可能包在 encrypt 里 —— 那条路走 parseInbound，也要能应答
+  assert.match(code, /payload\.type === "url_verification"/, "加密模式下的 challenge 也要能应答");
+});
+
 test("入站端点的安全不变量（静态）", () => {
   const route = readFileSync(new URL("../app/api/feishu/events/route.ts", import.meta.url), "utf8");
   const api = readFileSync(new URL("../lib/server/feishu-api.ts", import.meta.url), "utf8");

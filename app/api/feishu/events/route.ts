@@ -62,13 +62,40 @@ export async function POST(request: Request) {
   const blocked = databaseRequired();
   if (blocked) return blocked;
 
+  const rawBody = await request.text().catch(() => "");
+
+  /**
+   * ── url_verification 握手必须放在最前面，且不需要任何密钥 ──────────────
+   *
+   * 飞书后台点「保存」时会 POST 一个 `{"challenge":"…","type":"url_verification"}`，
+   * 要我们**原样回 JSON** 才算地址有效。这个握手请求是**不签名、不加密**的 ——
+   * 它出现的时候开发者还没机会去配 Encrypt Key。
+   *
+   * 原先的实现把 `requireEncryptKey()` 放在前面，没配就回 503，于是后台永远拿不到
+   * 合法 JSON，页面报「返回数据不是合法的JSON格式」（2026-10-15 用户实际撞上）。
+   * 看起来像"URL 不合法"，实际是死锁：必须先握手成功，才轮到去加密策略页取密钥。
+   *
+   * 放开验签在这里是安全的：这个分支**只把请求里的 challenge 原样回显**，
+   * 不做任何状态变更、不读库、不返回任何站内数据。它唯一的作用是确认这个 URL 活着。
+   *
+   * 注意加密开启后飞书可能把 challenge 也包在 `encrypt` 里，那条路径仍走下面的
+   * parseInbound（此时密钥已存在，验签通过后再解出 challenge），两条路都覆盖到了。
+   */
+  try {
+    const maybeChallenge = JSON.parse(rawBody) as { challenge?: unknown; type?: unknown };
+    if (maybeChallenge.type === "url_verification" && typeof maybeChallenge.challenge === "string") {
+      return NextResponse.json({ challenge: maybeChallenge.challenge });
+    }
+  } catch {
+    // 不是合法 JSON：交给下面的验签路径去拒绝（那里会给出更准确的拒绝理由）
+  }
+
   const encryptKey = requireEncryptKey();
   if (!encryptKey) {
     console.error("[feishu-bot] 未配置 FEISHU_ENCRYPT_KEY，拒绝所有入站请求");
     return new NextResponse("not configured", { status: 503 });
   }
 
-  const rawBody = await request.text().catch(() => "");
   const parsed = parseInbound(rawBody, {
     timestamp: request.headers.get("x-lark-request-timestamp"),
     nonce: request.headers.get("x-lark-request-nonce"),
@@ -87,7 +114,7 @@ export async function POST(request: Request) {
     event?: FeishuEvent;
   };
 
-  // 飞书后台保存请求地址时的握手
+  // 加密模式下 challenge 在密文里，走到这里说明验签已过，照样原样回显
   if (payload.type === "url_verification" && typeof payload.challenge === "string") {
     return NextResponse.json({ challenge: payload.challenge });
   }
