@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getDb, schema } from "@/db";
 import { requireNotBlacklisted } from "./blacklist";
@@ -53,6 +54,23 @@ export async function ensureUser(email: string, name: string | null): Promise<Se
     })
     .returning({ id: schema.users.id, email: schema.users.email, name: schema.users.name, role: schema.users.role });
   return row;
+}
+
+/**
+ * 按 email **查**（不创建）一行 user；不存在返回 null。
+ *
+ * 与 ensureUser 的区别是这里绝不 upsert —— 飞书机器人用它把 open_id 解析成操作者，
+ * 那里必须"查不到就是查不到"，不能因为有人往群里发了个陌生邮箱就凭空造出一个账号。
+ */
+export async function getUserByEmail(email: string): Promise<ServerUser | null> {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return null;
+  const [row] = await getDb()
+    .select({ id: schema.users.id, email: schema.users.email, name: schema.users.name, role: schema.users.role })
+    .from(schema.users)
+    .where(eq(schema.users.email, normalized))
+    .limit(1);
+  return row ?? null;
 }
 
 /** 供路由用：未登录时抛 401 语义的错误。 */

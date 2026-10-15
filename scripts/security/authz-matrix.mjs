@@ -8,7 +8,11 @@
  * 规则：
  *   - 写方法（POST/PATCH/PUT/DELETE）必须带至少一个 require* 守卫（currentUser 只算读级）；
  *   - /api/admin/** 的每个方法必须 requireAdmin；
- *   - 完全无守卫的方法列出来人工复核（公开 GET 是合法的，如 /api/activities）。
+ *   - 完全无守卫的方法列出来人工复核（公开 GET 是合法的，如 /api/activities）；
+ *   - **例外只有一个**：/api/feishu/events。它的授权不来自会话而来自飞书请求签名
+ *     （parseInbound 验签 + 时间窗），把它当成"无守卫"是误报；反过来，
+ *     放行条件必须**逐条钉死**（见 SIGNATURE_GUARDED_ROUTES），不能变成
+ *     "哪个路由写了 parseInbound 就算有守卫"——那等于给所有人开了一扇门。
  *
  * **按方法切分而不是整文件匹配**（2026-10-12 修）：
  * 原先用 `new RegExp(guard).test(整个文件)` 判断，于是同一个 route.ts 里
@@ -27,6 +31,22 @@ const WRITE_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 const STRONG_GUARDS = ["requireUser", "requirePublisher", "requireAdmin"];
 const WEAK_GUARDS = ["databaseRequired", "currentUser", "timingSafeEqual"];
 const GUARDS = [...STRONG_GUARDS, ...WEAK_GUARDS];
+
+/**
+ * 签名守卫路由白名单（封闭集合，逐条钉死）。
+ *
+ * 为什么需要它：飞书事件端点没有会话，它的"调用者身份"来自 HMAC 签名。
+ * 静态扫描器只认 require* 系列，看不见签名，所以会把这个端点报成
+ * "POST 无守卫"。而这个端点能执行管理员操作，绝不能为了让扫描器闭嘴
+ * 就把它降级成公开路由 —— 必须让扫描器理解这种守卫，并要求它真的写了验签。
+ *
+ * **不要把它改成"文件里出现 parseInbound 就算有守卫"**：那样任何路由
+ * 都可以 import 一下 parseInbound 来骗过这条检查。
+ */
+const SIGNATURE_GUARDED_ROUTES = new Map([
+  // 路由 -> 该路由方法体里必须出现的守卫调用（任一即可）
+  ["/api/feishu/events", ["parseInbound("]],
+]);
 const rows = [];
 const problems = [];
 
@@ -79,8 +99,16 @@ for (const file of rows) {
     const isWrite = WRITE_METHODS.has(method);
     const hasStrongGuard = guards.some((guard) => STRONG_GUARDS.includes(guard));
 
+    /**
+     * 签名守卫：只在封闭白名单里的路由生效，且必须真的在**这个方法体**里调用了
+     * 对应的验签函数。少了"逐条钉死"这一步，这条检查就成了可以被绕过的装饰。
+     */
+    const signatureGuards = SIGNATURE_GUARDED_ROUTES.get(route) ?? [];
+    const hasSignatureGuard = signatureGuards.some((call) => body.includes(call));
+
     let status = "public";
-    if (!guards.includes("databaseRequired")) status = "no-db-guard";
+    if (hasSignatureGuard) status = "signature";
+    else if (!guards.includes("databaseRequired")) status = "no-db-guard";
     else if (guards.includes("requireAdmin")) status = "admin";
     else if (guards.includes("timingSafeEqual")) status = "token";
     else if (guards.includes("requirePublisher")) status = "publisher";
@@ -88,14 +116,18 @@ for (const file of rows) {
     else if (guards.includes("currentUser")) status = "viewer";
 
     // token 守卫（抓取入库口）与 /api/auth（Auth.js 入口本身，带限流）是刻意的公开写
-    if (isWrite && !hasStrongGuard && status !== "token" && !route.startsWith("/api/auth/")) {
+    if (isWrite && !hasStrongGuard && !hasSignatureGuard && status !== "token" && !route.startsWith("/api/auth/")) {
       problems.push(`${method} ${route} —— 写方法无 require* 守卫（当前判定 ${status}）`);
+    }
+    // 白名单里的路由却没写验签 —— 比"没有守卫"更严重：等于把管理端口开到公网
+    if (signatureGuards.length > 0 && !hasSignatureGuard) {
+      problems.push(`${method} ${route} —— 在签名守卫白名单里却没有调用验签（${signatureGuards.join(" 或 ")}），等于无守卫的公网管理入口`);
     }
     // 管理路由的**每个**方法都要 requireAdmin（原先只查 GET，于是 PATCH/DELETE 完全没被检）
     if (isAdminRoute && !guards.includes("requireAdmin") && route !== "/api/admin/session") {
       problems.push(`${method} ${route} —— 管理路由缺 requireAdmin（当前判定 ${status}）`);
     }
-    console.log(`${method.padEnd(6)} ${route.padEnd(52)} ${status.padEnd(12)} 守卫[${guards.join(",") || "无"}]`);
+    console.log(`${method.padEnd(6)} ${route.padEnd(52)} ${status.padEnd(12)} 守卫[${guards.join(",") || (hasSignatureGuard ? "签名" : "无")}]`);
   }
 }
 

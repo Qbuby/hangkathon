@@ -273,6 +273,85 @@ if (/await\s+notifyAgentApplication/.test(agentRoute)) {
   problems.push("app/api/agent/application/route.ts 里 await 了通知 —— 它是旁路，await 会让申请人等飞书响应");
 }
 
+/* ── 5d. 飞书管理命令的安全不变量 ─────────────────────────────────────────── */
+
+/**
+ * `/api/feishu/events` 是一个**公网可打**的端点，而它能执行管理员操作
+ * （授予角色、删除用户、删活动）。它的失效方式全是静默的：
+ * 少一次验签 = 攻击者能伪造事件；少一次去重 = 点一下执行两次；
+ * 少一次操作者复查 = 群里任何人都能点别人发出的确认卡片。
+ * 所以这四条逐条用静态检查盯着。
+ */
+const feishuRoute = read("app/api/feishu/events/route.ts");
+const feishuApi = read("lib/server/feishu-api.ts");
+const feishuAdmin = read("lib/server/feishu-admin.ts");
+const feishuCommands = read("lib/server/feishu-commands.ts");
+
+/**
+ * 这几条查的是**具体那一行**而不是"文件里出现过这个符号"——
+ * 只查符号存在的话，把调用改成不被使用、把声明留着就能骗过。
+ * 变异测试 A/B/F 就是这么试的（A/B 第一次只查符号存在，全都漏了）。
+ */
+if (!/const\s+parsed\s*=\s*parseInbound\(/.test(feishuRoute)) {
+  problems.push("app/api/feishu/events 没有把 parseInbound 的结果赋给 parsed —— 验签必须真的决定这个请求放不放行，而不是调用一次就丢掉");
+}
+if (!/if\s*\(!parsed\.ok\)/.test(feishuRoute)) {
+  problems.push("app/api/feishu/events 没有检查 parsed.ok —— 验签失败必须被挡下来");
+}
+if (!feishuRoute.includes("FEISHU_ENCRYPT_KEY")) {
+  problems.push("app/api/feishu/events 没有检查 FEISHU_ENCRYPT_KEY —— 未配置时必须整体拒绝而不是放行");
+}
+if (!/Math\.abs\(nowMs\s*-\s*tsMs\)\s*>\s*MAX_CLOCK_SKEW_MS/.test(feishuApi)) {
+  problems.push("lib/server/feishu-api.ts 的时间窗比较被删掉了 —— 没有它，抓包重放可以无限期有效");
+}
+if (!/seenEvents\.has\(eventId\)/.test(feishuApi)) {
+  problems.push("lib/server/feishu-api.ts 的事件去重判断被删掉了 —— 飞书未收到 2xx 会重投，「点一下确认」会执行两次");
+}
+if (!feishuApi.includes("timingSafeEqual")) {
+  problems.push("lib/server/feishu-api.ts 缺少定时安全比较 —— 签名用普通字符串比较会泄露前缀信息");
+}
+// 两条入站路径（群消息命令 / 卡片回调）必须各自解析一次操作者。卡片会出现在群里，
+// 群里任何人都能点 —— 不能假设"下这条命令的人 == 点确认的人"。
+const operatorResolutions = (feishuRoute.match(/await resolveOperator\(openId\)/g) ?? []).length;
+if (operatorResolutions < 2) {
+  problems.push(`app/api/feishu/events 里只解析了 ${operatorResolutions} 次操作者 —— 群消息命令与卡片回调两条路径都必须各自解析（卡片可被别人点）`);
+}
+if (!feishuApi.includes("markEventOnce")) {
+  problems.push("lib/server/feishu-api.ts 缺少事件去重 —— 飞书未收到 2xx 会重投，「点一下确认」会执行两次");
+}
+if (!feishuRoute.includes("markEventOnce(")) {
+  problems.push("app/api/feishu/events 没有做 event_id 去重");
+}
+// 卡片回调必须重新鉴权：不能假设"下命令的人 == 点确认的人"
+if (!/handleCardAction[\s\S]{0,4000}resolveOperator/.test(feishuRoute)) {
+  problems.push("app/api/feishu/events 的卡片回调没有重新解析操作者 —— 群里任何人都能点别人发出的确认卡片");
+}
+// 白名单只能是封闭集合，不能靠"哪个文件 import 了 parseInbound"
+if (!feishuAdmin.includes("FEISHU_ADMINS") || !feishuAdmin.includes("getUserByEmail")) {
+  problems.push("lib/server/feishu-admin.ts 的操作者解析必须基于 FEISHU_ADMINS 白名单 + users 表查询");
+}
+if (/\bensureUser\b/.test(feishuAdmin)) {
+  problems.push("lib/server/feishu-admin.ts 调用了 ensureUser —— 它会 upsert 造账号，远程操作的操作者必须查不到就是查不到");
+}
+// 写操作只能从 executeWrite 落地；确认卡片阶段不许改数据
+const planSection = feishuCommands.slice(
+  feishuCommands.indexOf("export async function planWriteCommand"),
+  feishuCommands.indexOf("export async function executeWrite"),
+);
+for (const mutating of [
+  "setActivityReview(", "setActivityVisibility(", "deleteActivity(", "setSubmissionReview(",
+  "reviewAgentApplication(", "setUserRole(", "deleteUser(", "addToBlacklist(",
+  "revokeBlacklist(", "setExternalEventHidden(", "deleteExternalEventAdmin(", "removeJoinAdmin(",
+]) {
+  if (planSection.includes(mutating)) {
+    problems.push(`lib/server/feishu-commands.ts 的 planWriteCommand 里出现了写操作 ${mutating} —— 确认卡片阶段只描述、绝不执行`);
+  }
+}
+if (!existsSync("scripts/feishu-bot.test.mjs")) {
+  problems.push("缺少 scripts/feishu-bot.test.mjs —— 验签/解密/去重/命令解析没有回归防护");
+}
+
+
 /* ── 6. 告警链路：死人开关必须真的被调到 ─────────────────────────────────── */
 
 const commonLib = read("deploy/lib/common.sh");
