@@ -19,7 +19,7 @@
  * 后者只是配置里的一个串、不参与任何密码学。两者都要在飞书后台取。
  */
 
-import { createHash, createDecipheriv, timingSafeEqual } from "node:crypto";
+import { createHash, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
 
 const API_BASE = "https://open.feishu.cn/open-apis";
 /** 签名时间窗：飞书官方建议 ±1 小时是"不重放"的上限，这里收紧到 5 分钟。 */
@@ -328,6 +328,34 @@ export function confirmCard(title: string, body: string, actionValue: Record<str
 /** 卡片回调后把原卡片替换成终态，避免按钮被重复点击。 */
 export function resultCard(title: string, lines: string[], ok: boolean): FeishuCard {
   return textCard(title, lines, ok ? "green" : "red");
+}
+
+/**
+ * 确认令牌的一次性消费（防重复执行）。
+ *
+ * event_id 去重挡不住"用户点两次按钮"—— 那两次是**不同**的 event_id，
+ * 所以「点一下确认」会执行两次。删除用户这类操作不可逆，不能指望用户只点一次。
+ *
+ * 每次生成确认卡片时带一个随机 token，执行前先消费掉；第二次拿到同一个 token
+ * 一律只回提示、不执行。
+ */
+const consumedTokens = new Map<string, number>();
+const TOKEN_TTL_MS = 30 * 60 * 1000;
+
+/** 返回 true 表示这个 token 第一次被消费（应当执行）；false 表示已经用过了。 */
+export function consumeConfirmToken(token: string | undefined, nowMs: number = Date.now()): boolean {
+  if (!token) return false;
+  for (const [key, at] of consumedTokens) {
+    if (nowMs - at > TOKEN_TTL_MS) consumedTokens.delete(key);
+  }
+  if (consumedTokens.has(token)) return false;
+  consumedTokens.set(token, nowMs);
+  return true;
+}
+
+/** 生成确认令牌（每张卡片一个）。 */
+export function newConfirmToken(): string {
+  return randomBytes(16).toString("hex");
 }
 
 /**

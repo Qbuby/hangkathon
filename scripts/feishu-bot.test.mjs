@@ -151,8 +151,10 @@ test("卡片必须声明 schema 2.0，否则正文会被整块忽略（渲染成
   const c = cards.confirmCard;
   const buttons = c.body.elements.filter((e) => e.tag === "button");
   assert.equal(buttons.length, 2, "必须有「确认」与「取消」两个按钮");
-  assert.deepEqual(buttons[0].value, { command: "下线 x" });
+  assert.deepEqual(buttons[0].value, { command: "下线 x" }, "卡片构造器原样透传 value");
   assert.deepEqual(buttons[1].value, { cancel: "1" });
+  // 注意：令牌是**路由**加进 value 的（confirmCard 只负责透传），所以那一条断言在
+  // 下面的静态守卫里 —— 放这里测会误以为 confirmCard 该自己生成令牌。
 
   /**
    * 2.0 **不支持** `note` 与 `action` 两个标签（实测报错：
@@ -385,7 +387,24 @@ test("卡片回调的每个分支都必须带 toast（空对象会被飞书判 2
   // 取消 / 未授权 / 执行成功 / 执行失败：四条路径都要经过带 toast 的构造器
   const responder = code.match(/function cardActionResponse\([\s\S]*?\n?\}/);
   assert.ok(responder, "必须通过 cardActionResponse 统一构造响应");
-  assert.match(code, /function cardActionResponse\(\s*toast:/, "toast 必须是必填参数");
+  assert.match(code, /function cardActionResponse\(toast:/, "toast 必须是必填参数");
+
+  /**
+   * 2026-10-16 实测：带 `card` 的回调响应会被判 **200672**（验签已通过、响应也送到了，
+   * 是响应内容本身的问题）。所以卡片回调**只回 toast**、不碰卡片更新 ——
+   * 与其赌一个猜出来的格式，不如用最保守的响应。按钮留在原地只是观感问题，
+   * 真正要紧的「重复点击会不会重复执行」由一次性令牌兜住。
+   */
+  assert.equal(/cardActionResponse\([\s\S]{0,200}?,\s*resultCard/.test(code), false,
+    "卡片回调响应不要带 card（200672）");
+
+  assert.match(code, /newConfirmToken\(\)/, "生成确认卡片时必须带一次性令牌");
+  assert.match(code, /token: newConfirmToken\(\)/, "令牌的 key 必须是 token");
+
+  // 一次性令牌必须在执行之前消费
+  const tokenAt = code.indexOf("consumeConfirmToken(value.token)");
+  const execAt = code.indexOf("await executeWrite(");
+  assert.ok(tokenAt > 0 && execAt > tokenAt, "令牌消费必须在 executeWrite 之前");
 
   // 四条分支都在
   for (const [label, needle] of [
@@ -399,8 +418,25 @@ test("卡片回调的每个分支都必须带 toast（空对象会被飞书判 2
 
   // 取消必须真的不执行：command 为空时直接返回，不能落到 executeWrite
   const cancelAt = code.indexOf("已取消，没有执行任何操作");
-  const execAt = code.indexOf("await executeWrite(");
-  assert.ok(cancelAt > 0 && execAt > cancelAt, "取消分支必须在 executeWrite 之前返回");
+  assert.ok(cancelAt > 0 && cancelAt < execAt, "取消分支必须在 executeWrite 之前返回");
+});
+
+test("一次性令牌：同一张卡片点第二次不得重复执行", async () => {
+  const { consumeConfirmToken, newConfirmToken } = await loadApi();
+  const t = newConfirmToken();
+  assert.equal(consumeConfirmToken(t, 1000), true, "第一次应当放行");
+  assert.equal(consumeConfirmToken(t, 1000), false, "第二次必须拒绝（用户手滑点两下）");
+  assert.equal(consumeConfirmToken(t, 9000), false);
+
+  // 不同卡片互不影响
+  assert.equal(consumeConfirmToken(newConfirmToken(), 1000), true);
+
+  // 没有令牌 = 不放行（不给「没令牌也能执行」留后门）
+  assert.equal(consumeConfirmToken(undefined, 1000), false);
+  assert.equal(consumeConfirmToken("", 1000), false);
+
+  // 令牌用完即忘（TTL 30 分钟），不做成无界 Map
+  assert.equal(consumeConfirmToken(t, 40 * 60 * 1000), true, "超期后不再视为已消费");
 });
 
 test("入站端点的安全不变量（静态）", () => {

@@ -3,14 +3,14 @@ import { writeAudit } from "@/lib/server/audit";
 import { databaseRequired } from "@/lib/server/http";
 import {
   confirmCard,
+  consumeConfirmToken,
   markEventOnce,
+  newConfirmToken,
   parseInbound,
   peekDecrypted,
   replyToMessage,
-  resultCard,
   sendChatCard,
   textCard,
-  type FeishuCard,
 } from "@/lib/server/feishu-api";
 import { auditActionFor, CommandError, executeWrite, planWriteCommand, runReadCommand } from "@/lib/server/feishu-commands";
 import { helpText, isWriteCommand, parseCommand, resolveOperator } from "@/lib/server/feishu-admin";
@@ -271,7 +271,7 @@ async function handleMessage(event: FeishuEvent | undefined) {
   if (isWriteCommand(command.name)) {
     try {
       const plan = await planWriteCommand(command.name, command.args);
-      await sendChatCard(chatId, confirmCard(plan.title, plan.body, { command: plan.command }, plan.danger));
+      await sendChatCard(chatId, confirmCard(plan.title, plan.body, { command: plan.command, token: newConfirmToken() }, plan.danger));
       bestEffort("回复确认卡片提示", replyToMessage(messageId, "已生成确认卡片，请核对后点「确认执行」。"));
     } catch (error) {
       bestEffort("回复命令错误", replyToMessage(messageId, commandErrorText(error)));
@@ -313,11 +313,11 @@ function commandErrorText(error: unknown): string {
  * `card` 用来把按钮卡片替换成终态：点完之后按钮消失、结果显示在原处，
  * 群里不会留下一张还能再点的卡片。
  */
-function cardActionResponse(
-  toast: { type: "success" | "error" | "info" | "warning"; content: string },
-  card?: FeishuCard,
-): NextResponse {
-  return NextResponse.json(card ? { toast, card } : { toast });
+function cardActionResponse(toast: {
+  type: "success" | "error" | "info" | "warning";
+  content: string;
+}): NextResponse {
+  return NextResponse.json({ toast });
 }
 
 async function handleCardAction(event: FeishuEvent | undefined): Promise<NextResponse> {
@@ -326,14 +326,15 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
   const command = typeof value.command === "string" ? value.command.trim() : "";
 
   /**
-   * 「取消」：**不执行任何东西**（这是它存在的全部意义），但仍然要把卡片换成终态 ——
-   * 否则按钮留在原地，用户会以为没点上而反复点。
+   * 「取消」：**不执行任何东西**（这是它存在的全部意义）。
+   *
+   * 响应里**只带 toast、不带 card**：2026-10-16 实测带 card 时飞书报 200672，
+   * 大概率是回调响应的 card 按 1.0 结构校验、而我的卡片带 `schema: "2.0"`。
+   * 与其赌一个猜出来的格式，不如只回最保守的 toast —— 按钮留在原地只是观感问题，
+   * 而重复点击会不会重复执行由下面的**一次性令牌**兜住，那才是安全问题。
    */
   if (!command) {
-    return cardActionResponse(
-      { type: "info", content: "已取消，没有执行任何操作" },
-      resultCard("已取消", ["没有执行任何操作。"], false),
-    );
+    return cardActionResponse({ type: "info", content: "已取消，没有执行任何操作" });
   }
 
   const operator = await resolveOperator(openId);
@@ -345,13 +346,21 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       path: "/api/feishu/events",
       detail: { stage: "card-action", openId: openId ?? null, command },
     });
-    return cardActionResponse(
-      { type: "error", content: "未授权，操作没有执行" },
-      resultCard("未授权", ["你的账号不在管理员白名单里，本次操作没有执行。"], false),
-    );
+    return cardActionResponse({ type: "error", content: "未授权，操作没有执行" });
   }
 
   const args = command.split(/\s+/).slice(1);
+
+  /**
+   * 一次性令牌：同一张卡片的按钮被点第二次时，这里直接挡住。
+   * event_id 去重挡不住这个 —— 两次点击是两个不同的 event_id。
+   * 删除用户、删活动这类不可逆操作，不能指望"用户只点一次"。
+   */
+  if (!consumeConfirmToken(value.token)) {
+    console.error(`[feishu-bot] 拒绝重复执行（令牌已消费）：${command}`);
+    return cardActionResponse({ type: "warning", content: "这条确认已经处理过了，不会重复执行" });
+  }
+
   try {
     const result = await executeWrite(command, operator.user);
     const { category, action } = auditActionFor(command);
@@ -370,10 +379,9 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       detail: { via: "feishu", feishuOpenId: operator.openId, command, args },
     });
     console.error(`[feishu-bot] ${operator.email} 通过飞书执行：${command}`);
-    return cardActionResponse(
-      { type: "success", content: "已执行" },
-      resultCard(`已执行：${command.split(/\s+/)[0]}`, result.lines, true),
-    );
+    // 结果行放进 toast —— 卡片不再被替换，这是用户点完唯一能看到的反馈
+    const summary = result.lines.join(" ").slice(0, 90);
+    return cardActionResponse({ type: "success", content: summary || "已执行" });
   } catch (error) {
     const text = commandErrorText(error);
     await writeAudit({
@@ -385,9 +393,6 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       detail: { via: "feishu", feishuOpenId: operator.openId, command, args, error: text },
     });
     console.error(`[feishu-bot] 命令失败：${command}`, error);
-    return cardActionResponse(
-      { type: "error", content: "执行失败" },
-      resultCard("执行失败", [text], false),
-    );
+    return cardActionResponse({ type: "error", content: "执行失败" });
   }
 }
