@@ -314,6 +314,40 @@ test("url_verification 握手必须在密钥检查之前（死锁过一次）", 
   assert.match(code, /payload\.type === "url_verification"/, "加密模式下的 challenge 也要能应答");
 });
 
+test("卡片回调的每个分支都必须带 toast（空对象会被飞书判 200671）", () => {
+  const route = readFileSync(new URL("../app/api/feishu/events/route.ts", import.meta.url), "utf8");
+  const code = route.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ").replace(/\s+/g, " ");
+
+  /**
+   * 2026-10-15 用户点「取消」报 `code: 200671`。原因是我当时返回 `{}` ——
+   * 飞书的回调响应体要求至少带 `toast` 或 `card` 之一，两者都缺就报错。
+   *
+   * 这类"少一个字段"的退化不写守卫一定会再犯：代码照常编译、测试照常通过，
+   * 只有用户点按钮时才知道。所以这里静态钉死。
+   */
+  assert.equal(/NextResponse\.json\(\{\s*\}\)/.test(code), false, "不能返回空对象 —— 飞书会判 200671");
+
+  // 取消 / 未授权 / 执行成功 / 执行失败：四条路径都要经过带 toast 的构造器
+  const responder = code.match(/function cardActionResponse\([\s\S]*?\n?\}/);
+  assert.ok(responder, "必须通过 cardActionResponse 统一构造响应");
+  assert.match(code, /function cardActionResponse\(\s*toast:/, "toast 必须是必填参数");
+
+  // 四条分支都在
+  for (const [label, needle] of [
+    ["取消", '已取消，没有执行任何操作'],
+    ["未授权", "未授权，操作没有执行"],
+    ["执行成功", "已执行"],
+    ["执行失败", "执行失败"],
+  ]) {
+    assert.ok(code.includes(needle), `缺少「${label}」分支的 toast 文案`);
+  }
+
+  // 取消必须真的不执行：command 为空时直接返回，不能落到 executeWrite
+  const cancelAt = code.indexOf("已取消，没有执行任何操作");
+  const execAt = code.indexOf("await executeWrite(");
+  assert.ok(cancelAt > 0 && execAt > cancelAt, "取消分支必须在 executeWrite 之前返回");
+});
+
 test("入站端点的安全不变量（静态）", () => {
   const route = readFileSync(new URL("../app/api/feishu/events/route.ts", import.meta.url), "utf8");
   const api = readFileSync(new URL("../lib/server/feishu-api.ts", import.meta.url), "utf8");

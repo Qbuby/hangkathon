@@ -10,6 +10,7 @@ import {
   resultCard,
   sendChatCard,
   textCard,
+  type FeishuCard,
 } from "@/lib/server/feishu-api";
 import { auditActionFor, CommandError, executeWrite, planWriteCommand, runReadCommand } from "@/lib/server/feishu-commands";
 import { helpText, isWriteCommand, parseCommand, resolveOperator } from "@/lib/server/feishu-admin";
@@ -293,13 +294,38 @@ function commandErrorText(error: unknown): string {
  *      卡片会出现在群里，群里任何人都能点
  *   4. 命令串只接受 planWriteCommand 产出的形态，executeWrite 里再做一次存在性检查
  */
+/**
+ * 卡片回调的响应体。
+ *
+ * **必须至少带 `toast` 或 `card` 之一**，两者都缺时飞书报 `code: 200671`
+ * （2026-10-15 用户点「取消」实际撞到：我当时返回的是空对象 `{}`）。
+ * 所以这里把 toast 做成**强制参数** —— 让"忘了给提示"在类型上就写不出来。
+ *
+ * `card` 用来把按钮卡片替换成终态：点完之后按钮消失、结果显示在原处，
+ * 群里不会留下一张还能再点的卡片。
+ */
+function cardActionResponse(
+  toast: { type: "success" | "error" | "info" | "warning"; content: string },
+  card?: FeishuCard,
+): NextResponse {
+  return NextResponse.json(card ? { toast, card } : { toast });
+}
+
 async function handleCardAction(event: FeishuEvent | undefined): Promise<NextResponse> {
   const openId: string | undefined = event?.operator?.operator_id;
   const value = (event?.action?.value ?? {}) as Record<string, string>;
   const command = typeof value.command === "string" ? value.command.trim() : "";
 
-  // 点了「取消」：不回话。卡片本身已经是终态，不需要再打扰群里。
-  if (!command) return NextResponse.json({});
+  /**
+   * 「取消」：**不执行任何东西**（这是它存在的全部意义），但仍然要把卡片换成终态 ——
+   * 否则按钮留在原地，用户会以为没点上而反复点。
+   */
+  if (!command) {
+    return cardActionResponse(
+      { type: "info", content: "已取消，没有执行任何操作" },
+      resultCard("已取消", ["没有执行任何操作。"], false),
+    );
+  }
 
   const operator = await resolveOperator(openId);
   if (!operator) {
@@ -310,7 +336,10 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       path: "/api/feishu/events",
       detail: { stage: "card-action", openId: openId ?? null, command },
     });
-    return NextResponse.json({ card: resultCard("未授权", ["你的账号不在管理员白名单里，本次操作没有执行。"], false) });
+    return cardActionResponse(
+      { type: "error", content: "未授权，操作没有执行" },
+      resultCard("未授权", ["你的账号不在管理员白名单里，本次操作没有执行。"], false),
+    );
   }
 
   const args = command.split(/\s+/).slice(1);
@@ -332,7 +361,10 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       detail: { via: "feishu", feishuOpenId: operator.openId, command, args },
     });
     console.error(`[feishu-bot] ${operator.email} 通过飞书执行：${command}`);
-    return NextResponse.json({ card: resultCard(`已执行：${command.split(/\s+/)[0]}`, result.lines, true) });
+    return cardActionResponse(
+      { type: "success", content: "已执行" },
+      resultCard(`已执行：${command.split(/\s+/)[0]}`, result.lines, true),
+    );
   } catch (error) {
     const text = commandErrorText(error);
     await writeAudit({
@@ -344,6 +376,9 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       detail: { via: "feishu", feishuOpenId: operator.openId, command, args, error: text },
     });
     console.error(`[feishu-bot] 命令失败：${command}`, error);
-    return NextResponse.json({ card: resultCard("执行失败", [text], false) });
+    return cardActionResponse(
+      { type: "error", content: "执行失败" },
+      resultCard("执行失败", [text], false),
+    );
   }
 }

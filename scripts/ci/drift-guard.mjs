@@ -347,6 +347,14 @@ for (const mutating of [
     problems.push(`lib/server/feishu-commands.ts 的 planWriteCommand 里出现了写操作 ${mutating} —— 确认卡片阶段只描述、绝不执行`);
   }
 }
+// 卡片回调的响应必须带 toast 或 card：两者都缺飞书判 200671（2026-10-15 点「取消」实际撞到）
+if (/NextResponse\.json\(\{\s*\}\)/.test(feishuRoute)) {
+  problems.push("app/api/feishu/events 里有返回空对象的卡片回调响应 —— 飞书会判 code: 200671");
+}
+if (!feishuRoute.includes("cardActionResponse")) {
+  problems.push("app/api/feishu/events 缺 cardActionResponse —— 卡片回调的 toast 构造没有统一入口，容易漏");
+}
+
 if (!existsSync("scripts/feishu-bot.test.mjs")) {
   problems.push("缺少 scripts/feishu-bot.test.mjs —— 验签/解密/去重/命令解析没有回归防护");
 }
