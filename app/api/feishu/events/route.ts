@@ -86,7 +86,16 @@ function describeInbound(rawBody: string, request: Request): string {
       .slice(0, 80);
     shape = `non-json prefix="${sanitized}"`;
   }
-  return `ct=${contentType} ua=${userAgent} bytes=${rawBody.length} ${shape}`;
+  /**
+   * 验签头的实际取值也记下来。2026-10-16 卡在「时间戳不是数字」上 ——
+   * 说明头**在**但值解析不出来，而不看实际值就只能猜。timestamp/nonce 本身不是机密，
+   * signature 只记长度与前 8 位（不落全量签名，避免日志里留下可复用的凭据）。
+   */
+  const ts = request.headers.get("x-lark-request-timestamp");
+  const nonce = request.headers.get("x-lark-request-nonce");
+  const sig = request.headers.get("x-lark-signature");
+  const sigInfo = sig ? `len=${sig.length} head=${sig.slice(0, 8)}` : "(无)";
+  return `ct=${contentType} ua=${userAgent} bytes=${rawBody.length} ${shape} ts=${JSON.stringify(ts)} nonce=${JSON.stringify(nonce)} sig=${sigInfo}`;
 }
 
 /** 没有密钥时也要能读明文握手，所以单独留一个不抛异常的 JSON.parse。 */
