@@ -52,6 +52,55 @@ export function decryptFeishuPayload(encryptKey: string, encrypted: string): str
 }
 
 /**
+ * 把飞书的时间戳头解析成毫秒。**两种完全不同的格式**（2026-10-16 实测）：
+ *
+ *   - 事件回调（im.message.receive_v1）：`"1792132835"` —— 十位 Unix 秒
+ *   - 卡片回调（card.action.trigger）：`"2026-10-16 14:41:47.224834685 +0800 CST m=+328043.243701041"`
+ *     —— 带纳秒与单调时钟偏移的完整日期串
+ *
+ * 我一直假设是第一种，于是卡片回调全部被判「时间戳不是数字」→ 401 → 飞书那边
+ * 看到的是 200671。**签名算法本身是对的**（sha256，64 位十六进制，两边一致），
+ * 错的只是这一项的格式 —— 而这类"同一厂商、同一个头、两种格式"的差异，
+ * 不打日志看真实值是无论如何猜不出来的。
+ *
+ * 第二种格式按**本地时区**解释（尾部带 `+0800`），所以这里交给 Date 解析，
+ * 而不是自己拆字段 —— 自己拆要处理时区偏移，Date 已经做对了。
+ */
+export function parseFeishuTimestamp(raw: string): number | null {
+  const text = raw.trim();
+  if (/^\d{10,13}$/.test(text)) {
+    // 十位=秒、十三位=毫秒
+    const n = Number(text);
+    return text.length <= 10 ? n * 1000 : n;
+  }
+  /**
+   * 长格式：`2026-10-16 14:41:47.224834685 +0800 CST m=+328043.243701041`
+   *
+   * **不能直接丢给 Date.parse** —— 实测 V8 会把结尾的 `CST` 识别成
+   * "美国中部时区（UTC-6）"，于是 `+0800` 被整个忽略，结果偏了 14 小时
+   * （14:41+0800 应是 06:41Z，却解析成 20:41Z）。静默算错 14 小时，
+   * 比解析失败危险得多：失败会报错，算错只会让时间窗判断失真。
+   *
+   * 所以自己把字段拆出来、拼成标准 ISO 8601（`...T14:41:47.224+08:00`）再解析 ——
+   * 数字偏移才是权威，时区缩写一律丢弃。
+   */
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?\s*([+-])(\d{2}):?(\d{2})/.exec(text);
+  if (m) {
+    const [, y, mo, d, h, mi, sec, frac, sign, offH, offM] = m;
+    const ms = (frac ?? "").padEnd(3, "0").slice(0, 3); // 纳秒截断到毫秒
+    const parsed = Date.parse(`${y}-${mo}-${d}T${h}:${mi}:${sec}.${ms}${sign}${offH}:${offM}`);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  // 没有数字偏移的退化形态：剥掉时区缩写与单调时钟尾巴再交给 Date
+  const cleaned = text
+    .split(" m=")[0]
+    .replace(/\s+[A-Za-z]{2,5}$/, "")
+    .replace(/(\.\d{3})\d+/, "$1");
+  const fallback = Date.parse(cleaned);
+  return Number.isFinite(fallback) ? fallback : null;
+}
+
+/**
  * 校验请求签名。**任何一步失败都返回 false**，调用方一律当"未通过"处理。
  *
  * 用 timingSafeEqual 比较：普通字符串比较会按字节提前返回，长度或前缀差异能被计时侧信道量出来。
@@ -68,15 +117,8 @@ export function verifyFeishuSignature(
   const signature = headers.signature ?? "";
   if (!timestamp || !nonce || !signature) return { ok: false, reason: "缺少验签请求头" };
 
-  const tsSeconds = Number(timestamp);
-  if (!Number.isFinite(tsSeconds)) return { ok: false, reason: "时间戳不是数字" };
-  /**
-   * 飞书的 `X-Lark-Request-Timestamp` 是**秒**，不是毫秒。
-   * 这个 ×1000 曾经漏掉过（直接拿它跟 Date.now() 比），后果是**所有真实请求**被判
-   * "超出时间窗"，整套命令功能静默全废，而报错只会说"时间戳异常"，完全指不到真正的原因。
-   * `scripts/feishu-bot.test.mjs` 专门覆盖这一条。
-   */
-  const tsMs = tsSeconds * 1000;
+  const tsMs = parseFeishuTimestamp(timestamp);
+  if (tsMs === null) return { ok: false, reason: `时间戳无法解析（实际值：${timestamp.slice(0, 60)}）` };
   // 防重放的第一道：时间窗。外网到服务器的延迟通常 < 1s，5 分钟足够宽松。
   if (Math.abs(nowMs - tsMs) > MAX_CLOCK_SKEW_MS) return { ok: false, reason: "时间戳超出 5 分钟窗口" };
 

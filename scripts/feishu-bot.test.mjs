@@ -170,6 +170,61 @@ test("卡片必须声明 schema 2.0，否则正文会被整块忽略（渲染成
   assert.ok(c.body.elements.some((e) => e.tag === "markdown" && String(e.content).includes("审计日志")), "确认卡片的小字说明要保留");
 });
 
+test("时间戳头有两种格式，都必须能验（卡片回调踩过一次）", async () => {
+  const { verifyFeishuSignature, parseFeishuTimestamp } = await loadApi();
+  const body = "{}";
+  const nowMs = Date.parse("2026-10-16T14:41:47.224+08:00");
+
+  /**
+   * 2026-10-16 实测飞书真实发来的两种值：
+   *   事件回调   ts="1792132835"                                        （十位 Unix 秒）
+   *   卡片回调   ts="2026-10-16 14:41:47.224834685 +0800 CST m=+328043.243701041"
+   *
+   * 我一直假设只有第一种，结果卡片回调全被判「时间戳不是数字」→ 401 → 飞书显示 200671。
+   * 签名算法本身是对的（sha256 / 64 位十六进制两边一致），错的只是这一项的格式。
+   */
+  const SECONDS = "1792132835";
+  const LONG = "2026-10-16 14:41:47.224834685 +0800 CST m=+328043.243701041";
+
+  // 格式解析
+  assert.equal(parseFeishuTimestamp(SECONDS), 1792132835 * 1000, "十位=秒");
+  assert.equal(parseFeishuTimestamp("1792132835123"), 1792132835123, "十三位=毫秒");
+  assert.equal(parseFeishuTimestamp(LONG), nowMs, "长格式按数字偏移解析，纳秒截断到毫秒");
+  assert.equal(parseFeishuTimestamp("   1792132835  "), 1792132835000, "两端空白要容错");
+  assert.equal(parseFeishuTimestamp("不是时间"), null);
+  assert.equal(parseFeishuTimestamp(""), null);
+
+  /**
+   * **时区缩写是个陷阱**：把带 `CST` 的串直接丢给 Date.parse，V8 会把 CST 认成
+   * "美国中部时区 UTC-6"，`+0800` 被忽略，结果偏 14 小时。
+   * 失败会报错，而"安静地算错"只会让时间窗判断失真 —— 所以这里钉死。
+   */
+  assert.equal(
+    parseFeishuTimestamp("2026-10-16 14:41:47.000 +0800"),
+    parseFeishuTimestamp("2026-10-16T14:41:47+08:00"),
+    "带 CST 尾缀也必须按数字偏移 +0800 解释",
+  );
+  assert.notEqual(
+    parseFeishuTimestamp("2026-10-16 14:41:47.000 +0800 CST"),
+    Date.parse("2026-10-16 14:41:47.000 +0800 CST"),
+    "直接 Date.parse 会被 CST 拐到 UTC-6（偏 14 小时），所以实现必须绕开它",
+  );
+
+  // 两种格式都必须能通过完整验签（签名用**原始字符串**参与计算，不能用解析后的值）
+  for (const [label, ts] of [["事件回调", SECONDS], ["卡片回调", LONG]]) {
+    const headers = sign(body, { timestamp: ts, key: KEY });
+    const result = verifyFeishuSignature(headers, body, KEY, parseFeishuTimestamp(ts));
+    assert.equal(result.ok, true, `${label} 的时间戳格式必须能验签通过`);
+  }
+
+  // 时间窗仍然生效：长格式超过 5 分钟也要拒（防重放不能因为换了格式就失效）
+  const stale = sign(body, { timestamp: "2026-10-16 14:00:00.000 +0800 CST m=+1", key: KEY });
+  assert.equal(verifyFeishuSignature(stale, body, KEY, nowMs).ok, false, "超窗的长格式时间戳必须拒绝");
+
+  // 签名不匹配仍然拒绝（不能因为放宽了时间戳解析就放松别的）
+  assert.equal(verifyFeishuSignature({ ...sign(body, { timestamp: LONG }), signature: "deadbeef" }, body, KEY, nowMs).ok, false);
+});
+
 test("入站解析：非 JSON / 畸形 encrypt 都被拒", async () => {
   const { parseInbound } = await loadApi();
   const notJson = "not json";
