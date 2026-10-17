@@ -35,7 +35,12 @@ HK_LOG="${HK_LOG:-/var/log/hangkathon-integrity.log}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/hangkathon}"
 STATUS_FILE="${STATUS_FILE:-/var/run/hangkathon-integrity.status}"
 DISK_ALERT_PCT="${DISK_ALERT_PCT:-90}"
-DANGLING_ALERT_COUNT="${DANGLING_ALERT_COUNT:-15}"
+# 阈值必须**高于每次 CI 部署的正常产出**，否则这条告警会变成天天报的噪音，
+# 自检的"未通过"就不再有信号价值（2026-10-17 实测：一次构建留下 18 个 <none>，
+# 阈值却是 15，于是每次部署后必然 1/8 异常）。
+# 真正需要报警的是"连续几个部署没清理"——实测堆到几百个 overlay 时能吃 30GB。
+# 取 40：约两个部署周期的正常产出。
+DANGLING_ALERT_COUNT="${DANGLING_ALERT_COUNT:-40}"
 DOCKERD_ALERT_MB="${DOCKERD_ALERT_MB:-900}"
 APP_CONTAINER="${APP_CONTAINER:-hangkathon}"
 BACKUP_MAX_AGE="${BACKUP_MAX_AGE:-93600}"
@@ -151,7 +156,7 @@ DANGLING="$(printf '%s' "$DANGLING" | tr -d '[:space:]')"
 if ! is_int "$DANGLING"; then
   hk_check 0 "无法统计悬空镜像（返回 '$DANGLING'，docker 不可用？）"
 elif [ "$DANGLING" -ge "$DANGLING_ALERT_COUNT" ]; then
-  hk_check 0 "悬空镜像 $DANGLING 个（阈值 ${DANGLING_ALERT_COUNT}），执行 docker image prune -f 回收（不要用 docker system prune）"
+  hk_check 0 "悬空镜像 $DANGLING 个（阈值 ${DANGLING_ALERT_COUNT}），需**人工** docker image prune -f 回收（脚本不会自动删；绝不要用 docker system prune）"
 else
   hk_check 1 "悬空镜像 $DANGLING 个"
 fi
