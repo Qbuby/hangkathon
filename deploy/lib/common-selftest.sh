@@ -94,13 +94,59 @@ t "未配置时返回 0 且不报错" "0" "$?"
 
 echo "== hk_port =="
 
-PORT=9999 hk_port >/dev/null
+# 每条用例都必须**先清掉 PORT**：hk_port 是 shell 函数，而「前置赋值 + 函数调用」
+# 在不同 shell 下行为不一致 —— 某些实现会把 PORT 留在当前环境里，于是后面两条
+# "应该回落到 .env / 默认值" 的用例全部读到 9999 而失败（2026-10-17 在服务器上实测到，
+# 且当时汇总的 exit 0 让它完全没被发现）。这不是被测代码的问题，是**用例互相污染**。
 t "PORT 环境变量优先" "9999" "$(PORT=9999 hk_port)"
+unset PORT
 printf 'PORT=4321\n' > "$TMPDIR_T/.env"
 t "回落到 .env 里的 PORT" "4321" "$(APP_DIR="$TMPDIR_T" hk_port)"
+unset PORT
 printf 'OTHER=1\n' > "$TMPDIR_T/.env"
 t "都没有时用 3210" "3210" "$(APP_DIR="$TMPDIR_T" hk_port)"
+unset PORT
 
 echo
+
+echo "== hk_source_env：.env 里的 shell 元字符不再被求值 =="
+
+# 真实事故（2026-10-17）：FEISHU_ADMINS 的值里有 `|`，被 shell 解析成管道，
+# 每日备份静默中断两天 —— timer 显示跑过、实际零产出。值必须原样取，不能求值。
+printf 'PLAIN=abc\n' > "$TMPDIR_T/meta.env"
+( unset PLAIN; hk_source_env "$TMPDIR_T/meta.env" >/dev/null 2>&1; printf '%s' "${PLAIN:-}" ) > "$TMPDIR_T/out"
+t "普通值原样读出" "abc" "$(cat "$TMPDIR_T/out")"
+
+printf 'WITH_PIPE=a@b.com|c@d.com\n' > "$TMPDIR_T/meta.env"
+( unset WITH_PIPE; hk_source_env "$TMPDIR_T/meta.env" >/dev/null 2>&1; printf '%s' "${WITH_PIPE:-}" ) > "$TMPDIR_T/out"
+t "值里的竖线不被当管道（备份静默中断的真因）" "a@b.com|c@d.com" "$(cat "$TMPDIR_T/out")"
+
+printf 'WITH_CMD=$(rm -rf /)\n' > "$TMPDIR_T/meta.env"
+( unset WITH_CMD; hk_source_env "$TMPDIR_T/meta.env" >/dev/null 2>&1; printf '%s' "${WITH_CMD:-}" ) > "$TMPDIR_T/out"
+t "值里的命令替换不被执行" '$(rm -rf /)' "$(cat "$TMPDIR_T/out")"
+
+printf 'QUOTED="带引号的值"\n' > "$TMPDIR_T/meta.env"
+( unset QUOTED; hk_source_env "$TMPDIR_T/meta.env" >/dev/null 2>&1; printf '%s' "${QUOTED:-}" ) > "$TMPDIR_T/out"
+t "两端引号被剥掉" "带引号的值" "$(cat "$TMPDIR_T/out")"
+
+printf 'WITH_EQ=a=b=c\n' > "$TMPDIR_T/meta.env"
+( unset WITH_EQ; hk_source_env "$TMPDIR_T/meta.env" >/dev/null 2>&1; printf '%s' "${WITH_EQ:-}" ) > "$TMPDIR_T/out"
+t "值里的等号只按第一个切分" "a=b=c" "$(cat "$TMPDIR_T/out")"
+
+# 非 KEY=VALUE 的行必须**报错**，不能默默跳过 —— 跳过会让脚本带着半份配置运行
+printf 'OK=1\n这不是赋值行\n' > "$TMPDIR_T/meta.env"
+if ( unset OK; hk_source_env "$TMPDIR_T/meta.env" ) >/dev/null 2>&1; then
+  t "非 KEY=VALUE 的行导致失败" 1 0
+else
+  t "非 KEY=VALUE 的行导致失败" 1 1
+fi
+
+printf '# 注释行\n\nREAL=7\n' > "$TMPDIR_T/meta.env"
+( unset REAL; hk_source_env "$TMPDIR_T/meta.env" >/dev/null 2>&1; printf '%s' "${REAL:-}" ) > "$TMPDIR_T/out"
+t "注释与空行被跳过" "7" "$(cat "$TMPDIR_T/out")"
+
+# 汇总与退出码必须在**所有**用例之后。
+# 原先它排在文件中段，后来追加的用例失败时完全不影响退出码 ——
+# 实测把一个期望值改错，脚本照样 exit 0。自测"失败了没人看见"比没有自测更糟。
 echo "自测：$pass 通过，$fail 失败"
 [ "$fail" -eq 0 ] || exit 1

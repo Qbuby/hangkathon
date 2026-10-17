@@ -152,6 +152,16 @@ sh deploy/lib/common-selftest.sh
 8. **行尾符**：`.gitattributes` 钉死 `*.sh` 为 LF。Windows 上 `core.autocrlf=true` 会把检出
    变成 CRLF，而 Workbench 里用 `sed` 改过、再粘回本地的文件会带着 CRLF 进仓库 ——
    运行时未必炸（bash 把 `\r` 当普通字符吞进变量值），但会让比较静默失败。
+9. **`.env` 只能解析，不能 shell source**（2026-10-17 实测事故）。真实经过：
+   `FEISHU_ADMINS` 的值里含 `|`，而 `db_env` 当时用 `. "$APP_DIR/.env"` 读配置，
+   shell 把整行解析成「赋值 | 命令 | 命令」→ 两条 `command not found` → 退出 127 →
+   **每日备份静默中断两天**。危险之处在于报错说的是「line 28」，看着像文件损坏，
+   而 timer 显示照常触发、退出码 0、零告警 —— 最终是完整性自检的
+   「最新备份已 48 小时未更新」兜住的。
+   现在改用 `hk_source_env`（只做 `KEY=VALUE` 解析、**不求值 VALUE**）；
+   drift-guard 禁止任何脚本再直接 source `.env`。
+   代价是**不支持 `KEY=$(command)` 这类动态值** —— `.env` 里本来也不该有。
+
 
 ## 七、已知边界（写在明面上，别假装覆盖了）
 

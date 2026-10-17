@@ -54,13 +54,56 @@ db_env() {
     return 0
   fi
   if [ -f "$APP_DIR/.env" ]; then
-    # shellcheck disable=SC1091  # 运行期才存在的文件，静态分析看不到
-    . "$APP_DIR/.env"
+    hk_source_env "$APP_DIR/.env"
   fi
   DB_USER="${POSTGRES_USER:-hangkathon}"
   DB_NAME="${POSTGRES_DB:-hangkathon}"
   export DB_USER DB_NAME
   HK_DB_ENV_LOADED=1
+}
+
+# 读 .env。
+#
+# **为什么不能直接 `. "$APP_DIR/.env"`**（2026-10-17 实踩）：`.env` 会被 shell **求值**，
+# 所以值里的 shell 元字符会被解释。真实事故：
+#
+#     FEISHU_ADMINS=ou_xxx=a@b.com|1479856809@qq.com|owu1v2fz...
+#                     ↑ 这个竖线被解析成管道
+#
+# shell 把它读成「赋值 | 命令 | 命令」→ 两条 `command not found` → 退出 127
+# → **每日备份静默中断两天**（timer 显示跑过，实际零产出，直到完整性自检告警才发现）。
+#
+# 而且报错说的是「line 28」，看着像文件坏了，其实是那一行被解析成了管道 ——
+# 没有报错的备份中断，比直接报错难查得多。
+#
+# 所以这里自己解析：只认 `KEY=VALUE`，**不求值 VALUE**，并剥掉两端引号。
+# 代价是不支持 `KEY=$(command)` 这类动态值 —— .env 里本来也不该有，
+# 需要动态值请放到 systemd 的 EnvironmentFile 或 unit 的 Environment=。
+hk_source_env() {
+  [ -f "$1" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    # 跳过空行与注释
+    case "$line" in
+      ''|'#'*) continue ;;
+    esac
+    # 必须是 KEY=VALUE 形态；不以 = 开头的行（曾经踩到的多行值残骸）直接报错而不是默默跳过 ——
+    # 默默跳过会让运维脚本带着半份配置运行，那比报错危险得多。
+    case "$line" in
+      *=*) ;;
+      *)
+        echo "hk_source_env: $1 第 $(grep -n -x -F -- "$line" "$1" | head -1 | cut -d: -f1) 行不是 KEY=VALUE：${line%% *}" >&2
+        return 1
+        ;;
+    esac
+    key="${line%%=*}"
+    value="${line#*=}"
+    # 只剥成对的首尾引号（shell 不做求值，引号只是书写习惯）
+    case "$value" in
+      \"*\") value="${value#\"}"; value="${value%\"}" ;;
+      \'*\') value="${value#\'}"; value="${value%\'}" ;;
+    esac
+    export "$key=$value"
+  done < "$1"
 }
 
 # psql 独立调用（**不带管道**）。用法：

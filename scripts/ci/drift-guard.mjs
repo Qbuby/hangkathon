@@ -286,6 +286,7 @@ const feishuRoute = read("app/api/feishu/events/route.ts");
 const feishuApi = read("lib/server/feishu-api.ts");
 const feishuAdmin = read("lib/server/feishu-admin.ts");
 const feishuCommands = read("lib/server/feishu-commands.ts");
+const commonSh = read("deploy/lib/common.sh");
 
 /**
  * 这几条查的是**具体那一行**而不是"文件里出现过这个符号"——
@@ -359,6 +360,43 @@ if (!existsSync("scripts/feishu-bot.test.mjs")) {
   problems.push("缺少 scripts/feishu-bot.test.mjs —— 验签/解密/去重/命令解析没有回归防护");
 }
 
+
+// ── 5e. 运维脚本不能 shell-source .env ─────────────────────────────────────
+/**
+ * 真实事故（2026-10-17）：`FEISHU_ADMINS` 的值里含 `|`，而 deploy 的脚本用
+ * `. ./.env` 读配置 —— shell 把整行解析成「赋值 | 命令 | 命令」，两条
+ * `command not found`，退出 127，**每日备份静默中断两天**。
+ *
+ * 危险的地方在于报错说的是「line 28」，看着像文件损坏，实际是**那一行被当成了管道**；
+ * 而 timer 显示照常触发、退出码 0，没有任何告警。
+ *
+ * 所以：任何直接 `. ./.env` 的写法都不允许，必须走 hk_source_env（只解析不求值）。
+ * 这条比"记得给值加引号"可靠 —— 加引号只是绕过症状，下次换个元字符又中招。
+ */
+// 注意用 sourceFiles 而不是 walkApp：walkApp 只收 .ts/.tsx，而 deploy 下全是 .sh ——
+// 用错扫描器会让这条守卫**一个文件都扫不到**，于是恒绿（第一版就是这么写的，
+// 变异测试把 db_env 改回 `. "$APP_DIR/.env"` 它依然全绿）。
+for (const file of sourceFiles("deploy")) {
+  const body = read(file);
+  // 去掉注释，避免"注释里提到 . source 就算违规"的误报
+  const code = body.replace(/#.*/g, " ");
+  if (!code.match(/(^|[;\s])(?:\.|source)\s+[^\n;]*\.env/)) continue;
+  /**
+   * common.sh 里既有 hk_source_env 的**定义**，所以不能用「文件里有没有这个名字」来豁免 ——
+   * 那样它会给自己放行（变异测试：把 db_env 改回 `. "$APP_DIR/.env"` 后守卫仍然全绿）。
+   * 改成只看**函数体**：把 hk_source_env 的定义整段摘掉，剩下还在 source 的才是违规。
+   */
+  const withoutDefinition = body.replace(/hk_source_env\(\)\s*\{[\s\S]*?\n\}/, "");
+  if (withoutDefinition.match(/(^|[;\s])(?:\.|source)\s+[^\n;]*\.env/)) {
+    problems.push(`${rel(file)}：直接 shell source 了 .env —— 值里的 | & $(...) 会被求值（曾导致备份静默中断两天）。改用 hk_source_env`);
+  }
+}
+if (!commonSh.includes("hk_source_env()")) {
+  problems.push("deploy/lib/common.sh 缺少 hk_source_env —— .env 必须只解析不求值");
+}
+if (!existsSync("deploy/lib/common-selftest.sh")) {
+  problems.push("缺少 deploy/lib/common-selftest.sh");
+}
 
 /* ── 6. 告警链路：死人开关必须真的被调到 ─────────────────────────────────── */
 
