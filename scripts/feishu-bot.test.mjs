@@ -118,7 +118,7 @@ test("peekDecrypted 能解开**不带签名**的加密握手，而 parseInbound 
 });
 
 test("卡片必须声明 schema 2.0，否则正文会被整块忽略（渲染成空白卡片）", async () => {
-  const { textCard, confirmCard, resultCard } = await loadApi();
+  const { textCard, confirmCard } = await loadApi();
 
   /**
    * 2026-10-15 线上实测踩到：卡片标题能渲染、正文一片空白。
@@ -131,7 +131,6 @@ test("卡片必须声明 schema 2.0，否则正文会被整块忽略（渲染成
   const cards = {
     textCard: textCard("标题", ["第一行", "第二行"]),
     confirmCard: confirmCard("确认", "正文", { command: "下线 x" }),
-    resultCard: resultCard("已执行", ["做了"], true),
   };
   for (const [name, card] of Object.entries(cards)) {
     assert.equal(card.schema, "2.0", `${name} 必须声明 schema: "2.0"，否则正文被忽略`);

@@ -324,12 +324,6 @@ export function confirmCard(title: string, body: string, actionValue: Record<str
   };
 }
 
-
-/** 卡片回调后把原卡片替换成终态，避免按钮被重复点击。 */
-export function resultCard(title: string, lines: string[], ok: boolean): FeishuCard {
-  return textCard(title, lines, ok ? "green" : "red");
-}
-
 /**
  * 确认令牌的一次性消费（防重复执行）。
  *
