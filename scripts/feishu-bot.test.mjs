@@ -386,7 +386,7 @@ test("卡片回调的每个分支都必须带 toast（空对象会被飞书判 2
   // 取消 / 未授权 / 执行成功 / 执行失败：四条路径都要经过带 toast 的构造器
   const responder = code.match(/function cardActionResponse\([\s\S]*?\n?\}/);
   assert.ok(responder, "必须通过 cardActionResponse 统一构造响应");
-  assert.match(code, /function cardActionResponse\(toast:/, "toast 必须是必填参数");
+  assert.match(code, /function cardActionResponse\(\s*toast:/, "toast 必须是必填参数");
 
   /**
    * 2026-10-16 实测：带 `card` 的回调响应会被判 **200672**（验签已通过、响应也送到了，
@@ -436,6 +436,56 @@ test("一次性令牌：同一张卡片点第二次不得重复执行", async ()
 
   // 令牌用完即忘（TTL 30 分钟），不做成无界 Map
   assert.equal(consumeConfirmToken(t, 40 * 60 * 1000), true, "超期后不再视为已消费");
+});
+
+test("点击后把卡片换成终态：结构对、走消息更新接口、异步不挡响应", async () => {
+  const { updateChatCard } = await loadApi();
+
+  /**
+   * 2026-10-17 联调结论：卡片回调响应的 `card` 字段会被判 200672（它按 1.0 结构校验），
+   * 所以改成**只回 toast**，再用消息更新接口把卡片原地换成终态。
+   * 实测该接口接受 2.0（code=0）；拿 1.0 去覆盖 2.0 卡片会报
+   * `schemaV2 card can not change schemaV1` —— 所以终态卡片必须是 2.0 结构。
+   */
+  const calls = [];
+  // 假的 fetch 要认得两种请求：换 token 的与更新卡片的
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, init });
+    const body = url.includes("tenant_access_token")
+      ? { code: 0, tenant_access_token: "t-fake", expire: 7200 }
+      : { code: 0, data: { message_id: "om_x" } };
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+
+  // 接口形状：PATCH 消息 id，body 里是卡片 JSON
+  const card = { schema: "2.0", header: { title: { tag: "plain_text", content: "已取消" } }, body: { elements: [{ tag: "markdown", content: "没有执行任何操作。" }] } };
+  await updateChatCard("om_target", card, { FEISHU_APP_ID: "id", FEISHU_APP_SECRET: "secret" }, fakeFetch);
+
+  const updates = calls.filter((c) => c.url.includes("/im/v1/messages/"));
+  assert.equal(updates.length, 1, "必须发出一次卡片更新请求");
+  assert.match(updates[0].url, /\/im\/v1\/messages\/om_target$/, "更新的是那张卡片消息本身");
+  assert.equal(updates[0].init.method, "PATCH");
+  assert.deepEqual(JSON.parse(updates[0].init.body), { content: JSON.stringify(card) });
+
+  // 终态卡片不能有按钮（否则用户还能再点）
+  const route = readFileSync(new URL("../app/api/feishu/events/route.ts", import.meta.url), "utf8");
+  const code = route.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ").replace(/\s+/g, " ");
+  // 上面把代码压成了一行（剥注释 + 合并空白），所以用「下一个 function」当结束标记。
+  // 第一版写的是 /\n\}/ —— 在压平后的代码上永远匹配不到，而且**不报错**，
+  // 只是让这条断言悄悄失去作用（和之前 indexOf 命中注释的假绿同一类）。
+  const start = code.indexOf("function terminalCard(");
+  assert.ok(start > 0, "必须有 terminalCard");
+  const nextFn = code.indexOf("function ", start + 10);
+  const terminalCard = code.slice(start, nextFn > 0 ? nextFn : undefined);
+  assert.match(terminalCard, /schema: "2\.0"/, "终态卡片必须是 2.0（实测 1.0 会报 schemaV2 card can not change schemaV1）");
+  assert.equal(/"button"/.test(terminalCard), false, "终态卡片不能有按钮");
+  assert.match(terminalCard, /body:\s*\{\s*elements:/, "终态卡片元素必须在 body.elements（2.0 结构）");
+
+  // 四条分支都要传终态（否则有的路径按钮会留在原地）
+  for (const [label, title] of [["取消", "已取消"], ["未授权", "未执行"], ["重复点击", "已处理过"], ["执行成功", "已执行"], ["执行失败", "执行失败"]]) {
+    assert.match(code, new RegExp(`title: "${title}"`), `缺少「${label}」分支的终态标题`);
+  }
+  assert.match(code, /bestEffort\(\s*"更新卡片为终态"/, "更新卡片必须异步且失败不抛（不能挡飞书的响应）");
 });
 
 test("入站端点的安全不变量（静态）", () => {

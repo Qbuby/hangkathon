@@ -198,13 +198,13 @@ export function parseInbound(
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 /** tenant_access_token 有效期 2 小时，缓存到过期前 5 分钟，避免边界抖动导致批量失败。 */
-async function getTenantToken(env: NodeJS.ProcessEnv = process.env): Promise<string> {
+async function getTenantToken(env: NodeJS.ProcessEnv = process.env, fetchImpl: typeof fetch = fetch): Promise<string> {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt > now) return cachedToken.token;
   const appId = env.FEISHU_APP_ID;
   const appSecret = env.FEISHU_APP_SECRET;
   if (!appId || !appSecret) throw new Error("缺少 FEISHU_APP_ID / FEISHU_APP_SECRET");
-  const response = await fetch(`${API_BASE}/auth/v3/tenant_access_token/internal`, {
+  const response = await fetchImpl(`${API_BASE}/auth/v3/tenant_access_token/internal`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
@@ -237,6 +237,35 @@ export async function sendChatText(chatId: string, text: string, env?: NodeJS.Pr
     { receive_id: chatId, msg_type: "text", content: JSON.stringify({ text }) },
     env,
   );
+}
+
+/**
+ * 把一条已发出的卡片消息**原地换成终态卡片**（按钮消失、结果显示在原处）。
+ *
+ * 为什么不走卡片回调响应的 `card` 字段：实测那条路会被判 **200672** ——
+ * 回调响应的 `card` 按 1.0 结构校验，而我们发出去的是 2.0。
+ * 消息更新接口则明确接受 2.0（实测 `code=0`），而且顺带印证了这一点：
+ * 用 1.0 结构去更新一张 2.0 卡片会报 `schemaV2 card can not change schemaV1`。
+ *
+ * 所以回调里立刻回 `{toast}`（快，不让飞书等），卡片在这里异步换成终态。
+ */
+export async function updateChatCard(
+  messageId: string,
+  card: FeishuCard,
+  env?: NodeJS.ProcessEnv,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const token = await getTenantToken(env, fetchImpl);
+  const response = await fetchImpl(`${API_BASE}/im/v1/messages/${encodeURIComponent(messageId)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json; charset=utf-8", authorization: `Bearer ${token}` },
+    body: JSON.stringify({ content: JSON.stringify(card) }),
+    signal: AbortSignal.timeout(8000),
+  });
+  const data = (await response.json().catch(() => null)) as { code?: number; msg?: string } | null;
+  if (!response.ok || !data || data.code !== 0) {
+    throw new Error(`更新卡片失败 ${response.status} code=${data?.code} msg=${data?.msg ?? ""}`);
+  }
 }
 
 /** 在群里发一张交互卡片（带按钮的那种）。 */

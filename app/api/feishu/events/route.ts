@@ -11,6 +11,8 @@ import {
   replyToMessage,
   sendChatCard,
   textCard,
+  type FeishuCard,
+  updateChatCard,
 } from "@/lib/server/feishu-api";
 import { auditActionFor, CommandError, executeWrite, planWriteCommand, runReadCommand } from "@/lib/server/feishu-commands";
 import { helpText, isWriteCommand, parseCommand, resolveOperator } from "@/lib/server/feishu-admin";
@@ -51,6 +53,9 @@ type FeishuEvent = {
   message?: { message_id?: string; chat_id?: string; message_type?: string; content?: string };
   operator?: { operator_id?: string };
   action?: { value?: Record<string, string> };
+  /** 卡片消息 id —— 用来把那张卡片原地换成终态。 */
+  open_message_id?: string;
+  context?: { open_message_id?: string };
 };
 
 const OK = () => new NextResponse("ok", { status: 200 });
@@ -313,11 +318,43 @@ function commandErrorText(error: unknown): string {
  * `card` 用来把按钮卡片替换成终态：点完之后按钮消失、结果显示在原处，
  * 群里不会留下一张还能再点的卡片。
  */
-function cardActionResponse(toast: {
-  type: "success" | "error" | "info" | "warning";
-  content: string;
-}): NextResponse {
+function cardActionResponse(
+  toast: { type: "success" | "error" | "info" | "warning"; content: string },
+  /** 终态卡片；给了就把原卡片原地换掉（按钮消失）。 */
+  terminal?: { messageId: string | undefined; title: string; lines: string[]; ok: boolean },
+): NextResponse {
+  if (terminal?.messageId) {
+    // 异步换卡片，不挡响应 —— 飞书要求快速回包，而更新卡片是一次出站请求。
+    // 换不掉也只是按钮留在原地（功能不受影响），所以同样走 bestEffort。
+    bestEffort(
+      "更新卡片为终态",
+      updateChatCard(terminal.messageId, terminalCard(terminal.title, terminal.lines, terminal.ok)),
+    );
+  }
   return NextResponse.json({ toast });
+}
+
+/**
+ * 终态卡片：没有按钮、只有一行结果说明。
+ * 必须是 **2.0** 结构 —— 消息更新接口会用它去覆盖一张 2.0 卡片，
+ * 混成 1.0 会报 `schemaV2 card can not change schemaV1`（实测）。
+ */
+function terminalCard(title: string, lines: string[], ok: boolean): FeishuCard {
+  return {
+    schema: "2.0",
+    config: { wide_screen_mode: true },
+    header: { title: { tag: "plain_text", content: title }, template: ok ? "green" : "grey" },
+    body: { elements: [{ tag: "markdown", content: lines.join("\n") }] },
+  };
+}
+
+/**
+ * 卡片回调里的"那张卡片"的消息 id。
+ * v1 与 v2 把它放在不同位置（`event.open_message_id` vs `event.context.open_message_id`），
+ * 两个都读 —— 实测哪个有效就用哪个，另一个读不到自然就是 undefined。
+ */
+function cardMessageId(event: FeishuEvent | undefined): string | undefined {
+  return event?.open_message_id ?? event?.context?.open_message_id;
 }
 
 async function handleCardAction(event: FeishuEvent | undefined): Promise<NextResponse> {
@@ -333,8 +370,14 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
    * 与其赌一个猜出来的格式，不如只回最保守的 toast —— 按钮留在原地只是观感问题，
    * 而重复点击会不会重复执行由下面的**一次性令牌**兜住，那才是安全问题。
    */
+  // 卡片消息 id 的位置实测确认一下（v1 在 event 上、v2 在 event.context 下）
+  console.error(`[feishu-bot] 卡片回调：open_message_id=${event?.open_message_id ?? "(无)"} context.open_message_id=${event?.context?.open_message_id ?? "(无)"}`);
+
   if (!command) {
-    return cardActionResponse({ type: "info", content: "已取消，没有执行任何操作" });
+    return cardActionResponse(
+      { type: "info", content: "已取消，没有执行任何操作" },
+      { messageId: cardMessageId(event), title: "已取消", lines: ["没有执行任何操作。"], ok: false },
+    );
   }
 
   const operator = await resolveOperator(openId);
@@ -346,7 +389,10 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       path: "/api/feishu/events",
       detail: { stage: "card-action", openId: openId ?? null, command },
     });
-    return cardActionResponse({ type: "error", content: "未授权，操作没有执行" });
+    return cardActionResponse(
+      { type: "error", content: "未授权，操作没有执行" },
+      { messageId: cardMessageId(event), title: "未执行", lines: ["你的账号不在管理员白名单里，本次操作没有执行。"], ok: false },
+    );
   }
 
   const args = command.split(/\s+/).slice(1);
@@ -358,7 +404,10 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
    */
   if (!consumeConfirmToken(value.token)) {
     console.error(`[feishu-bot] 拒绝重复执行（令牌已消费）：${command}`);
-    return cardActionResponse({ type: "warning", content: "这条确认已经处理过了，不会重复执行" });
+    return cardActionResponse(
+      { type: "warning", content: "这条确认已经处理过了，不会重复执行" },
+      { messageId: cardMessageId(event), title: "已处理过", lines: ["这条确认之前已经处理过，不会重复执行。"], ok: false },
+    );
   }
 
   try {
@@ -381,7 +430,10 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
     console.error(`[feishu-bot] ${operator.email} 通过飞书执行：${command}`);
     // 结果行放进 toast —— 卡片不再被替换，这是用户点完唯一能看到的反馈
     const summary = result.lines.join(" ").slice(0, 90);
-    return cardActionResponse({ type: "success", content: summary || "已执行" });
+    return cardActionResponse(
+      { type: "success", content: summary || "已执行" },
+      { messageId: cardMessageId(event), title: "已执行", lines: result.lines, ok: true },
+    );
   } catch (error) {
     const text = commandErrorText(error);
     await writeAudit({
@@ -393,6 +445,9 @@ async function handleCardAction(event: FeishuEvent | undefined): Promise<NextRes
       detail: { via: "feishu", feishuOpenId: operator.openId, command, args, error: text },
     });
     console.error(`[feishu-bot] 命令失败：${command}`, error);
-    return cardActionResponse({ type: "error", content: "执行失败" });
+    return cardActionResponse(
+      { type: "error", content: "执行失败" },
+      { messageId: cardMessageId(event), title: "执行失败", lines: [text], ok: false },
+    );
   }
 }
