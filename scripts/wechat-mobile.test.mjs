@@ -14,20 +14,12 @@ import ts from "typescript";
  *
  * 所以 UA 判定直接决定了用户看到的是"可用的引导"还是"永远扫不掉的二维码"。
  */
-function loadModule(relativePath) {
-  const source = readFileSync(new URL(relativePath, import.meta.url), "utf8");
-  const js = ts.transpileModule(source, {
-    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ESNext },
-  }).outputText;
-  return import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
-}
-
 // session-menu.tsx 含 JSX 与 import，不能直接执行；只把两个纯函数抽出来测。
 async function loadDetectors() {
   const source = readFileSync(new URL("../app/session-menu.tsx", import.meta.url), "utf8");
   const start = source.indexOf("export function isWeChatBrowser");
-  const end = source.indexOf("function GoogleMark");
-  assert.ok(start > 0 && end > start, "找不到 UA 判定函数");
+  const end = source.indexOf("function WeChatMark");
+  assert.ok(start > 0 && end > start, "找不到 UA 判定函数（或锚点失效）");
   const snippet = source.slice(start, end);
   const js = ts.transpileModule(snippet, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ESNext },
@@ -66,32 +58,54 @@ test("移动端判定覆盖 iOS / Android / 鸿蒙，桌面不能误判", async 
   assert.equal(isMobileBrowser("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"), false);
 });
 
-test("手机普通浏览器里必须给出路：不渲染扫码按钮、备用登录默认展开", () => {
+test("手机普通浏览器里必须给出路：不渲染扫码按钮，改为引导去微信打开", () => {
   const source = readFileSync(new URL("../app/session-menu.tsx", import.meta.url), "utf8");
 
-  // 手机 + 非微信 → 显示引导而不是登录按钮
+  // 手机 + 非微信 → 引导而不是登录按钮（那个按钮点了只会出现扫不掉的二维码）
   assert.match(source, /mobileOutsideWeChat && wechatProvider \?/, "手机非微信环境要切换到引导");
   assert.match(source, /微信扫码要「另一台设备」才能完成/, "要解释为什么扫不了");
-  assert.match(source, /复制网址/, "要给一个可操作的出路");
-
-  // 备用登录方式默认展开（否则用户只看到一条引导，没有任何可点的入口）
-  assert.match(source, /const fallbackOpen = showFallback \|\| mobileOutsideWeChat;/,
-    "手机普通浏览器上备用登录必须默认展开");
+  assert.match(source, /复制本站网址/, "要给一个可操作的出路");
 
   // 微信内要提示会直接授权
   assert.match(source, /inWeChat && wechatProvider &&/, "微信内要给出一键授权提示");
+
+  /**
+   * 界面上不能再有 GitHub / Google 的入口。**先剥注释再查** ——
+   * 注释里写着"已废弃"是正常的，直接对全文 grep 会误报。
+   * （这轮已经三次踩在"静态断言匹配到了注释而不是代码"上。）
+   */
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/^\s*\/\/.*$/gm, " ");
+  assert.equal(/github/i.test(code), false, "界面不该再出现 GitHub");
+  assert.equal(/google/i.test(code), false, "界面不该再出现 Google");
 });
 
-test("会话接口下发备用 provider（否则手机上无从登录）", () => {
-  const route = readFileSync(new URL("../app/api/session/route.ts", import.meta.url), "utf8");
+test("登录方式只有微信：provider 注册、环境变量、界面三处一致", () => {
   const auth = readFileSync(new URL("../auth.ts", import.meta.url), "utf8");
-  assert.match(route, /fallbackProviders: fallbackLoginProviders/);
-  assert.match(auth, /export const fallbackLoginProviders/);
-  // 备用列表必须同时满足「已配置」与「这台机器上真的能用」。
-  // 2026-10-19 实测：国内主机连不上 accounts.google.com，Auth.js 的 Google provider
-  // 走 OIDC discovery，拉不到配置就 error=Configuration —— 放进去就是个死按钮。
-  assert.match(auth, /FALLBACK_ALLOWLIST\.includes\(provider\.id\)/,
-    "备用入口要经过可用性白名单，不能只看凭据是否配置");
-  assert.match(auth, /LOGIN_FALLBACK_PROVIDERS \?\? "github"/,
-    "默认只放 github —— 宁可少一个入口，也不要多一个报错的入口");
+  const route = readFileSync(new URL("../app/api/session/route.ts", import.meta.url), "utf8");
+  const env = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
+
+  /**
+   * 2026-10-20 用户决定：GitHub / Google 直接废弃。
+   * 关键点：**连 provider 注册一起删**，而不是只藏按钮 ——
+   * 只要 provider 还注册着，/api/auth/signin/github 就仍然可达，
+   * 一个"界面上看不见但直接访问能用"的入口等于绕过产品决定。
+   */
+  assert.equal(/providers\/github/.test(auth), false, "不该再 import GitHub provider");
+  assert.equal(/providers\/google/.test(auth), false, "不该再 import Google provider");
+  assert.equal(/providerConfigured\("github"\)/.test(auth), false, "不该再注册 GitHub provider");
+  assert.equal(/providerConfigured\("google"\)/.test(auth), false, "不该再注册 Google provider");
+
+  // oauthProviders 里只剩微信
+  const list = auth.slice(auth.indexOf("export const oauthProviders"), auth.indexOf("/** 客户端登录按钮消费的列表"));
+  assert.match(list, /id: "wechat"/);
+  assert.equal((list.match(/id: "/g) ?? []).length, 1, "oauthProviders 里只能有一个 provider");
+
+  // 环境变量说明里不该再出现那两家
+  assert.equal(/AUTH_GITHUB_ID/.test(env), false, ".env.example 不该再有 GitHub");
+  assert.equal(/AUTH_GOOGLE_ID/.test(env), false, ".env.example 不该再有 Google");
+
+  // 会话接口不该再下发备用列表
+  assert.equal(/fallbackProviders/.test(route), false, "session 不该再下发备用 provider");
 });

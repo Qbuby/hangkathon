@@ -11,12 +11,10 @@ type SessionState = {
   configured: boolean;
   secret: boolean;
   providers: { id: string; name: string; configured: boolean }[];
-  /** 被隐去但已配置的 provider（GitHub / Google）——微信扫码在手机上走不通时用。 */
-  fallbackProviders?: { id: string; name: string; configured: boolean }[];
   user: { name: string | null; email: string | null } | null;
 };
 
-const SIGNED_OUT: SessionState = { configured: false, secret: false, providers: [], fallbackProviders: [], user: null };
+const SIGNED_OUT: SessionState = { configured: false, secret: false, providers: [], user: null };
 
 /** Names the pieces a deployment is still missing, so the dialog can be specific. */
 function missingConfig(state: SessionState) {
@@ -51,27 +49,7 @@ export function isMobileBrowser(userAgent: string): boolean {
   return /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i.test(userAgent);
 }
 
-function GoogleMark() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62Z" />
-      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18Z" />
-      <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33Z" />
-      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58Z" />
-    </svg>
-  );
-}
-
-// lucide dropped its brand icons, so the GitHub mark is inlined.
-function GitHubMark() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
-      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
-    </svg>
-  );
-}
-
-// 微信标志（绿色气泡）：lucide 无品牌图标，同 GitHubMark 一样内联。
+// lucide 不含品牌图标，微信标志内联（绿色气泡）。
 function WeChatMark() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -83,11 +61,13 @@ function WeChatMark() {
   );
 }
 
-/** 按列表里的 provider id 选图标；未知 id 回落到 Google 标（与既有兜底一致）。 */
+/**
+ * provider 图标。现在只剩微信 —— GitHub / Google 的登录方式已整体废弃（2026-10-20），
+ * 对应的 SVG 组件与分支一并删掉；留着死分支会让人以为它们还"随时可以恢复"。
+ */
 function ProviderMark({ id }: { id: string }) {
-  if (id === "github") return <GitHubMark />;
   if (id === "wechat") return <WeChatMark />;
-  return <GoogleMark />;
+  return null;
 }
 
 function initial(user: { name: string | null; email: string | null }) {
@@ -105,33 +85,13 @@ export default function SessionMenu() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
-  const [showFallback, setShowFallback] = useState(false);
+  const [copied, setCopied] = useState(false);
   /**
    * UA 只在客户端读，且初始为 null —— 服务端渲染时拿不到真实 UA，
    * 直接读会在首屏与客户端不一致（hydration mismatch）。null 表示"还没判断出来"，
    * 此时按普通浏览器处理（桌面端占绝大多数，体验不变）。
    */
   const [ua, setUa] = useState<{ wechat: boolean; mobile: boolean } | null>(null);
-  useEffect(() => {
-    // 项目惯例：effect 里不直接 setState（react-hooks/set-state-in-effect）；
-    // 用 setTimeout(…, 0) 挪出本次渲染周期。
-    const timer = window.setTimeout(() => {
-      const agent = navigator.userAgent;
-      setUa({ wechat: isWeChatBrowser(agent), mobile: isMobileBrowser(agent) });
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-  const inWeChat = ua?.wechat ?? false;
-  const onMobile = ua?.mobile ?? false;
-  /** 手机上的普通浏览器：微信扫码在这里物理上做不到，必须引导去微信打开。 */
-  const mobileOutsideWeChat = onMobile && !inWeChat;
-  /**
-   * 备用登录方式是否展开。**手机普通浏览器上默认展开** —— 那里微信走不通，
-   * 不展开的话用户看到的就是一条引导 + 一个折叠着、看不见的出入口。
-   * 用派生值而不是 setState：不需要同步两份状态，也就不会出现"展开状态与实际不符"。
-   */
-  const fallbackOpen = showFallback || mobileOutsideWeChat;
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,9 +110,21 @@ export default function SessionMenu() {
     };
   }, []);
 
+  useEffect(() => {
+    // 项目惯例：effect 里不直接 setState（react-hooks/set-state-in-effect）；
+    // 用 setTimeout(…, 0) 挪出本次渲染周期。
+    const timer = window.setTimeout(() => {
+      const agent = navigator.userAgent;
+      setUa({ wechat: isWeChatBrowser(agent), mobile: isMobileBrowser(agent) });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const inWeChat = ua?.wechat ?? false;
+  const onMobile = ua?.mobile ?? false;
+  /** 手机上的普通浏览器：微信扫码在这里物理上做不到，必须引导去微信打开。 */
+  const mobileOutsideWeChat = onMobile && !inWeChat;
   const user = session?.user ?? null;
   const providers = session?.providers ?? [];
-  const fallbacks = session?.fallbackProviders ?? [];
   const wechatProvider = providers.find((provider) => provider.id === "wechat") ?? null;
   const ready = Boolean(session?.configured);
   const missing = session ? missingConfig(session) : [];
@@ -219,8 +191,8 @@ export default function SessionMenu() {
                     微信也不允许长按或从相册识别登录码。
                   </p>
                   <p className="wechat-mobile-guide-body">
-                    在微信里打开本站，会变成**一键快捷登录**，不需要扫码：点右上角「···」→
-                    「发送给朋友」发给自己，或复制下面的地址粘到微信里。
+                    在微信里打开本站，会变成「微信快捷登录」，轻触允许即可，不需要扫码。
+                    做法：点右上角「···」→「发送给朋友」发给自己，或复制下面的地址粘到微信里。
                   </p>
                   <div className="wechat-mobile-guide-actions">
                     <button
@@ -237,7 +209,7 @@ export default function SessionMenu() {
                         );
                       }}
                     >
-                      <span>{copied ? "已复制，去微信粘贴打开" : `复制网址 ${typeof window === "undefined" ? "" : window.location.host}`}</span>
+                      <span>{copied ? "已复制，去微信粘贴打开" : "复制本站网址"}</span>
                     </button>
                   </div>
                 </div>
@@ -262,41 +234,6 @@ export default function SessionMenu() {
               )}
               {inWeChat && wechatProvider && (
                 <p className="wechat-inapp-note">已检测到微信环境：点上方「使用微信登录」会直接弹出授权，无需扫码。</p>
-              )}
-              {fallbacks.length > 0 && (
-                <div className="provider-fallback">
-                  {/*
-                    微信扫码要"另一台设备"才能完成：手机上二维码就在自己屏幕里，
-                    没法用同一台手机扫（微信也禁止长按/相册识别）。
-                    所以这里给一条出路，而不是让手机用户对着二维码干瞪眼。
-                  */}
-                  <button
-                    type="button"
-                    className="provider-fallback-toggle"
-                    onClick={() => setShowFallback((value) => !value)}
-                    aria-expanded={fallbackOpen}
-                  >
-                    {fallbackOpen ? "收起其他登录方式" : "手机扫码不便？用其他方式登录"}
-                  </button>
-                  {fallbackOpen && (
-                    <div className="provider-list provider-list-fallback">
-                      {fallbacks.map((provider) => (
-                        <button
-                          key={provider.id}
-                          className="provider-button"
-                          disabled={!ready || !provider.configured || pending !== null}
-                          onClick={() => {
-                            setPending(provider.id);
-                            void signIn(provider.id, { callbackUrl: "/" });
-                          }}
-                        >
-                          <ProviderMark id={provider.id} />
-                          <span>使用 {provider.name} 登录</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
               )}
               <div className="dialog-note">
                 <span>{ready ? "说明" : "当前状态"}</span>

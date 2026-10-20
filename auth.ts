@@ -1,7 +1,5 @@
 import NextAuth from "next-auth";
 import { headers } from "next/headers";
-import GitHub from "next-auth/providers/github";
-import Google from "next-auth/providers/google";
 import WeChat from "next-auth/providers/wechat";
 
 /**
@@ -10,17 +8,23 @@ import WeChat from "next-auth/providers/wechat";
  * `oauthProviders` to decide whether to offer sign-in or explain that it is not
  * configured yet, instead of sending the visitor into a provider error page.
  */
+/**
+ * 可用的登录方式。**只保留微信**（2026-10-20 用户决定：GitHub / Google 直接废弃）。
+ *
+ * 为什么连 provider 注册一起删，而不是只把按钮藏起来：
+ *   · 只要 provider 还注册着，`/api/auth/signin/github` 这类路由就仍然可达 ——
+ *     一个"界面上看不见但直接访问能用"的登录入口，等于绕过产品决定。
+ *   · 也少一处依赖第三方可达性的故障点：Google 的 OIDC discovery 在国内主机上
+ *     根本连不通（实测 accounts.google.com 超时）。
+ *
+ * 代价必须说清楚：**微信 qrconnect 在手机普通浏览器里物理上无法完成** ——
+ * 二维码就在用户自己那块屏幕上，同一台手机扫不了；微信还明确禁止长按/相册识别
+ * （"该二维码仅支持在扫一扫时，通过摄像头来识别"）。
+ * 所以手机端唯一可行的路径是**在微信内置浏览器里打开本站**：那里 qrconnect 会变成
+ * "微信快捷登录"，轻触允许即可，不用扫码。界面按 UA 分流并给出引导，
+ * 见 app/session-menu.tsx。
+ */
 export const oauthProviders = [
-  {
-    id: "github",
-    name: "GitHub",
-    configured: Boolean(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET),
-  },
-  {
-    id: "google",
-    name: "Google",
-    configured: Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
-  },
   {
     id: "wechat",
     name: "微信",
@@ -28,60 +32,8 @@ export const oauthProviders = [
   },
 ];
 
-// 暂时隐去 GitHub / Google 的登录入口：只从返回给客户端（登录按钮）的列表里过滤掉，
-// provider 本体仍注册（已有会话与 signIn 回调路由不受影响）。恢复时删除该常量即可。
-const HIDDEN_LOGIN_PROVIDERS = ["github", "google"];
-
-// 只在微信已配好凭据的部署上隐去它们——那种部署上微信就是唯一对外的入口。没配微信的
-// 部署（Vercel 那份 hangkathon.net）必须留着 GitHub / Google：否则登录框里只剩一个
-// 点不动的微信按钮，直接变成谁也登不进来的死局。
-const wechatConfigured = oauthProviders.some(
-  (provider) => provider.id === "wechat" && provider.configured,
-);
-
-/** 客户端登录按钮消费的列表（/api/session 返回这份，已应用 HIDDEN_LOGIN_PROVIDERS）。 */
-export const loginProviders = oauthProviders.filter(
-  (provider) => !wechatConfigured || !HIDDEN_LOGIN_PROVIDERS.includes(provider.id),
-);
-
-/**
- * 「备用登录方式」：被隐去但**确实已配置**的 provider。
- *
- * 为什么需要它（2026-10-19 用户反馈「手机上登陆不了」）：
- *   微信走的是 WebsiteApp 扫码（qrconnect），**在手机上物理上无法完成** ——
- *   二维码就显示在用户自己那块屏幕上，没法用同一台手机去扫；微信还明确禁止
- *   长按/相册识别（"该二维码仅支持在扫一扫时通过摄像头识别"）。
- *   于是手机端一个可点的入口都没有，直接死路。
- *
- * 处理方式：微信仍是主入口（桌面端体验不变），下面折一行「其他登录方式」，
- * 只在**存在可用的备用 provider** 时出现。不并进主列表是为了守住
- * 「微信为主」的产品决定；但也不该让手机用户无路可走。
- *
- * ── 为什么还要一层「实际可用」的白名单 ──────────────────────────────────
- * "已配置凭据" ≠ "能用"。2026-10-19 实测：自托管在国内，容器里
- * `wget https://accounts.google.com/.well-known/openid-configuration` **超时**
- * （GitHub 正常）。Auth.js 的 Google provider 走 OIDC discovery，拉不到配置就
- * 直接 `error=Configuration` —— 把 Google 放进备用入口，等于给用户一个
- * **点了就报错的死按钮**，比不放更糟。
- *
- * 所以由部署方用环境变量声明这台机器上真能连通的 provider：
- *   LOGIN_FALLBACK_PROVIDERS=github        （默认，国内主机）
- *   LOGIN_FALLBACK_PROVIDERS=github,google （境外主机 / 能连通 Google 的部署）
- *
- * 默认只放 github：宁可少一个入口，也不要多一个报错的入口。
- */
-const FALLBACK_ALLOWLIST = (process.env.LOGIN_FALLBACK_PROVIDERS ?? "github")
-  .split(",")
-  .map((id) => id.trim().toLowerCase())
-  .filter(Boolean);
-
-export const fallbackLoginProviders = oauthProviders.filter(
-  (provider) =>
-    wechatConfigured &&
-    HIDDEN_LOGIN_PROVIDERS.includes(provider.id) &&
-    provider.configured &&
-    FALLBACK_ALLOWLIST.includes(provider.id),
-);
+/** 客户端登录按钮消费的列表。现在只剩微信，直接全量下发。 */
+export const loginProviders = oauthProviders;
 
 // 客户端视角的「能登录」：至少一家未隐藏且已配置的 provider。与 authConfigured（服务端
 // 按全量列表判定，仅用于读取已有会话）分开：否则在 GitHub/Google 已配但被隐藏、微信又
@@ -99,8 +51,6 @@ const providerConfigured = (id: string) =>
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
-    ...(providerConfigured("github") ? [GitHub] : []),
-    ...(providerConfigured("google") ? [Google] : []),
     // 微信开放平台「网站应用」扫码登录：必须用 WebsiteApp 形态（PC 扫码走
     // open.weixin.qq.com/connect/qrconnect、scope=snsapi_login），默认的
     // OfficialAccount 是公众号网页授权，只在微信内置浏览器里有效。
