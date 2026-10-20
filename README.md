@@ -68,27 +68,39 @@
 
 ## 登录
 
-右上角提供 GitHub 与 Google 登录。凭据按环境注入：没有配置时入口仍然显示，但会明确标出「未配置」并说明缺少什么，不会把访问者送进服务商的错误页。
+登录方式**只有微信**（2026-10-20 起 GitHub / Google 已整体废弃，代码里连 provider 注册都删了）。
 
-需要的环境变量见 `.env.example`：
+凭据按环境注入：没有配置时入口仍然显示，但会明确标出「未配置」并说明缺少什么，
+不会把访问者送进服务商的错误页。
 
 | 变量 | 说明 |
 | --- | --- |
 | `AUTH_SECRET` | **必填**，会话 cookie 的签名密钥，用 `npx auth secret` 生成 |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth App 的 Client ID 与 Client Secret |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth 2.0 客户端的客户端 ID 与客户端密钥 |
+| `AUTH_WECHAT_ID` / `AUTH_WECHAT_SECRET` | 微信开放平台「网站应用」的 AppID 与 AppSecret |
 
-`AUTH_SECRET` 缺失时 Auth.js 会在 `/api/auth/error` 抛出 `Configuration` 错误，只配服务商凭据是不够的。缺少哪一项会直接显示在登录弹窗和错误页上，不需要去翻服务端日志。
+`AUTH_SECRET` 缺失时 Auth.js 会在 `/api/auth/error` 抛出 `Configuration` 错误，
+只配服务商凭据是不够的。
 
-至少配齐一个服务商的凭据加 `AUTH_SECRET`，登录才会启用；只配了其中一家时，另一家的按钮会置灰并标注「未配置」。
+### 手机端要注意
 
-### 注册 OAuth 应用
+微信「网站应用」走的是 qrconnect 扫码协议，**在手机普通浏览器里物理上无法完成**：
+二维码就显示在用户自己那块屏幕上，同一台手机扫不了；微信还明确禁止长按/相册识别
+（「该二维码仅支持在扫一扫时，通过摄像头来识别」）。
 
-GitHub 在 Settings → Developer settings → OAuth Apps → New OAuth App 创建，Authorization callback URL 填 `https://hangkathon.net/api/auth/callback/github`。
+所以手机端唯一可行的路径是**在微信内置浏览器里打开本站** —— 那里 qrconnect 会变成
+「微信快捷登录」，轻触允许即可，不用扫码。界面按 UA 分流：
 
-Google 在 Google Cloud Console → API 和服务 → 凭据 → 创建凭据 → OAuth 客户端 ID（Web 应用）创建，已获授权的重定向 URI 填 `https://hangkathon.net/api/auth/callback/google`。
+| 环境 | 界面行为 |
+| --- | --- |
+| 桌面浏览器 | 显示「使用微信登录」，出二维码，手机扫 |
+| 微信内置浏览器 | 同样按钮，点击直接授权（无二维码） |
+| 手机普通浏览器 | **不显示扫码按钮**，改为解释 + 「复制本站网址」引导去微信打开 |
 
-本地开发要另外注册一组回调地址为 `http://localhost:5175/api/auth/callback/github`（Google 同理）的应用，或者把本地地址一并加进同一个应用的回调列表。
+### 注册微信应用
+
+微信开放平台 → 管理中心 → 网站应用 → 创建，**授权回调域**填裸域名 `hangkathon.com`
+（不带协议与路径），回调地址为 `https://hangkathon.com/api/auth/callback/wechat`。
+需要「网站应用」资质审核通过后扫码登录才可用。
 
 ### 在 Vercel 配置
 
