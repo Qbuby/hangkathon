@@ -54,11 +54,33 @@ export const loginProviders = oauthProviders.filter(
  *   于是手机端一个可点的入口都没有，直接死路。
  *
  * 处理方式：微信仍是主入口（桌面端体验不变），下面折一行「其他登录方式」，
- * 只在**存在已配置的备用 provider** 时出现。不并进主列表是为了守住
+ * 只在**存在可用的备用 provider** 时出现。不并进主列表是为了守住
  * 「微信为主」的产品决定；但也不该让手机用户无路可走。
+ *
+ * ── 为什么还要一层「实际可用」的白名单 ──────────────────────────────────
+ * "已配置凭据" ≠ "能用"。2026-10-19 实测：自托管在国内，容器里
+ * `wget https://accounts.google.com/.well-known/openid-configuration` **超时**
+ * （GitHub 正常）。Auth.js 的 Google provider 走 OIDC discovery，拉不到配置就
+ * 直接 `error=Configuration` —— 把 Google 放进备用入口，等于给用户一个
+ * **点了就报错的死按钮**，比不放更糟。
+ *
+ * 所以由部署方用环境变量声明这台机器上真能连通的 provider：
+ *   LOGIN_FALLBACK_PROVIDERS=github        （默认，国内主机）
+ *   LOGIN_FALLBACK_PROVIDERS=github,google （境外主机 / 能连通 Google 的部署）
+ *
+ * 默认只放 github：宁可少一个入口，也不要多一个报错的入口。
  */
+const FALLBACK_ALLOWLIST = (process.env.LOGIN_FALLBACK_PROVIDERS ?? "github")
+  .split(",")
+  .map((id) => id.trim().toLowerCase())
+  .filter(Boolean);
+
 export const fallbackLoginProviders = oauthProviders.filter(
-  (provider) => wechatConfigured && HIDDEN_LOGIN_PROVIDERS.includes(provider.id) && provider.configured,
+  (provider) =>
+    wechatConfigured &&
+    HIDDEN_LOGIN_PROVIDERS.includes(provider.id) &&
+    provider.configured &&
+    FALLBACK_ALLOWLIST.includes(provider.id),
 );
 
 // 客户端视角的「能登录」：至少一家未隐藏且已配置的 provider。与 authConfigured（服务端

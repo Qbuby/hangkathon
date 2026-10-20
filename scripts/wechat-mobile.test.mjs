@@ -87,6 +87,11 @@ test("会话接口下发备用 provider（否则手机上无从登录）", () =>
   const auth = readFileSync(new URL("../auth.ts", import.meta.url), "utf8");
   assert.match(route, /fallbackProviders: fallbackLoginProviders/);
   assert.match(auth, /export const fallbackLoginProviders/);
-  // 备用列表必须是「已配置」的，不能把没配凭据的塞进去变成又一个死按钮
-  assert.match(auth, /HIDDEN_LOGIN_PROVIDERS\.includes\(provider\.id\) && provider\.configured/);
+  // 备用列表必须同时满足「已配置」与「这台机器上真的能用」。
+  // 2026-10-19 实测：国内主机连不上 accounts.google.com，Auth.js 的 Google provider
+  // 走 OIDC discovery，拉不到配置就 error=Configuration —— 放进去就是个死按钮。
+  assert.match(auth, /FALLBACK_ALLOWLIST\.includes\(provider\.id\)/,
+    "备用入口要经过可用性白名单，不能只看凭据是否配置");
+  assert.match(auth, /LOGIN_FALLBACK_PROVIDERS \?\? "github"/,
+    "默认只放 github —— 宁可少一个入口，也不要多一个报错的入口");
 });
