@@ -1,4 +1,11 @@
-import { auth, authConfigured, loginConfigured, loginProviders, sessionSecretConfigured } from "@/auth";
+import {
+  auth,
+  authConfigured,
+  fallbackLoginProviders,
+  loginConfigured,
+  loginProviders,
+  sessionSecretConfigured,
+} from "@/auth";
 import { hasDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +30,11 @@ export async function GET() {
     database: hasDatabase(),
     // 登录按钮列表：auth.ts 里已过滤掉暂时隐去的 provider（HIDDEN_LOGIN_PROVIDERS）。
     providers: loginProviders,
+    /**
+     * 备用登录方式：被隐去但确实已配置的 provider（当前是 GitHub / Google）。
+     * 手机端微信扫码走不通时用它们 —— 详见 auth.ts 里 fallbackLoginProviders 的注释。
+     */
+    fallbackProviders: fallbackLoginProviders,
     user: session?.user
       ? {
           name: session.user.name ?? null,

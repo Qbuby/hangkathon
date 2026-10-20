@@ -44,6 +44,23 @@ export const loginProviders = oauthProviders.filter(
   (provider) => !wechatConfigured || !HIDDEN_LOGIN_PROVIDERS.includes(provider.id),
 );
 
+/**
+ * 「备用登录方式」：被隐去但**确实已配置**的 provider。
+ *
+ * 为什么需要它（2026-10-19 用户反馈「手机上登陆不了」）：
+ *   微信走的是 WebsiteApp 扫码（qrconnect），**在手机上物理上无法完成** ——
+ *   二维码就显示在用户自己那块屏幕上，没法用同一台手机去扫；微信还明确禁止
+ *   长按/相册识别（"该二维码仅支持在扫一扫时通过摄像头识别"）。
+ *   于是手机端一个可点的入口都没有，直接死路。
+ *
+ * 处理方式：微信仍是主入口（桌面端体验不变），下面折一行「其他登录方式」，
+ * 只在**存在已配置的备用 provider** 时出现。不并进主列表是为了守住
+ * 「微信为主」的产品决定；但也不该让手机用户无路可走。
+ */
+export const fallbackLoginProviders = oauthProviders.filter(
+  (provider) => wechatConfigured && HIDDEN_LOGIN_PROVIDERS.includes(provider.id) && provider.configured,
+);
+
 // 客户端视角的「能登录」：至少一家未隐藏且已配置的 provider。与 authConfigured（服务端
 // 按全量列表判定，仅用于读取已有会话）分开：否则在 GitHub/Google 已配但被隐藏、微信又
 // 未配凭据的部署上，登录框会只剩一个禁用按钮，而 configured=true 会吞掉缺配置的警告。

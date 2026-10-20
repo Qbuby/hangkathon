@@ -11,10 +11,12 @@ type SessionState = {
   configured: boolean;
   secret: boolean;
   providers: { id: string; name: string; configured: boolean }[];
+  /** 被隐去但已配置的 provider（GitHub / Google）——微信扫码在手机上走不通时用。 */
+  fallbackProviders?: { id: string; name: string; configured: boolean }[];
   user: { name: string | null; email: string | null } | null;
 };
 
-const SIGNED_OUT: SessionState = { configured: false, secret: false, providers: [], user: null };
+const SIGNED_OUT: SessionState = { configured: false, secret: false, providers: [], fallbackProviders: [], user: null };
 
 /** Names the pieces a deployment is still missing, so the dialog can be specific. */
 function missingConfig(state: SessionState) {
@@ -24,6 +26,29 @@ function missingConfig(state: SessionState) {
     missing.push("任一第三方登录的 OAuth 凭据");
   }
   return missing;
+}
+
+/**
+ * 判断当前是不是**微信内置浏览器**。
+ *
+ * 为什么这条决定登录成败（2026-10-19）：微信「网站应用」的 qrconnect 有两种形态 ——
+ *   · 普通浏览器：显示二维码，要用**另一台设备**的微信扫。手机上没有第二块屏幕，死路。
+ *   · 微信内置浏览器：自动变成「微信快捷登录」，轻触允许即可，**根本不用扫码**
+ *     （实测页面文案："使用微信快捷登录" / "在微信中轻触允许即可登录"）。
+ *
+ * 而微信明确禁止对登录二维码做长按/相册识别（用户截图里那句"该二维码仅支持在扫一扫时，
+ * 通过摄像头来识别"），所以"截图存到相册再扫"这条路也被堵死了。
+ *
+ * 结论：手机端唯一可行的路径是**把页面放到微信里打开**。所以这里要能分辨，
+ * 才能给出对的引导，而不是让用户对着一个永远扫不掉的二维码发呆。
+ */
+export function isWeChatBrowser(userAgent: string): boolean {
+  return /MicroMessenger/i.test(userAgent);
+}
+
+/** 是否移动端（含平板）。只用于决定文案与引导，不用于功能开关。 */
+export function isMobileBrowser(userAgent: string): boolean {
+  return /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i.test(userAgent);
 }
 
 function GoogleMark() {
@@ -80,6 +105,33 @@ export default function SessionMenu() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
+  const [showFallback, setShowFallback] = useState(false);
+  /**
+   * UA 只在客户端读，且初始为 null —— 服务端渲染时拿不到真实 UA，
+   * 直接读会在首屏与客户端不一致（hydration mismatch）。null 表示"还没判断出来"，
+   * 此时按普通浏览器处理（桌面端占绝大多数，体验不变）。
+   */
+  const [ua, setUa] = useState<{ wechat: boolean; mobile: boolean } | null>(null);
+  useEffect(() => {
+    // 项目惯例：effect 里不直接 setState（react-hooks/set-state-in-effect）；
+    // 用 setTimeout(…, 0) 挪出本次渲染周期。
+    const timer = window.setTimeout(() => {
+      const agent = navigator.userAgent;
+      setUa({ wechat: isWeChatBrowser(agent), mobile: isMobileBrowser(agent) });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const inWeChat = ua?.wechat ?? false;
+  const onMobile = ua?.mobile ?? false;
+  /** 手机上的普通浏览器：微信扫码在这里物理上做不到，必须引导去微信打开。 */
+  const mobileOutsideWeChat = onMobile && !inWeChat;
+  /**
+   * 备用登录方式是否展开。**手机普通浏览器上默认展开** —— 那里微信走不通，
+   * 不展开的话用户看到的就是一条引导 + 一个折叠着、看不见的出入口。
+   * 用派生值而不是 setState：不需要同步两份状态，也就不会出现"展开状态与实际不符"。
+   */
+  const fallbackOpen = showFallback || mobileOutsideWeChat;
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +152,8 @@ export default function SessionMenu() {
 
   const user = session?.user ?? null;
   const providers = session?.providers ?? [];
+  const fallbacks = session?.fallbackProviders ?? [];
+  const wechatProvider = providers.find((provider) => provider.id === "wechat") ?? null;
   const ready = Boolean(session?.configured);
   const missing = session ? missingConfig(session) : [];
 
@@ -151,23 +205,99 @@ export default function SessionMenu() {
               <DialogDescription className="dialog-description">
                 使用第三方账号登录，之后可以用同一个身份发起活动、发布作品。
               </DialogDescription>
-              <div className="provider-list">
-                {providers.map((provider) => (
+              {/*
+                手机普通浏览器里的微信登录：二维码就在用户自己这块屏幕上，
+                没法用同一台手机扫；微信又禁止长按/相册识别（实测报"该二维码仅支持
+                在扫一扫时，通过摄像头来识别"）。所以这里**不渲染登录按钮**，
+                直接给出唯一可行的路径：去微信里打开。
+              */}
+              {mobileOutsideWeChat && wechatProvider ? (
+                <div className="wechat-mobile-guide">
+                  <p className="wechat-mobile-guide-title">手机上的微信登录需要在微信里打开</p>
+                  <p className="wechat-mobile-guide-body">
+                    微信扫码要「另一台设备」才能完成 —— 二维码就在这块屏幕上，同一台手机扫不了它，
+                    微信也不允许长按或从相册识别登录码。
+                  </p>
+                  <p className="wechat-mobile-guide-body">
+                    在微信里打开本站，会变成**一键快捷登录**，不需要扫码：点右上角「···」→
+                    「发送给朋友」发给自己，或复制下面的地址粘到微信里。
+                  </p>
+                  <div className="wechat-mobile-guide-actions">
+                    <button
+                      type="button"
+                      className="provider-button wechat-mobile-copy"
+                      onClick={() => {
+                        const url = window.location.origin;
+                        void navigator.clipboard?.writeText(url).then(
+                          () => {
+                            setCopied(true);
+                            window.setTimeout(() => setCopied(false), 2500);
+                          },
+                          () => setCopied(false),
+                        );
+                      }}
+                    >
+                      <span>{copied ? "已复制，去微信粘贴打开" : `复制网址 ${typeof window === "undefined" ? "" : window.location.host}`}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="provider-list">
+                  {providers.map((provider) => (
+                    <button
+                      key={provider.id}
+                      className="provider-button"
+                      disabled={!ready || !provider.configured || pending !== null}
+                      onClick={() => {
+                        setPending(provider.id);
+                        void signIn(provider.id, { callbackUrl: "/" });
+                      }}
+                    >
+                      <ProviderMark id={provider.id} />
+                      <span>使用 {provider.name} 登录</span>
+                      {!provider.configured && <span className="provider-state">未配置</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {inWeChat && wechatProvider && (
+                <p className="wechat-inapp-note">已检测到微信环境：点上方「使用微信登录」会直接弹出授权，无需扫码。</p>
+              )}
+              {fallbacks.length > 0 && (
+                <div className="provider-fallback">
+                  {/*
+                    微信扫码要"另一台设备"才能完成：手机上二维码就在自己屏幕里，
+                    没法用同一台手机扫（微信也禁止长按/相册识别）。
+                    所以这里给一条出路，而不是让手机用户对着二维码干瞪眼。
+                  */}
                   <button
-                    key={provider.id}
-                    className="provider-button"
-                    disabled={!ready || !provider.configured || pending !== null}
-                    onClick={() => {
-                      setPending(provider.id);
-                      void signIn(provider.id, { callbackUrl: "/" });
-                    }}
+                    type="button"
+                    className="provider-fallback-toggle"
+                    onClick={() => setShowFallback((value) => !value)}
+                    aria-expanded={fallbackOpen}
                   >
-                    <ProviderMark id={provider.id} />
-                    <span>使用 {provider.name} 登录</span>
-                    {!provider.configured && <span className="provider-state">未配置</span>}
+                    {fallbackOpen ? "收起其他登录方式" : "手机扫码不便？用其他方式登录"}
                   </button>
-                ))}
-              </div>
+                  {fallbackOpen && (
+                    <div className="provider-list provider-list-fallback">
+                      {fallbacks.map((provider) => (
+                        <button
+                          key={provider.id}
+                          className="provider-button"
+                          disabled={!ready || !provider.configured || pending !== null}
+                          onClick={() => {
+                            setPending(provider.id);
+                            void signIn(provider.id, { callbackUrl: "/" });
+                          }}
+                        >
+                          <ProviderMark id={provider.id} />
+                          <span>使用 {provider.name} 登录</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="dialog-note">
                 <span>{ready ? "说明" : "当前状态"}</span>
                 <p>
