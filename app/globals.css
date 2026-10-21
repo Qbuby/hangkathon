@@ -70,7 +70,16 @@ html:has(main#top) .icp-footer a:hover,html:has(.about) .icp-footer a:hover{colo
    四块与备案号各占一层、任何视口高度都不交叠。 */
 html:has(main#top) body{position:relative}
 html:has(main#top) .icp-footer{position:absolute;left:0;right:0;bottom:0;padding:10px 6% 12px}
-@media(max-width:760px){html:has(main#top) .icp-footer{padding:6px 6% 8px}}
+@media(max-width:760px){
+  /* 移动端备案号会自然换成两行（320~430px 的宽度放不下五项），实际高度 52px。
+     这里把它**固定成 52px 并垂直居中**，让 hero-bottom 能用一个确定的变量去避让。
+     原先四块按「一行页脚（~32px）」留空，实测重叠 3~9px —— 真机上表现为
+     四块的下半截被备案行压住、看起来像少了内容。 */
+  html:has(main#top) .icp-footer{
+    height:var(--icp-footer-h);padding:0 5%;
+    display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0 8px;
+  }
+}
 /* 移动端首页**不能**给 .hero 设 min-height：手机浏览器（含微信内置浏览器）的可视高度
    常常只有 700 上下，min-height:850 会把页面撑高 100+px，而 hero-bottom（四块能力说明）
    与绝对定位的备案页脚都锚在 hero 自身上下缘 —— 结果就是它们在首屏之外、用户完全看不到。
@@ -78,6 +87,15 @@ html:has(main#top) .icp-footer{position:absolute;left:0;right:0;bottom:0;padding
    四块与备案行始终在首屏内。矮屏也不会重叠（文案区底边约 227px，四块顶边约 507px，
    实测 360×640 仍有 280px 净空）。 */
 
+
+:root{--icp-footer-h:34px}
+/* 移动端四块要避让**两行**备案号（见下方 media 里固定 52px 的说明）：
+   52px 页脚 + 12px 净空 = 64px；再加 2% 保持与视口高度的比例。
+   这是"贴近备案号但不重叠"，与既有的「备案号高度 + 固定净空」口径一致。 */
+@media(max-width:760px){
+  :root{--icp-footer-h:52px}
+  .hero-bottom{bottom:calc(var(--icp-footer-h) + 2% + 12px)}
+}
 
 /* 页脚里的备案与「关于杭客松」入口：同一行、不增加页脚高度，首页单屏不受影响。
    顺序是公安备案在前、ICP 在后；公安那条带官方标志（图标与文字垂直居中对齐）。
