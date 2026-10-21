@@ -100,10 +100,20 @@ function displayEmail(email: string | null) {
  *   3. 换票失败（比如码被别人用掉）会给出明确文案并允许重新获取，
  *      而不是卡在"登录中"转圈。
  */
+/**
+ * 公众号二维码图片路径。
+ *
+ * 放在 public/assets 下，构建时原样拷贝。**图片缺失不能挡住登录** ——
+ * 验证码那条路不依赖它，所以渲染时用 onError 兜底隐藏。
+ */
+const MP_QR_SRC = "/assets/wechat-mp-qrcode.png";
+
 function MobileCodeLogin() {
   type Phase = "idle" | "issuing" | "waiting" | "exchanging" | "done" | "error";
   const [phase, setPhase] = useState<Phase>("idle");
   const [copied, setCopied] = useState(false);
+  /** 二维码图加载失败时隐藏整块（图没放进来时不影响验证码这条路）。 */
+  const [qrVisible, setQrVisible] = useState(true);
   const [code, setCode] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showFallback, setShowFallback] = useState(false);
@@ -189,9 +199,27 @@ function MobileCodeLogin() {
     return (
       <div className="wechat-code-login">
         <p className="wechat-code-title">用微信登录</p>
+        {/*
+          公众号二维码：**可长按识别**（微信只禁止识别"登录码"，不禁止识别公众号）。
+          这样用户既能长按二维码直接关注，也能走下面的验证码流程 —— 两条路并列，
+          不用猜用户更习惯哪种。
+          图片缺失时 onError 隐藏整块，不影响验证码这条路。
+        */}
+        {qrVisible && (
+          <div className="wechat-code-qr">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={MP_QR_SRC}
+              alt="公众号「hangkathon.com杭客松」二维码"
+              width={160}
+              height={160}
+              onError={() => setQrVisible(false)}
+            />
+            <p className="wechat-code-qr-hint">长按识别关注公众号，或搜索「hangkathon.com杭客松」</p>
+          </div>
+        )}
         <p className="wechat-code-body">
-          浏览器里扫不了自己屏幕上的码，所以换成：点下面按钮拿到 6 位数字，
-          发给公众号「hangkathon.com杭客松」，就能完成登录。
+          关注后点下面按钮拿到 6 位数字，发给公众号即可完成登录。
         </p>
         <button type="button" className="primary-action wechat-code-btn" disabled={phase === "issuing"} onClick={() => void issue()}>
           {phase === "issuing" ? "正在生成…" : "获取 6 位验证码"}

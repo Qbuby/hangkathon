@@ -12,6 +12,10 @@ html:has(main#top){background:#071a30}
   border:1px solid #cfe4f7;border-radius:12px;background:#f2f9ff}
 .wechat-code-title{margin:0;font-size:16px;font-weight:600;letter-spacing:1px;color:#0b6fa8}
 .wechat-code-body{margin:0;font-size:14px;line-height:1.75;color:#4a6d8c}
+.wechat-code-qr{display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:14px;border-radius:12px;background:#fff;border:1px solid #dce7f2}
+.wechat-code-qr img{display:block;width:160px;height:160px;object-fit:contain}
+.wechat-code-qr-hint{margin:0;font-size:12px;line-height:1.6;color:#5b7c9b;text-align:center}
 .wechat-code-value{margin:4px 0;padding:16px;border-radius:10px;background:#fff;
   border:1px dashed #9cc9e8;text-align:center;font-size:34px;font-weight:700;
   letter-spacing:10px;color:#0b6fa8;font-variant-numeric:tabular-nums;

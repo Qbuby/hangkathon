@@ -34,3 +34,5 @@
 # 任何行尾转换都会让校验失败。
 MP_verify_*.txt binary
 baidu_verify_*.html binary
+# 公众号二维码：二进制图片，不能被行尾转换破坏
+*.png binary
