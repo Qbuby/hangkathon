@@ -85,6 +85,13 @@
       "when": 1792012800000,
       "tag": "0011_audit_no_user_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792099200000,
+      "tag": "0012_wechat_login_codes",
+      "breakpoints": true
     }
   ]
 }
