@@ -91,6 +91,37 @@ test("preferredProfile：本次的非空昵称应更新，空值绝不能抹掉�
   assert.deepEqual(preferredProfile({ name: null, image: null }, { nickname: "  " }), { name: null, image: null });
 });
 
+test("mergeProfilePatch：空 patch 必须返回 {}，调用方才不会 update 空值集合", async () => {
+  const { mergeProfilePatch } = await pure();
+  /**
+   * 线上真实故障（2026-10-21）：keeper 已有昵称、loser 没有可补的东西时，
+   * 旧代码 `.set({})` 让 drizzle 抛 `No values to set`，整个合并事务回滚 ——
+   * 表现为"合并看起来执行了，但两条用户行原封不动"。
+   */
+  assert.deepEqual(
+    mergeProfilePatch({ name: "徐一帆", image: null }, { name: null, image: null, role: "user" }),
+    {},
+    "没有任何可补字段时必须是空对象",
+  );
+  assert.deepEqual(mergeProfilePatch({ name: "徐一帆", image: null }, null), {});
+  // 正常补齐
+  assert.deepEqual(
+    mergeProfilePatch({ name: null, image: null }, { name: "老昵称", image: "a.png", role: "admin" }),
+    { name: "老昵称", image: "a.png", role: "admin" },
+  );
+  // keeper 已有昵称时不覆盖
+  assert.deepEqual(
+    mergeProfilePatch({ name: "已有", image: null }, { name: "另一行", image: null, role: "user" }),
+    {},
+  );
+});
+
+test("合并路径不会给 drizzle 传空 set（回归守卫）", () => {
+  const source = readFileSync(new URL("../lib/server/wechat-identity.ts", import.meta.url), "utf8");
+  assert.match(source, /const patch = mergeProfilePatch\(/, "必须用纯函数算 patch");
+  assert.match(source, /Object\.keys\(patch\)\.length > 0/, "空 patch 必须跳过 UPDATE");
+});
+
 test("users 表有 union_id 且唯一（多个 NULL 允许）", () => {
   const schema = readFileSync(new URL("../db/schema.ts", import.meta.url), "utf8");
   assert.match(schema, /unionId: text\("union_id"\)/);

@@ -19,7 +19,7 @@
 
 import { eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { planIdentity, preferredProfile } from "./wechat-identity-pure";
+import { mergeProfilePatch, planIdentity, preferredProfile } from "./wechat-identity-pure";
 
 export type ResolvedWechatUser = {
   id: string;
@@ -167,7 +167,8 @@ async function mergeUsers(
     await tx.update(schema.userBlacklist).set({ revokedBy: k }).where(eq(schema.userBlacklist.revokedBy, l));
     await tx.update(schema.agentApplications).set({ reviewedBy: k }).where(eq(schema.agentApplications.reviewedBy, l));
 
-    // 昵称/头像：keeper 没有才从 loser 抄；角色只升不降
+    // 昵称/头像/角色：只在有东西可补时才 UPDATE ——
+    // drizzle 对 `set({})` 抛 "No values to set"，会让整个事务回滚（线上真踩过）。
     const [loserRow] = await tx
       .select({
         name: schema.users.name,
@@ -177,14 +178,10 @@ async function mergeUsers(
       })
       .from(schema.users)
       .where(eq(schema.users.id, l));
-    await tx
-      .update(schema.users)
-      .set({
-        ...(keeper.name ? {} : loserRow?.name ? { name: loserRow.name } : {}),
-        ...(keeper.image ? {} : loserRow?.image ? { image: loserRow.image } : {}),
-        ...(loserRow?.role === "admin" ? { role: "admin" } : {}),
-      })
-      .where(eq(schema.users.id, k));
+    const patch = mergeProfilePatch(keeper, loserRow);
+    if (Object.keys(patch).length > 0) {
+      await tx.update(schema.users).set(patch).where(eq(schema.users.id, k));
+    }
 
     await tx.delete(schema.users).where(eq(schema.users.id, l));
 

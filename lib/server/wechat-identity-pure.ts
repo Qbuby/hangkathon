@@ -68,14 +68,27 @@ export function planIdentity(input: {
 }
 
 /**
- * 昵称/头像的取舍：**已有的非空值优先**，本次传入的非空值只用来填补空缺。
+ * 合并时该给 keeper 补哪些字段。
  *
- * 公众号侧 2021-12-27 起恒返回空串；如果"以本次为准"直接覆盖，
- * 手机登录一次就会把电脑扫码时拿到的昵称抹掉 —— 用户会看到名字突然消失。
- * 反过来，扫码时用户改了微信昵称，本次值非空，就应当更新。
- *
- * 等等 —— 上面两条是矛盾的。真实取舍：**非空的本次值优先**（用户可能刚改过昵称），
- * 空值不回写（不能用空串抹掉历史昵称）。这正是下面这个函数的语义。
+ * **返回空对象是合法结果**，调用方必须跳过这次 UPDATE ——
+ * drizzle 对 `set({})` 直接抛 `No values to set`，会让整个合并事务回滚。
+ * 线上真实踩过：keeper 已有昵称、loser 又没有任何可补字段（最常见的情形，
+ * 因为公众号侧从不给昵称），合并就静默失败、下次登录再失败一次。
+ */
+export function mergeProfilePatch(
+  keeper: { name: string | null; image: string | null },
+  loser: { name: string | null; image: string | null; role: string } | null | undefined,
+): { name?: string; image?: string; role?: string } {
+  const patch: { name?: string; image?: string; role?: string } = {};
+  if (!keeper.name && loser?.name) patch.name = loser.name;
+  if (!keeper.image && loser?.image) patch.image = loser.image;
+  // 角色只升不降：管理员身份不能因为合并到另一行而丢失
+  if (loser?.role === "admin") patch.role = "admin";
+  return patch;
+}
+/**
+ * 昵称/头像的取舍：**本次的非空值优先**（用户可能刚在微信里改过），
+ * 空值不回写（公众号侧 2021-12-27 起恒返回空串，不能拿它抹掉扫码拿到的昵称）。
  */
 export function preferredProfile(
   current: { name: string | null; image: string | null },
