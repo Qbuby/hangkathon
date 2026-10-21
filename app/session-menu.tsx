@@ -83,11 +83,177 @@ function displayEmail(email: string | null) {
   return email?.endsWith("@wechat.user") ? "微信账号" : email;
 }
 
+/**
+ * 手机端的公众号验证码登录。
+ *
+ * ── 为什么是这个形态 ──────────────────────────────────────────────────
+ * 微信「网站应用」的 qrconnect 只能出二维码，而手机上二维码就在用户自己屏幕上，
+ * 无法自扫；微信也禁止长按/相册识别登录码。公众号（订阅号）又不支持带参二维码
+ * 与网页授权。**但订阅号能收消息** —— 所以把方向反过来：
+ *
+ *   网页生成 6 位码 → 用户复制发给公众号 → 后端收到 openid → 前端轮询到就把
+ *   会话 cookie 换回来。
+ *
+ * ── 用户体验上的三个细节 ──────────────────────────────────────────────
+ *   1. 码一生成就**自动复制到剪贴板**，用户切到微信直接粘贴，不用手抄。
+ *   2. 轮询每 3 秒一次、最长 10 分钟（与后端 TTL 一致），一旦 ready 立刻换票跳转。
+ *   3. 换票失败（比如码被别人用掉）会给出明确文案并允许重新获取，
+ *      而不是卡在"登录中"转圈。
+ */
+function MobileCodeLogin() {
+  type Phase = "idle" | "issuing" | "waiting" | "exchanging" | "done" | "error";
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [copied, setCopied] = useState(false);
+  const [code, setCode] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [showFallback, setShowFallback] = useState(false);
+
+  // 轮询：只在 waiting 阶段跑，组件卸载或状态变化时清掉定时器
+  useEffect(() => {
+    if (phase !== "waiting" || !code) return;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/auth/wechat-code/poll?code=${code}`, { cache: "no-store" });
+        if (cancelled) return;
+        if (!res.ok) {
+          setPhase("error");
+          setMessage("查询登录状态失败，请重试");
+          return;
+        }
+        const data = (await res.json()) as { status: string };
+        if (data.status === "ready") {
+          setPhase("exchanging");
+          const exchange = await fetch(`/api/auth/wechat-code/poll?code=${code}`, { method: "POST" });
+          if (cancelled) return;
+          if (!exchange.ok) {
+            const detail = (await exchange.json().catch(() => null)) as { error?: string } | null;
+            setPhase("error");
+            setMessage(detail?.error ?? "换取登录状态失败，请重新获取验证码");
+            return;
+          }
+          setPhase("done");
+          // 用整页跳转而不是 router.refresh()：会话 cookie 刚写入，
+          // 整页加载能保证所有服务端组件都读到新会话
+          window.location.reload();
+          return;
+        }
+        if (data.status === "expired") {
+          setPhase("error");
+          setMessage("验证码已过期，请重新获取");
+          return;
+        }
+        timer = window.setTimeout(tick, 3000);
+      } catch {
+        if (!cancelled) timer = window.setTimeout(tick, 3000);
+      }
+    };
+
+    timer = window.setTimeout(tick, 1500);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [phase, code]);
+
+  const issue = async () => {
+    setPhase("issuing");
+    setMessage(null);
+    try {
+      const res = await fetch("/api/auth/wechat-code", { method: "POST" });
+      const data = (await res.json()) as { code?: string; error?: string };
+      if (!res.ok || !data.code) {
+        setPhase("error");
+        setMessage(data.error ?? "获取验证码失败，请重试");
+        return;
+      }
+      setCode(data.code);
+      setPhase("waiting");
+      // 自动复制：用户切到微信后直接粘贴，不用手抄 6 位数
+      void navigator.clipboard?.writeText(data.code).then(
+        () => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 3000);
+        },
+        () => setCopied(false),
+      );
+    } catch {
+      setPhase("error");
+      setMessage("网络异常，请重试");
+    }
+  };
+
+  if (phase === "idle" || phase === "issuing") {
+    return (
+      <div className="wechat-code-login">
+        <p className="wechat-code-title">用微信登录</p>
+        <p className="wechat-code-body">
+          浏览器里扫不了自己屏幕上的码，所以换成：点下面按钮拿到 6 位数字，
+          发给公众号「hangkathon.com杭客松」，就能完成登录。
+        </p>
+        <button type="button" className="primary-action wechat-code-btn" disabled={phase === "issuing"} onClick={() => void issue()}>
+          {phase === "issuing" ? "正在生成…" : "获取 6 位验证码"}
+        </button>
+        {message && <p className="wechat-code-error" role="alert">{message}</p>}
+      </div>
+    );
+  }
+
+  if (phase === "done") {
+    return <p className="wechat-code-body">登录成功，正在跳转…</p>;
+  }
+
+  return (
+    <div className="wechat-code-login">
+      <p className="wechat-code-title">请把验证码发给公众号</p>
+      <div className="wechat-code-value" aria-label="登录验证码">
+        {code}
+      </div>
+      <p className="wechat-code-body">
+        {copied ? "已自动复制。" : ""}打开微信 → 搜索公众号「hangkathon.com杭客松」→
+        把 <strong>{code}</strong> 发过去，页面会自动完成登录。
+      </p>
+      {copied && <p className="wechat-code-hint">已复制到剪贴板，直接在微信里粘贴即可。</p>}
+      {phase === "waiting" && (
+        <p className="wechat-code-status" aria-live="polite">
+          <span className="wechat-code-spinner" aria-hidden="true" />
+          等待公众号确认…
+        </p>
+      )}
+      {phase === "exchanging" && <p className="wechat-code-status">正在完成登录…</p>}
+      {message && (
+        <p className="wechat-code-error" role="alert">
+          {message}
+        </p>
+      )}
+      {phase === "error" && (
+        <button type="button" className="primary-action wechat-code-btn" onClick={() => void issue()}>
+          重新获取验证码
+        </button>
+      )}
+      <button
+        type="button"
+        className="wechat-code-toggle"
+        aria-expanded={showFallback}
+        onClick={() => setShowFallback((v) => !v)}
+      >
+        {showFallback ? "收起" : "已关注用户，点此获取验证码"}
+      </button>
+      {showFallback && (
+        <p className="wechat-code-body wechat-code-fallback">
+          直接给公众号发任意一条消息，它会回同样的说明；登录仍需要上面这 6 位数。
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function SessionMenu() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   /**
    * UA 只在客户端读，且初始为 null —— 服务端渲染时拿不到真实 UA，
    * 直接读会在首屏与客户端不一致（hydration mismatch）。null 表示"还没判断出来"，
@@ -123,8 +289,6 @@ export default function SessionMenu() {
   }, []);
   const inWeChat = ua?.wechat ?? false;
   const onMobile = ua?.mobile ?? false;
-  /** 手机上的普通浏览器：微信扫码在这里物理上做不到，必须引导去微信打开。 */
-  const mobileOutsideWeChat = onMobile && !inWeChat;
   const user = session?.user ?? null;
   const providers = session?.providers ?? [];
   const wechatProvider = providers.find((provider) => provider.id === "wechat") ?? null;
@@ -180,42 +344,15 @@ export default function SessionMenu() {
                 使用第三方账号登录，之后可以用同一个身份发起活动、发布作品。
               </DialogDescription>
               {/*
-                手机普通浏览器里的微信登录：二维码就在用户自己这块屏幕上，
-                没法用同一台手机扫；微信又禁止长按/相册识别（实测报"该二维码仅支持
-                在扫一扫时，通过摄像头来识别"）。所以这里**不渲染登录按钮**，
-                直接给出唯一可行的路径：去微信里打开。
+                手机端（含微信内置浏览器）：微信「网站应用」只能出二维码，而二维码就在
+                用户自己屏幕上，扫不了；微信也禁止长按/相册识别登录码。所以手机端改走
+                **公众号验证码**：网页给 6 位数 → 用户发给公众号 → 后端拿到 openid → 登录。
+
+                订阅号不支持带参二维码和网页授权，但**接收消息**是基本能力 ——
+                这就是这里能成立的原因。
               */}
-              {mobileOutsideWeChat && wechatProvider ? (
-                <div className="wechat-mobile-guide">
-                  <p className="wechat-mobile-guide-title">微信登录需要在电脑上扫码</p>
-                  <p className="wechat-mobile-guide-body">
-                    本站用的是微信「网站应用」登录：电脑上出二维码，用手机微信扫它。
-                    手机上做不到 —— 二维码就在这块屏幕上，同一台手机扫不了自己；
-                    微信也不允许长按或从相册识别登录码（截图同样不行）。
-                  </p>
-                  <p className="wechat-mobile-guide-body">
-                    手机上可以正常浏览活动、看排行榜；需要发起活动、报名或提交作品时，
-                    请在电脑上打开本站登录。
-                  </p>
-                  <div className="wechat-mobile-guide-actions">
-                    <button
-                      type="button"
-                      className="provider-button wechat-mobile-copy"
-                      onClick={() => {
-                        const url = window.location.origin;
-                        void navigator.clipboard?.writeText(url).then(
-                          () => {
-                            setCopied(true);
-                            window.setTimeout(() => setCopied(false), 2500);
-                          },
-                          () => setCopied(false),
-                        );
-                      }}
-                    >
-                      <span>{copied ? "已复制，去微信粘贴打开" : "复制本站网址"}</span>
-                    </button>
-                  </div>
-                </div>
+              {onMobile && wechatProvider ? (
+                <MobileCodeLogin />
               ) : (
                 <div className="provider-list">
                   {providers.map((provider) => (
@@ -237,8 +374,7 @@ export default function SessionMenu() {
               )}
               {inWeChat && wechatProvider && (
                 <p className="wechat-inapp-note">
-                  当前在微信内置浏览器里：网站应用登录仍需扫码，而二维码就在这块屏幕上，无法自扫。
-                  请改用电脑打开本站完成登录。
+                  已检测到微信环境：把上面的 6 位数直接发给公众号即可完成登录。
                 </p>
               )}
               <div className="dialog-note">

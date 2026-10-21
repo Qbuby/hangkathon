@@ -240,6 +240,44 @@ export const agentApplications = pgTable("agent_applications", {
   index("agent_applications_status_idx").on(table.status),
 ]);
 
+/**
+ * 公众号验证码登录（2026-10-21）。
+ *
+ * 为什么用这个方案：账号是**订阅号**，微信对它限制了两条路 ——
+ * 带参二维码（仅认证服务号）与网页授权（仅服务号）。但**接收用户消息**是订阅号
+ * 的基本能力，所以流程反过来：网页生成 6 位码 → 用户发给公众号 → 公众号把
+ * (openid, 验证码) 推给我们的回调 → 前端轮询发现已绑定就换到登录态。
+ *
+ * 三条状态：
+ *   pending   码已生成，等用户在公众号里发过来
+ *   bound     已收到消息、拿到了 openid，等前端来取（一次性）
+ *   consumed  前端已换走登录态
+ *
+ * 过期 10 分钟：够用户切到微信再发一条消息，又不至于让泄露的码长期可用。
+ */
+export const wechatLoginCodes = pgTable("wechat_login_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** 6 位数字，全局唯一。存明文而非哈希：它不是密码，是给用户看、让用户手输的一次性口令。 */
+  code: text("code").notNull(),
+  status: text("status").notNull().default("pending"),
+  /** 用户在公众号里发来消息后回填。 */
+  openId: text("open_id"),
+  /** 公众号 openid 对应的 unionid —— 用来和网站应用扫码登录的老账号合并。 */
+  unionId: text("union_id"),
+  /** 已解析出的站内用户（绑定成功时才写）。 */
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  /** 生成时的来源 IP，用于限流与审计。 */
+  ip: text("ip"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** 前端取走登录态的时刻。取走后不可再取（一次性）。 */
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+}, (table) => [
+  uniqueIndex("wechat_login_codes_code_unique").on(table.code),
+  index("wechat_login_codes_status_idx").on(table.status, table.expiresAt),
+  index("wechat_login_codes_openid_idx").on(table.openId),
+]);
+
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   owner: one(users, { fields: [activities.ownerId], references: [users.id] }),
   joins: many(joins),

@@ -58,22 +58,30 @@ test("移动端判定覆盖 iOS / Android / 鸿蒙，桌面不能误判", async 
   assert.equal(isMobileBrowser("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"), false);
 });
 
-test("手机普通浏览器里必须给出路：不渲染扫码按钮，改为引导去微信打开", () => {
+test("手机端走公众号验证码，不再渲染扫不掉的二维码", () => {
   const source = readFileSync(new URL("../app/session-menu.tsx", import.meta.url), "utf8");
 
-  // 手机 + 非微信 → 引导而不是登录按钮（那个按钮点了只会出现扫不掉的二维码）
-  assert.match(source, /mobileOutsideWeChat && wechatProvider \?/, "手机非微信环境要切换到引导");
-  assert.match(source, /微信扫码要「另一台设备」才能完成/, "要解释为什么扫不了");
-  assert.match(source, /复制本站网址/, "要给一个可操作的出路");
-
-  // 微信内要提示会直接授权
-  assert.match(source, /inWeChat && wechatProvider &&/, "微信内要给出一键授权提示");
-
   /**
-   * 界面上不能再有 GitHub / Google 的入口。**先剥注释再查** ——
-   * 注释里写着"已废弃"是正常的，直接对全文 grep 会误报。
-   * （这轮已经三次踩在"静态断言匹配到了注释而不是代码"上。）
+   * 2026-10-21 改版：手机端（含微信内置浏览器）改用**公众号验证码**。
+   * 原因：微信「网站应用」只能出二维码，而手机上二维码就在自己屏幕上；
+   * 订阅号又不支持带参二维码与网页授权 —— 但**收消息**是订阅号的基本能力。
+   * 所以手机端整块换成 MobileCodeLogin，桌面端保持扫码。
    */
+  assert.match(source, /onMobile && wechatProvider \?/, "手机端要切到验证码流程");
+  assert.match(source, /<MobileCodeLogin \/>/, "必须渲染验证码组件");
+
+  // 组件里要有关键三步：拿码 → 提示发给公众号 → 轮询换票
+  assert.match(source, /function MobileCodeLogin()/, "组件必须存在");
+  assert.match(source, /fetch\("\/api\/auth\/wechat-code", \{ method: "POST" \}\)/, "要能取码");
+  assert.match(source, /\/api\/auth\/wechat-code\/poll\?code=/, "要轮询状态");
+  assert.match(source, /method: "POST" \}\)/, "拿到 ready 后要换票");
+
+  // 用户可读的关键文案
+  assert.match(source, /请把验证码发给公众号/);
+  assert.match(source, /已关注用户，点此获取验证码/, "需求要求的那个按钮文案");
+  assert.match(source, /等待公众号确认/);
+
+  // 界面上不能再有 GitHub / Google 的入口（先剥注释再查，注释里提"已废弃"是正常的）
   const code = source
     .replace(/\/\*[\s\S]*?\*\//g, " ")
     .replace(/^\s*\/\/.*$/gm, " ");

@@ -46,6 +46,12 @@ const GUARDS = [...STRONG_GUARDS, ...WEAK_GUARDS];
 const SIGNATURE_GUARDED_ROUTES = new Map([
   // 路由 -> 该路由方法体里必须出现的守卫调用（任一即可）
   ["/api/feishu/events", ["parseInbound("]],
+  /**
+   * 微信公众号消息回调：授权来自**微信的 sha1 签名**，不是会话。
+   * 不验签的话，攻击者猜中一个 6 位验证码就能把自己的 openid 绑上去冒充登录，
+   * 所以这条路由的"守卫"是 verifyWechatSignature / verifyWechatMsgSignature。
+   */
+  ["/api/wechat/mp", ["verifyWechatSignature(", "verifyWechatMsgSignature("]],
 ]);
 const rows = [];
 const problems = [];
