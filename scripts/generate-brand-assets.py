@@ -1,4 +1,4 @@
-"""Derive the Hangkesong brand assets from a supplied logo artwork.
+"""Derive the Hangkathon brand assets from a supplied logo artwork.
 
 Usage: python scripts/generate-brand-assets.py <source-logo.png> [repo-root]
 

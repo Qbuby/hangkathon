@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { ArrowLeft, Check, Download, EyeOff, Globe, RefreshCw, Rocket, ShieldCheck, ShieldOff, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { categoryLabel, formatLabel, judgingLabel, joinPolicyLabel, pricingLabel, prizeText, submissionLabels, type Activity } from "@/lib/activity";
 import { factionById } from "@/lib/factions";
 import { usePageMotion } from "../motion-scope";
+import { LoginPanel } from "../login-panel";
 import "../activities/[slug]/detail.css";
 import "./manage.css";
 
@@ -925,21 +925,13 @@ export default function ManageClient() {
         <div className="manage-card" data-reveal="block">
           <p className="eyebrow">MANAGE</p>
           <h1>先登录，再进管理端口</h1>
-          <p className="detail-placeholder">管理端口只对管理员账号开放；登录后若账号在管理员名单内，会自动进入面板。</p>
-          <div className="provider-list">
-            {providers.map((provider) => (
-              <button
-                key={provider.id}
-                className="provider-button"
-                disabled={!configured || !provider.configured}
-                onClick={() => void signIn(provider.id, { callbackUrl: "/manage" })}
-              >
-                <span>使用 {provider.name} 登录</span>
-                {!provider.configured && <span className="provider-state">未配置</span>}
-              </button>
-            ))}
-          </div>
-          {!configured && <p className="detail-placeholder">本环境未配置登录。</p>}
+          {/* 与首页/发起活动共用同一个登录面板：手机端在哪儿都是公众号验证码 */}
+          <LoginPanel
+            providers={providers}
+            configured={configured}
+            callbackUrl="/manage"
+            hint="管理端口只对管理员账号开放；登录后若账号在管理员名单内，会自动进入面板。"
+          />
           <Button asChild className="primary-action"><Link href="/">返回首页</Link></Button>
         </div>
       )}

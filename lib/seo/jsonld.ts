@@ -20,10 +20,13 @@
  */
 
 /** 站点根地址（末尾无斜杠）。子页面与结构化数据一律用它拼绝对 URL —— schema.org 要求绝对地址。 */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://hangkathon.com").replace(/\/$/, "");
+import { BRAND } from "@/lib/brand";
 
-export const SITE_NAME = "杭客松";
-export const SITE_NAME_EN = "Hangkathon";
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? `https://${BRAND.domain}`).replace(/\/$/, "");
+
+export const SITE_NAME = BRAND.zh;
+/** 英文名只有一个出处：lib/brand.ts（用户定的全局严格约束）。 */
+export const SITE_NAME_EN = BRAND.en;
 export const SITE_LOGO = `${SITE_URL}/brand/icon-512.png`;
 
 /** 稳定实体 ID：让 WebSite / Organization / 各页 WebPage 通过 @id 互指，形成实体图而不是散块。 */

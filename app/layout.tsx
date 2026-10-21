@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import "./motion.css";
+import { WeChatBrowserNotice } from "./login-panel";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://hangkathon.com").replace(/\/$/, "");
 const SITE_NAME = "杭客松";
@@ -69,6 +70,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script src="/motion-boot.js" />
       </head>
       <body>
+        {/* 微信内置浏览器提示条：建议在浏览器打开（微信禁止网页自动唤起外部浏览器，
+            所以只给明确的操作路径 + 复制链接）。非微信环境不渲染。 */}
+        <WeChatBrowserNotice />
         {children}
         {/*
           备案信息（法规要求全站可见）。顺序由公安部门要求：**公安备案在最左，且必须带统一的公安标志**，

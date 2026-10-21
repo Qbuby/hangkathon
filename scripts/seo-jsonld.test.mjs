@@ -6,7 +6,15 @@ import ts from "typescript";
 // 与仓库其它 *.test.mjs 同一套做法：把 TS 源码转译后在 node 里跑，不引入测试期依赖。
 async function load(relativePath) {
   const source = readFileSync(new URL(relativePath, import.meta.url), "utf8");
-  const js = ts.transpileModule(source, {
+  /**
+   * 2026-10-21：lib/seo/jsonld.ts 改成从 lib/brand.ts 取品牌名（用户定的全局约束：
+   * 英文名只能是 Hangkathon），而 data: URL 里解析不了相对 import。
+   * 所以把 brand.ts 的常量拼在前面（同样剔掉 import/export）。
+   */
+  const brand = readFileSync(new URL("../lib/brand.ts", import.meta.url), "utf8")
+    .replace(/^export\s+/gm, "");
+  const js = ts.transpileModule(`${brand}
+${source.replace(/^import[\s\S]*?;$/gm, "")}`, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ESNext },
   }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
@@ -32,6 +40,7 @@ async function loadSchema() {
       .replace(/^export\s+/gm, "");
 
   const merged =
+    strip(readFileSync(new URL("../lib/brand.ts", import.meta.url), "utf8")) +
     strip(readFileSync(new URL("../lib/seo/jsonld.ts", import.meta.url), "utf8")) +
     "\n" +
     strip(readFileSync(new URL("../lib/seo/schema.ts", import.meta.url), "utf8")) +

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { ArrowLeft, ArrowRight, Check, Rocket, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +20,7 @@ import { hasServerData } from "@/lib/api/client";
 import { displayName, isWechatPlaceholderEmail } from "@/lib/display-name";
 import FieldControl from "./fields";
 import SiteHeader from "../site-header";
+import { LoginPanel } from "../login-panel";
 import { usePageMotion } from "../motion-scope";
 import "./create.css";
 
@@ -246,21 +246,17 @@ export default function CreateActivityPage() {
         <div className="agent-gate" data-reveal="block">
           <span className="agent-gate-icon"><ShieldCheck size={30} /></span>
           <h1>先登录，再发起活动</h1>
-          <p>发起活动需要平台授权的代理商身份。登录后我们会校验你的账号；如果你还不是代理商，可以直接在下一步提交申请。</p>
-          <div className="agent-gate-providers">
-            {providers.map((provider) => (
-              <button
-                key={provider.id}
-                className="provider-button"
-                disabled={!loginConfigured || !provider.configured}
-                onClick={() => void signIn(provider.id, { callbackUrl: "/create" })}
-              >
-                <span>使用 {provider.name} 登录</span>
-                {!provider.configured && <span className="provider-state">未配置</span>}
-              </button>
-            ))}
-          </div>
-          {!loginConfigured && <p className="detail-placeholder">本环境未配置登录。</p>}
+          {/*
+            统一登录面板：手机端自动切到公众号验证码，与首页完全同一套。
+            之前这里手写了一排「使用 微信 登录」按钮，手机点下去会跳到 qrconnect
+            ——手机上那张二维码永远扫不掉。
+          */}
+          <LoginPanel
+            providers={providers}
+            configured={loginConfigured}
+            callbackUrl="/create"
+            hint="发起活动需要平台授权的代理商身份。登录后我们会校验你的账号；如果你还不是代理商，可以直接在下一步提交申请。"
+          />
         </div>
       </main>
     );

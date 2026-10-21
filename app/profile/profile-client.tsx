@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { ArrowLeft, ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HONOR_LEVELS, honorLevel, type JoinRecord } from "@/lib/contribution";
@@ -12,6 +11,7 @@ import { listActivities, listMyInviteEvents, listMyJoins, type ActivityView } fr
 import type { Activity } from "@/lib/activity";
 import { displayName, identityName } from "@/lib/display-name";
 import { usePageMotion } from "../motion-scope";
+import { LoginPanel } from "../login-panel";
 import "../activities/[slug]/detail.css";
 import "./profile.css";
 
@@ -190,22 +190,8 @@ export default function ProfilePage() {
               「数字杭州市民」是杭客松的平台唯一荣誉勋章：参加活动、提交产出、代表战队出战，都会折算成平台贡献值，
               把勋章从 1 星慢慢升到 5 星。
             </p>
-            <div className="provider-list">
-              {session.providers.map((provider) => (
-                <button
-                  key={provider.id}
-                  className="provider-button"
-                  disabled={!session.configured || !provider.configured}
-                  onClick={() => void signIn(provider.id, { callbackUrl: "/profile" })}
-                >
-                  <span>使用 {provider.name} 登录</span>
-                  {!provider.configured && <span className="provider-state">未配置</span>}
-                </button>
-              ))}
-            </div>
-            {!session.configured && (
-              <p className="detail-placeholder">本环境未配置登录。</p>
-            )}
+            {/* 与首页/发起活动共用同一个登录面板：手机端在哪儿都是公众号验证码 */}
+            <LoginPanel providers={session.providers} configured={session.configured} callbackUrl="/profile" />
             <Button asChild className="primary-action"><Link href="/">返回首页 <ArrowRight size={17} /></Link></Button>
           </div>
           <div className="profile-body profile-joins-only">{joinsSection}</div>

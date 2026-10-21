@@ -42,15 +42,25 @@ export async function currentUser(): Promise<ServerUser | null> {
   return ensureUser(email, session?.user?.name ?? null);
 }
 
-/** 按 email upsert 一行 user，返回它。 */
+/**
+ * 按 email upsert 一行 user，返回它。
+ *
+ * **必须处理 name 为 null 的情形**：drizzle 对 `set({ name: undefined })`
+ * 会抛 `No values to set`，整个 upsert 直接失败。微信账号恰好就是这种情况 ——
+ * 公众号侧不返回昵称，会话里的 name 恒为 null。
+ * 线上症状：登录成功、/api/session 正常，但 /api/agent/session、/api/me、
+ * /api/admin/session 全部 500，前端只能把用户当成"未登录"。
+ */
 export async function ensureUser(email: string, name: string | null): Promise<ServerUser> {
   const db = getDb();
+  const trimmed = name?.trim() || null;
   const [row] = await db
     .insert(schema.users)
-    .values({ email, name })
+    .values({ email, name: trimmed })
     .onConflictDoUpdate({
       target: schema.users.email,
-      set: { name: name ?? undefined },
+      // 只有拿到非空昵称才覆盖 —— 微信占位会话不能把扫码时存下的昵称抹成 null。
+      set: trimmed ? { name: trimmed } : { lastLoginAt: new Date() },
     })
     .returning({ id: schema.users.id, email: schema.users.email, name: schema.users.name, role: schema.users.role });
   return row;

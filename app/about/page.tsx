@@ -6,6 +6,7 @@ import PageMotion from "../motion-mount";
 import SiteHeader from "../site-header";
 import JsonLd from "../json-ld";
 import { FACTIONS } from "@/lib/factions";
+import { BRAND } from "@/lib/brand";
 import { breadcrumbNode, graph, organizationNode, webpageNode } from "@/lib/seo/schema";
 import "../activities/[slug]/detail.css";
 import "../about.css";
@@ -77,7 +78,7 @@ export default function AboutPage() {
       <PageMotion page="detail" />
       <header className="detail-hero" data-reveal="block">
         <Link className="detail-back" href="/"><ArrowLeft size={17} /> 返回首页</Link>
-        <p className="detail-eyebrow" data-reveal="block">ABOUT HANGKESONG</p>
+        <p className="detail-eyebrow" data-reveal="block">ABOUT {BRAND.upper}</p>
         <h1 data-reveal="block">关于杭客松</h1>
         <p className="detail-sub" data-reveal="block">
           杭客松是杭州的 AI 活动与赛事平台。我们把散落在城市里的 AI 大赛、开发者活动与技术社区汇到一处，

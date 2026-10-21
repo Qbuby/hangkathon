@@ -171,7 +171,8 @@ test("换票端点：一次性消费 + 会话 cookie 的 salt/名字必须与 Au
 });
 
 test("前端换票不会被 effect 清理取消（卡在「正在完成登录」的真因）", () => {
-  const src = readFileSync(new URL("../app/session-menu.tsx", import.meta.url), "utf8");
+  // 2026-10-21：换票组件从 session-menu.tsx 搬到 app/login-panel.tsx（全站共用）
+  const src = readFileSync(new URL("../app/login-panel.tsx", import.meta.url), "utf8");
 
   /**
    * 2026-10-21 线上真机卡住：服务端已经换票成功（DB 里 status=consumed、
