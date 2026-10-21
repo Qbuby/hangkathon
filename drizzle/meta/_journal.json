@@ -99,6 +99,13 @@
       "when": 1792185600000,
       "tag": "0013_users_union_id",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792272000000,
+      "tag": "0014_normalize_wechat_emails",
+      "breakpoints": true
     }
   ]
 }

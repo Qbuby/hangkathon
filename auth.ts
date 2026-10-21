@@ -80,7 +80,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               const base = {
                 id: wechatId,
                 name: p.nickname ?? null,
-                email: wechatId ? `${wechatId}@wechat.user` : null,
+                // 与 lib/server/wechat-identity 的 wechatEmail 保持一致：**必须小写**。
+                // 站内身份按 email 精确匹配，openid 里的大写会让同一个人裂成两行。
+                email: wechatId ? `${wechatId}@wechat.user`.toLowerCase() : null,
                 image: p.headimgurl ?? null,
               };
               if (!process.env.DATABASE_URL || !wechatId) return base;

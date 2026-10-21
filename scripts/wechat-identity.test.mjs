@@ -172,3 +172,40 @@ test("手机登录的绑定路径不再自己建用户", () => {
     "建号只能有一个入口（wechat-identity），否则两条路会各自维护一套合并逻辑",
   );
 });
+
+test("占位邮箱必须小写（大小写不一致会不断复制账号）", () => {
+  const identity = readFileSync(new URL("../lib/server/wechat-identity.ts", import.meta.url), "utf8");
+  /**
+   * 线上真实故障（2026-10-21）：openid 里带大写（`oe8Tr3AQMIN1...`），
+   * 建号时原样保留；而 `currentUser()` 读会话时把 email 转小写再按 email upsert，
+   * 精确匹配查不到 → **再建一行**。同一个微信用户因此裂成两行。
+   */
+  const fn = identity.slice(identity.indexOf("export function wechatEmail"), identity.indexOf("export function wechatEmail") + 260);
+  assert.match(fn, /toLowerCase\(\)/, "wechatEmail 必须转小写");
+
+  // 比较也必须大小写无关，否则历史行会被当成新账号
+  assert.match(identity, /lower\(\$\{schema\.users\.email\}\) = /, "按 email 查必须用 lower() 比较");
+
+  // 扫码登录的兜底分支同样要小写
+  const auth = readFileSync(new URL("../auth.ts", import.meta.url), "utf8");
+  const base = auth.slice(auth.indexOf("const base = {"), auth.indexOf("const base = {") + 500);
+  assert.match(base, /\.toLowerCase\(\)/, "扫码登录的占位邮箱也要小写");
+});
+
+test("迁移 0014：合并大小写重复账号并归一化黑名单", () => {
+  const journal = JSON.parse(readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"));
+  assert.ok(
+    journal.entries.some((item) => item.tag === "0014_normalize_wechat_emails"),
+    "0014 必须登记进 _journal.json（漏登记 = 迁移根本不跑）",
+  );
+
+  const sql = readFileSync(new URL("../drizzle/0014_normalize_wechat_emails.sql", import.meta.url), "utf8");
+  assert.match(sql, /UPDATE "users" SET email = lower\(email\)/, "users.email 要归一化");
+  /**
+   * 黑名单按 email 精确匹配，留着混合大小写 = 换个大写就能绕过封禁。
+   * 这不是展示问题，是权限漏洞。
+   */
+  assert.match(sql, /UPDATE "user_blacklist" SET email = lower\(email\)/, "黑名单 email 也要归一化");
+  assert.match(sql, /DELETE FROM joins l[\s\S]{0,400}pairs p/, "重复报名要先删再迁（唯一索引）");
+  assert.match(sql, /DELETE FROM "users" WHERE id IN/, "重复用户行最后要删掉");
+});

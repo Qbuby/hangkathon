@@ -42,9 +42,22 @@ export type WechatIdentityInput = {
 
 const PLACEHOLDER_SUFFIX = "@wechat.user";
 
-/** 与 auth.ts / 换票路由共用的占位邮箱约定。 */
+/**
+ * 与 auth.ts / 换票路由共用的占位邮箱约定。
+ *
+ * **必须转小写**：`currentUser()` 读会话时会把 email 转小写再按 email upsert，
+ * 而 openid 本身是大小写敏感的（`oe8Tr3AQMIN1...` 里就有大写）。
+ * 如果建号时保留原始大小写，下一次任何接口调用都会因 exact-match 查不到而**再建一行** ——
+ * 线上真的这样裂过号：同一个微信用户两行，昵称/报名落在其中一行，另一行永远空着。
+ * 站内身份统一小写，原始 openid 只作为微信协议参数使用（它不经过这层）。
+ */
 export function wechatEmail(openId: string): string {
-  return `${openId}${PLACEHOLDER_SUFFIX}`;
+  return `${openId}${PLACEHOLDER_SUFFIX}`.toLowerCase();
+}
+
+/** 所有 email 比较都走这个，避免大小写差异被当成两个账号。 */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
 type IdentityRow = { id: string; email: string; name: string | null; image: string | null; createdAt: Date };
@@ -63,7 +76,13 @@ async function findByUnionId(unionId: string): Promise<IdentityRow | null> {
 }
 
 async function findByEmail(email: string): Promise<IdentityRow | null> {
-  const [row] = await getDb().select(identityColumns).from(schema.users).where(eq(schema.users.email, email)).limit(1);
+  // 历史数据里有大小写混杂的占位邮箱（建号时没归一化），这里按 lower 比，
+  // 才能把它们认成同一个账号而不是各建一行。迁移 0014 会把这些行合并并归一化。
+  const [row] = await getDb()
+    .select(identityColumns)
+    .from(schema.users)
+    .where(sql`lower(${schema.users.email}) = ${normalizeEmail(email)}`)
+    .limit(1);
   return row ?? null;
 }
 
@@ -270,8 +289,25 @@ export async function resolveWechatUser(input: WechatIdentityInput): Promise<Res
  * 公众号换票时用它签 JWT：`name`/`image` 必须来自 users 行，
  * 否则手机登录拿到的会话永远是匿名的 —— 而微信侧从 2021-12-27 起
  * 不再返回昵称，只有这里能把扫码时存下的昵称带进手机端会话。
+ *
+ * 顺带把 email 归一化：历史行里可能保留着含大写的 openid，
+ * 而 `currentUser()` 一律按小写 email upsert —— 不归一化就会在下次请求时再建一行。
  */
 export async function getWechatSessionIdentity(userId: string): Promise<IdentityRow | null> {
-  const [row] = await getDb().select(identityColumns).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
-  return row ?? null;
+  const db = getDb();
+  const [row] = await db.select(identityColumns).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!row) return null;
+  const normalized = normalizeEmail(row.email);
+  if (normalized === row.email) return row;
+
+  // 就地修好这一行，避免"换个接口就多一个账号"。email 唯一索引冲突说明
+  // 小写那行已经存在（历史裂号），此时返回小写行 —— 与下次登录的解析结果一致。
+  const existing = await findByEmail(normalized);
+  if (existing && existing.id !== row.id) return existing;
+  try {
+    await db.update(schema.users).set({ email: normalized }).where(eq(schema.users.id, row.id));
+  } catch (error) {
+    console.error("[wechat-identity] 归一化 email 失败（忽略，本次仍用小写身份）", error);
+  }
+  return { ...row, email: normalized };
 }
