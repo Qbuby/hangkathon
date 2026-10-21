@@ -124,12 +124,48 @@ export function MobileCodeLogin({ callbackUrl }: { callbackUrl?: string }) {
    * 从而挡掉紧随其后的跳转。这是第一版卡在"正在完成登录"的真因。
    */
   const jumpingRef = useRef(false);
+  /**
+   * 连续 429 的次数。用来做**指数退避**而不是直接放弃 ——
+   * 线上真实故障（2026-10-21）：nginx 的 /api/auth/ 限流是 10 次/分，
+   * 而前端每 3 秒轮询 = 20 次/分，必然触发 429；旧代码一遇 429 就 setPhase("error")
+   * 永久停止轮询，于是"公众号回登录成功、网页却停在失败态"。
+   * 限流是有窗口的，退避后重试才是正确反应。
+   */
+  const throttleRef = useRef(0);
+  /**
+   * 换票函数自身的 ref。
+   *
+   * 为什么不能直接在 `exchange` 里递归调用自己：`useCallback` 的闭包在执行时
+   * 还没完成初始化（lint 的 react-hooks/immutability 会直接报
+   * "Cannot access variable before it is declared"），而且即使能跑，
+   * 闭包里拿到的也是旧引用。用 ref 转一层，既绕开 TDZ，又总是调到最新实现。
+   */
+  const exchangeRef = useRef<((target: string) => void) | null>(null);
 
   const exchange = useCallback(
     async (target: string) => {
       setPhase("exchanging");
       try {
         const res = await fetch(`/api/auth/wechat-code/poll?code=${target}`, { method: "POST" });
+        if (res.status === 429) {
+          /**
+           * 换票被限流：验证码**还没被消费**（后端在限流之后才动数据库），
+           * 所以退避几秒后重试是安全的，不需要让用户重新取码。
+           * 注意**不要**把 phase 改回 "waiting" —— 那会重启轮询 effect，
+           * 造成"自动重试 + 轮询"两个请求源叠加，限流更难恢复。
+           * 保持 "exchanging"（本块上方已设），只挂一条重试定时器。
+           */
+          throttleRef.current += 1;
+          if (throttleRef.current <= 5) {
+            const wait = Math.min(3000 * throttleRef.current, 15000);
+            setMessage(`请求过于频繁，${Math.ceil(wait / 1000)} 秒后自动重试…`);
+            window.setTimeout(() => exchangeRef.current?.(target), wait);
+            return;
+          }
+          setPhase("error");
+          setMessage("请求过于频繁，请稍等一分钟再点「我已完成，立即检查」");
+          return;
+        }
         if (!res.ok) {
           const detail = (await res.json().catch(() => null)) as { error?: string } | null;
           setPhase("error");
@@ -149,6 +185,11 @@ export function MobileCodeLogin({ callbackUrl }: { callbackUrl?: string }) {
     [callbackUrl],
   );
 
+  // 把最新实现挂到 ref 上（不能写在 render 里，会触发 immutability 规则）
+  useEffect(() => {
+    exchangeRef.current = (target: string) => void exchange(target);
+  }, [exchange]);
+
   // 轮询：只在 waiting 阶段跑
   useEffect(() => {
     if (phase !== "waiting" || !code || jumpingRef.current) return;
@@ -160,11 +201,20 @@ export function MobileCodeLogin({ callbackUrl }: { callbackUrl?: string }) {
       try {
         const res = await fetch(`/api/auth/wechat-code/poll?code=${code}`, { cache: "no-store" });
         if (stopped || jumpingRef.current) return;
+        if (res.status === 429) {
+          // 轮询被限流不是错误：退避后继续等，用户不需要做任何事。
+          // 旧代码在这里 setPhase("error") 永久停摆，于是"公众号说成功、页面说失败"。
+          throttleRef.current += 1;
+          const wait = Math.min(3000 * throttleRef.current, 15000);
+          timer = window.setTimeout(tick, wait);
+          return;
+        }
         if (!res.ok) {
           setPhase("error");
           setMessage("查询登录状态失败，请重试");
           return;
         }
+        throttleRef.current = 0;
         const data = (await res.json()) as { status: string };
         if (data.status === "ready") {
           /**

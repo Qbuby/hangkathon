@@ -87,6 +87,22 @@ async function findByEmail(email: string): Promise<IdentityRow | null> {
 }
 
 /**
+ * 按合并别名找存活账号。
+ *
+ * 合并后旧 email 的 users 行已删除，`findByEmail` 查不到。若这里不查别名，
+ * 下一次登录就会**再建一个空号** —— 迁移里刚清理掉的那种行正是这么长出来的。
+ */
+async function findByAlias(email: string): Promise<IdentityRow | null> {
+  const [row] = await getDb()
+    .select(identityColumns)
+    .from(schema.users)
+    .innerJoin(schema.userEmailAliases, eq(schema.userEmailAliases.userId, schema.users.id))
+    .where(sql`lower(${schema.userEmailAliases.email}) = ${normalizeEmail(email)}`)
+    .limit(1);
+  return row ?? null;
+}
+
+/**
  * 把 unionid 写到某行用户上（用户行上还没有时）。
  *
  * 唯一索引冲突（另一行已经持有这个 unionid）时**静默放弃**：
@@ -128,6 +144,10 @@ async function refreshProfile(userId: string, input: WechatIdentityInput): Promi
  *
  * 业务表对 users 的外键就这几处（见 db/schema.ts）；audit_logs 刻意不持有
  * 外键（迁移 0011），所以历史审计不受影响、也不会被改。
+ *
+ * **一定要把 loser 的 email 写进别名表**：合并之后用户在另一台设备上
+ * 握着的 JWT 里还留着被删掉的 email，不记别名就会 upsert 出空白新号
+ * （线上真实故障：手机端变成「微信用户 · 6B1B67」，数据全丢）。
  */
 async function mergeUsers(
   keeper: Pick<IdentityRow, "id" | "email" | "name" | "image">,
@@ -186,6 +206,16 @@ async function mergeUsers(
     await tx.update(schema.userBlacklist).set({ revokedBy: k }).where(eq(schema.userBlacklist.revokedBy, l));
     await tx.update(schema.agentApplications).set({ reviewedBy: k }).where(eq(schema.agentApplications.reviewedBy, l));
 
+    /**
+     * 记录别名：loser 的 email 从此失效，但它的旧 JWT 还在用户浏览器里。
+     * `ensureUser()` 会先查这张表，把旧会话解析到 keeper，而不是新建空号。
+     * ON CONFLICT DO NOTHING：同一对账号被重复合并时不该报错。
+     */
+    await tx
+      .insert(schema.userEmailAliases)
+      .values({ email: normalizeEmail(loser.email), userId: k })
+      .onConflictDoNothing();
+
     // 昵称/头像/角色：只在有东西可补时才 UPDATE ——
     // drizzle 对 `set({})` 抛 "No values to set"，会让整个事务回滚（线上真踩过）。
     const [loserRow] = await tx
@@ -220,7 +250,14 @@ export async function resolveWechatUser(input: WechatIdentityInput): Promise<Res
   const email = wechatEmail(input.openId);
 
   const byUnion = unionId ? await findByUnionId(unionId) : null;
-  const byEmail = await findByEmail(email);
+  /**
+   * 先按当前 email 找，找不到再查**合并别名**。
+   *
+   * 为什么两步都要：合并之后被并掉那行的 email 已经不是任何 users 行，
+   * 但它仍是这台设备的登录身份。只查 users 会建空号（迁移 0015 清理的就是这种），
+   * 查别名才能落回存活账号（带昵称、带数据）。
+   */
+  const byEmail = (await findByEmail(email)) ?? (await findByAlias(email));
   const plan = planIdentity({ byUnion, byEmail });
 
   // 两行都命中且不是同一行 → 同一个人（unionid 与本次 openid 同时由微信给出），合并。
@@ -278,7 +315,7 @@ export async function resolveWechatUser(input: WechatIdentityInput): Promise<Res
     const again = await findByUnionId(unionId);
     if (again) return { ...again, created: false };
   }
-  const fallback = await findByEmail(email);
+  const fallback = (await findByEmail(email)) ?? (await findByAlias(email));
   if (!fallback) throw new Error("微信身份解析失败：用户既未创建也无法回查");
   return { ...fallback, created: false };
 }

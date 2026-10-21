@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getDb, schema } from "@/db";
 import { requireNotBlacklisted } from "./blacklist";
@@ -50,13 +50,30 @@ export async function currentUser(): Promise<ServerUser | null> {
  * 公众号侧不返回昵称，会话里的 name 恒为 null。
  * 线上症状：登录成功、/api/session 正常，但 /api/agent/session、/api/me、
  * /api/admin/session 全部 500，前端只能把用户当成"未登录"。
+ *
+ * **还要先解析合并别名**：账号被合并后，被删掉的 email 仍在旧 JWT 里。
+ * 不解析就会 upsert 出一个空白新号（线上真实发生过，昵称与数据全丢）。
  */
 export async function ensureUser(email: string, name: string | null): Promise<ServerUser> {
   const db = getDb();
+  const normalized = normalizeEmail(email);
+  const canonical = await resolveAlias(normalized);
   const trimmed = name?.trim() || null;
+
+  if (canonical !== normalized) {
+    // 命中了别名：更新活跃度即可，绝不能拿旧 email 去 upsert。
+    const [existing] = await db
+      .update(schema.users)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(schema.users.email, canonical))
+      .returning({ id: schema.users.id, email: schema.users.email, name: schema.users.name, role: schema.users.role });
+    if (existing) return existing;
+    // 别名指向的行已经不在了（并发删除）：退回按旧 email 走正常流程。
+  }
+
   const [row] = await db
     .insert(schema.users)
-    .values({ email, name: trimmed })
+    .values({ email: normalized, name: trimmed })
     .onConflictDoUpdate({
       target: schema.users.email,
       // 只有拿到非空昵称才覆盖 —— 微信占位会话不能把扫码时存下的昵称抹成 null。
@@ -64,6 +81,24 @@ export async function ensureUser(email: string, name: string | null): Promise<Se
     })
     .returning({ id: schema.users.id, email: schema.users.email, name: schema.users.name, role: schema.users.role });
   return row;
+}
+
+/**
+ * 把可能是"合并前旧身份"的 email 解析成当前存活的 email。
+ *
+ * `users.email` 与别名表之间是「历史 → 现在」的单向映射：命中别名就返回别名指向
+ * 那行的 email；没命中原样返回。**用 lower() 比较**，与全站 email 归一化口径一致。
+ */
+export async function resolveAlias(email: string): Promise<string> {
+  const normalized = normalizeEmail(email);
+  const db = getDb();
+  const [alias] = await db
+    .select({ email: schema.users.email })
+    .from(schema.userEmailAliases)
+    .innerJoin(schema.users, eq(schema.users.id, schema.userEmailAliases.userId))
+    .where(sql`lower(${schema.userEmailAliases.email}) = ${normalized}`)
+    .limit(1);
+  return alias?.email ?? normalized;
 }
 
 /**

@@ -292,6 +292,25 @@ export const wechatLoginCodes = pgTable("wechat_login_codes", {
   index("wechat_login_codes_openid_idx").on(table.openId),
 ]);
 
+/**
+ * 账号合并后的旧 email 别名（2026-10-21）。
+ *
+ * 为什么需要它：合并两个用户行时，被并掉那行的 email 会消失，而**浏览器里还握着
+ * 用那个 email 签发的 JWT**。旧代码 `currentUser()` 按 email upsert，查不到就
+ * 新建一行 —— 用户在合并瞬间持有会话，就会静默变成"没有昵称、没有数据"的空号。
+ * 线上真踩过：手机端显示 `微信用户 · 6B1B67`，而真正带昵称的账号是 OnlyBlue。
+ *
+ * 现在每次合并都把「旧 email → 存活用户」记在这里，`currentUser()` 先按别名解析，
+ * 旧会话就能平滑落到合并后的账号上。这张表只增不改（别名是历史事实）。
+ */
+export const userEmailAliases = pgTable("user_email_aliases", {
+  /** 旧 email（统一小写，与 users.email 的比较口径一致）。 */
+  email: text("email").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  /** 合并发生的时间，排查"为什么我的号变了"时用。 */
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("user_email_aliases_user_idx").on(table.userId)]);
+
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   owner: one(users, { fields: [activities.ownerId], references: [users.id] }),
   joins: many(joins),

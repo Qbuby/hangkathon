@@ -209,3 +209,62 @@ test("迁移 0014：合并大小写重复账号并归一化黑名单", () => {
   assert.match(sql, /DELETE FROM joins l[\s\S]{0,400}pairs p/, "重复报名要先删再迁（唯一索引）");
   assert.match(sql, /DELETE FROM "users" WHERE id IN/, "重复用户行最后要删掉");
 });
+
+test("合并必须记别名，旧会话才不会变成空号", () => {
+  const identity = readFileSync(new URL("../lib/server/wechat-identity.ts", import.meta.url), "utf8");
+  /**
+   * 线上真实故障（2026-10-21）：合并把 45e844b8 并进 32aa9874（OnlyBlue）后，
+   * 手机端还握着旧 cookie（email = 被删掉的那行）。ensureUser 按 email 查不到
+   * → 新建空号 → 手机显示「微信用户 · 6B1B67」，昵称/数据全丢。
+   */
+  assert.match(identity, /insert\(schema\.userEmailAliases\)/, "mergeUsers 必须写别名");
+  assert.match(identity, /onConflictDoNothing\(\)/, "重复合并不该报错");
+  assert.match(identity, /findByAlias\(/, "解析身份时要查别名");
+
+  const users = readFileSync(new URL("../lib/server/users.ts", import.meta.url), "utf8");
+  assert.match(users, /resolveAlias\(normalized\)/, "ensureUser 必须先解析别名");
+  assert.match(users, /export async function resolveAlias/, "别名解析要可复用");
+});
+
+test("签名审计事件不能再自己手写 upsert（那会绕过归一化与别名）", () => {
+  const auth = readFileSync(new URL("../auth.ts", import.meta.url), "utf8");
+  /**
+   * 线上第三个泄漏点：signOut 时 recordAuthEvent 用原始 email upsert，
+   * 一次退出登录就能造出一个大小写不同的空号。
+   * 现在统一走 ensureUser（归一化 + 别名 + name 为空不炸）。
+   */
+  assert.match(auth, /ensureUser\(email, name \?\? null\)/, "必须复用 ensureUser");
+  const recordBody = auth.slice(auth.indexOf("async function recordAuthEvent"));
+  assert.equal(
+    /insert\(schema\.users\)/.test(recordBody),
+    false,
+    "recordAuthEvent 不该再手写 users upsert",
+  );
+});
+
+test("迁移 0015：建别名表并清理历史空号", () => {
+  const journal = JSON.parse(readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"));
+  assert.ok(journal.entries.some((item) => item.tag === "0015_user_email_aliases"), "0015 必须登记");
+
+  const sql = readFileSync(new URL("../drizzle/0015_user_email_aliases.sql", import.meta.url), "utf8");
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS "user_email_aliases"/);
+  /**
+   * 清理只允许删"空号"：无昵称、无 unionid、无任何业务数据。
+   * 有数据的行一律不动 —— 宁可留一个可疑账号，也不能把用户数据并错人。
+   */
+  assert.match(sql, /u\."name" IS NULL/, "只清理空号");
+  assert.match(sql, /u\."union_id" IS NULL/, "有 unionid 的行是真账号，不能删");
+  assert.match(sql, /NOT EXISTS \(SELECT 1 FROM joins/, "有报名的行不能删");
+});
+
+test("nginx：验证码轮询单独放宽，否则前端必然被自己的限流打死", () => {
+  const vhost = readFileSync(new URL("../deploy/nginx-hangkathon.com.conf", import.meta.url), "utf8");
+  /**
+   * 线上真实故障（2026-10-21）：/api/auth/ 是 10r/m，而前端每 3 秒轮询一次
+   * = 20 次/分钟。用户发了验证码、后端也回"登录确认成功"，但轮询早就 429，
+   * 页面停在"请求过于频繁"。
+   */
+  assert.match(vhost, /limit_req_zone[^\n]*zone=api_poll[^\n]*rate=60r\/m/, "轮询要有独立限流区");
+  assert.match(vhost, /location = \/api\/auth\/wechat-code\/poll\s*\{[^}]*zone=api_poll/s, "轮询 location 必须用 api_poll");
+  assert.match(vhost, /location \/api\/auth\/\s*\{[^}]*zone=api_auth/s, "发起/换票仍用严格档");
+});

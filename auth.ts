@@ -159,29 +159,43 @@ async function recordAuthEvent(
 
     const { getDb, schema } = await import("@/db");
     const { writeAudit } = await import("@/lib/server/audit");
+    const { eq } = await import("drizzle-orm");
     const db = getDb();
 
     let userId: string | null = null;
     if (email) {
-      // 首次登录即注册：upsert 出用户行，同时把注册这件事本身记进 register 类别。
+      /**
+       * 身份解析统一走 `ensureUser`，不要再在这里手写 upsert。三个原因：
+       *
+       *   1. **email 必须归一化**：这里原先直接用会话里的原始 email，
+       *      而 openid 含大写 —— 一次退出登录就能凭空造出一个大小写不同的空号。
+       *      线上真实发生过（2026-10-21：一次 signOut 建了 `oe8Tr3...` 行，
+       *      两分钟后接口调用又建了 `oe8tr3...` 行，昵称与数据全丢）。
+       *   2. **必须解析合并别名**：账号被合并后旧 JWT 里的 email 已不存在，
+       *      直接 upsert 会造空号而不是落到存活账号。
+       *   3. `name` 为 null 时 drizzle 会抛 `No values to set`（微信账号恒为 null）。
+       * 这些坑在 `lib/server/users.ts` 里统一处理过一次，这里不该再抄一份。
+       */
+      const { ensureUser } = await import("@/lib/server/users");
+      const ensured = await ensureUser(email, name ?? null);
+
+      // 回写登录痕迹（ensureUser 只负责 upsert 与别名解析）
+      await db
+        .update(schema.users)
+        .set({ lastLoginAt: new Date(), lastLoginIp: ip })
+        .where(eq(schema.users.id, ensured.id));
+
       const [row] = await db
-        .insert(schema.users)
-        .values({ email, name: name ?? null, lastLoginAt: new Date(), lastLoginIp: ip })
-        .onConflictDoUpdate({
-          target: schema.users.email,
-          set: {
-            name: name ?? undefined,
-            lastLoginAt: new Date(),
-            lastLoginIp: ip,
-          },
-        })
-        .returning({ id: schema.users.id, createdAt: schema.users.createdAt });
+        .select({ id: schema.users.id, createdAt: schema.users.createdAt })
+        .from(schema.users)
+        .where(eq(schema.users.id, ensured.id))
+        .limit(1);
       userId = row?.id ?? null;
       if (row && Date.now() - row.createdAt.getTime() < 60_000) {
         await writeAudit({
           category: "register",
           action: "user.register",
-          user: { id: row.id, email },
+          user: { id: row.id, email: ensured.email },
           ip,
           port,
           protocol,
