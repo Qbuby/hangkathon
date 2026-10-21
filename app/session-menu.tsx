@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn, signOut } from "next-auth/react";
 import { ArrowRight, LogOut, UserRound, X } from "lucide-react";
@@ -117,17 +117,51 @@ function MobileCodeLogin() {
   const [code, setCode] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showFallback, setShowFallback] = useState(false);
+  /**
+   * 已成功换到会话、正在跳转。**用 ref 而不是 phase** ——
+   * 见下面 effect 里那段：phase 变化会触发 effect 清理，把 canceled 置 true，
+   * 从而挡掉紧随其后的 reload()。这是我第一版卡在"正在完成登录"的真因。
+   */
+  const jumpingRef = useRef(false);
 
-  // 轮询：只在 waiting 阶段跑，组件卸载或状态变化时清掉定时器
+  const exchange = useCallback(async (target: string) => {
+    setPhase("exchanging");
+    try {
+      const res = await fetch(`/api/auth/wechat-code/poll?code=${target}`, { method: "POST" });
+      if (!res.ok) {
+        const detail = (await res.json().catch(() => null)) as { error?: string } | null;
+        setPhase("error");
+        setMessage(detail?.error ?? "换取登录状态失败，请重新获取验证码");
+        return;
+      }
+      jumpingRef.current = true;
+      setPhase("done");
+      /**
+       * 整页跳转而不是 router.refresh()：会话 cookie 刚由这个响应写入，
+       * 只有重新发起文档请求，服务端组件才会带着新 cookie 渲染。
+       *
+       * 用 `location.replace` 而不是 `reload`：replace 不会在历史里留下
+       * 一个"已经消费掉的验证码页"，用户点后退不会回到卡住的中间态。
+       * 目标带 `?logged_in=1` 只是为了让地址栏变化、确保是新的文档请求。
+       */
+      window.location.replace(`${window.location.pathname}?logged_in=1`);
+    } catch {
+      setPhase("error");
+      setMessage("网络异常，请重试");
+    }
+  }, []);
+
+  // 轮询：只在 waiting 阶段跑
   useEffect(() => {
-    if (phase !== "waiting" || !code) return;
-    let cancelled = false;
+    if (phase !== "waiting" || !code || jumpingRef.current) return;
+    let stopped = false;
     let timer: number | undefined;
 
     const tick = async () => {
+      if (stopped || jumpingRef.current) return;
       try {
         const res = await fetch(`/api/auth/wechat-code/poll?code=${code}`, { cache: "no-store" });
-        if (cancelled) return;
+        if (stopped || jumpingRef.current) return;
         if (!res.ok) {
           setPhase("error");
           setMessage("查询登录状态失败，请重试");
@@ -135,19 +169,12 @@ function MobileCodeLogin() {
         }
         const data = (await res.json()) as { status: string };
         if (data.status === "ready") {
-          setPhase("exchanging");
-          const exchange = await fetch(`/api/auth/wechat-code/poll?code=${code}`, { method: "POST" });
-          if (cancelled) return;
-          if (!exchange.ok) {
-            const detail = (await exchange.json().catch(() => null)) as { error?: string } | null;
-            setPhase("error");
-            setMessage(detail?.error ?? "换取登录状态失败，请重新获取验证码");
-            return;
-          }
-          setPhase("done");
-          // 用整页跳转而不是 router.refresh()：会话 cookie 刚写入，
-          // 整页加载能保证所有服务端组件都读到新会话
-          window.location.reload();
+          /**
+           * **先置 ref 再换 phase**：ref 是同步的，能挡住 effect 清理之后
+           * 可能发生的第二次 tick；而 setPhase 是异步的，靠它防重来不及。
+           */
+          jumpingRef.current = true;
+          void exchange(code);
           return;
         }
         if (data.status === "expired") {
@@ -157,16 +184,16 @@ function MobileCodeLogin() {
         }
         timer = window.setTimeout(tick, 3000);
       } catch {
-        if (!cancelled) timer = window.setTimeout(tick, 3000);
+        if (!stopped && !jumpingRef.current) timer = window.setTimeout(tick, 3000);
       }
     };
 
     timer = window.setTimeout(tick, 1500);
     return () => {
-      cancelled = true;
+      stopped = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [phase, code]);
+  }, [phase, code, exchange]);
 
   const issue = async () => {
     setPhase("issuing");
@@ -251,6 +278,34 @@ function MobileCodeLogin() {
         </p>
       )}
       {phase === "exchanging" && <p className="wechat-code-status">正在完成登录…</p>}
+      {/*
+        手动兜底。公众号的回复里写着"如果没反应，点一下网页上的「我已完成」" ——
+        那句话必须真的有对应按钮，否则就是一句空承诺（第一版就没做）。
+        用途：轮询因为网络抖动停了、或者用户回了旧标签页，点一下立刻再查一次。
+      */}
+      {(phase === "waiting" || phase === "error") && code && (
+        <button
+          type="button"
+          className="wechat-code-toggle wechat-code-done"
+          onClick={() => {
+            setMessage(null);
+            jumpingRef.current = false;
+            setPhase("waiting");
+            void (async () => {
+              const res = await fetch(`/api/auth/wechat-code/poll?code=${code}`, { cache: "no-store" });
+              const data = (await res.json().catch(() => null)) as { status?: string } | null;
+              if (data?.status === "ready") {
+                jumpingRef.current = true;
+                void exchange(code);
+              } else {
+                setMessage("还没收到公众号的确认，请确认已经把验证码发过去了。");
+              }
+            })();
+          }}
+        >
+          我已完成，立即检查
+        </button>
+      )}
       {message && (
         <p className="wechat-code-error" role="alert">
           {message}

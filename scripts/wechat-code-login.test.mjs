@@ -170,6 +170,29 @@ test("换票端点：一次性消费 + 会话 cookie 的 salt/名字必须与 Au
   assert.match(auth, /@wechat\.user`/);
 });
 
+test("前端换票不会被 effect 清理取消（卡在「正在完成登录」的真因）", () => {
+  const src = readFileSync(new URL("../app/session-menu.tsx", import.meta.url), "utf8");
+
+  /**
+   * 2026-10-21 线上真机卡住：服务端已经换票成功（DB 里 status=consumed、
+   * cookie 也发了、/api/session 能读出用户），但前端永远停在「正在完成登录」。
+   *
+   * 原因是我在 effect 内部先 `setPhase("exchanging")` —— phase 是 effect 依赖，
+   * 一变就触发 cleanup 把 `cancelled` 置 true，紧接着的 `if (cancelled) return`
+   * 把 `window.location.reload()` 挡掉了。**服务端做完了，前端自己放弃了。**
+   *
+   * 修法：用 ref 做"已开始跳转"的同步标记（ref 不受渲染周期影响），
+   * 并且在换票成功后立刻置位，然后再改 phase。
+   */
+  assert.match(src, /const jumpingRef = useRef\(false\)/, "必须有同步的跳转标记");
+  assert.match(src, /jumpingRef\.current = true;[\s\S]{0,200}exchange\(/, "ready 时先置 ref 再换票");
+  assert.match(src, /window\.location\.replace\(/, "跳转用 replace，别在历史里留下已消费的验证码页");
+  assert.equal(/window\.location\.reload\(\)/.test(src), false, "不该再用 reload（会留下中间态历史）");
+
+  // 公众号回复里承诺过「我已完成」，页面上必须有对应按钮
+  assert.match(src, /我已完成，立即检查/, "公众号回复提到的按钮必须真的存在");
+});
+
 test("验证码表：一次性 + 过期 + 唯一", () => {
   const schema = readFileSync(new URL("../db/schema.ts", import.meta.url), "utf8");
   const sql = readFileSync(new URL("../drizzle/0012_wechat_login_codes.sql", import.meta.url), "utf8");
