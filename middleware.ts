@@ -82,5 +82,11 @@ export function middleware(request: Request) {
 export const config = {
   // 静态资源与 SEO 文件不需要 CSP（也无 nonce 意义），跳过以省一次中间件开销。
   // llms.txt 加进来同理：它是给机器读的纯文本，不带任何脚本。
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|llms.txt|motion-boot.js|baidu_verify).*)"],
+  //
+  // MP_verify_：微信公众平台的域名归属校验文件，必须原样返回纯文本内容。
+  // 走中间件虽然不影响响应体，但多一层没必要的路径；更关键的是这类校验文件
+  // 一旦被任何中间层改写（加字、转码）就会验证失败，能绕开就绕开。
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|llms.txt|motion-boot.js|baidu_verify|MP_verify_).*)",
+  ],
 };
