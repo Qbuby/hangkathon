@@ -85,6 +85,13 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   const [submitDone, setSubmitDone] = useState(false);
   const [inviteEvents, setInviteEvents] = useState<InviteEvent[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
+  /**
+   * 「需要先登录」是个**可预期的前置状态**，不是错误。
+   * 原先它塞在 joinError 里，用 13px 红字显示在按钮下，用户根本注意不到
+   * （2026-10-20 用户反馈"这块提示太不显眼了"）。
+   * 现在拆成独立状态：按钮直接写「登录后报名」，点开就地展开登录入口。
+   */
+  const [joinNeedsLogin, setJoinNeedsLogin] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   /** 正在刷新的那条作品链接（一次只刷一条，按钮上转圈用）。 */
   const [refreshingUrl, setRefreshingUrl] = useState<string | null>(null);
@@ -200,7 +207,9 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
   async function confirmJoin() {
     if (!activity) return;
     if (mode === "server" && !account?.user) {
-      setJoinError("这个部署把报名记录存在服务端，请先用右上角入口登录，再回来报名。");
+      // 不是"出错"，是缺一步登录 —— 就地展开入口，不让用户去右上角找
+      setJoinNeedsLogin(true);
+      setJoinError(null);
       return;
     }
     setJoinError(null);
@@ -599,7 +608,43 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
           ) : (
             <div className="detail-join">
               <p className="detail-join-title">想参加这场活动？</p>
-              <Button className="primary-action" onClick={() => void confirmJoin()}>报名参赛</Button>
+              {mode === "server" && !account?.user ? (
+                <>
+                  {/*
+                    未登录时按钮直接写「登录后报名」，并把登录入口**就地展开**。
+                    之前是把「请先登录」塞在按钮下方的小红字里，用户看不到，
+                    点一次报名才知道要登录 —— 用户明确反馈过这一点。
+                  */}
+                  <Button className="primary-action" onClick={() => setJoinNeedsLogin(true)}>
+                    登录后报名
+                  </Button>
+                  {joinNeedsLogin && (
+                    <div className="join-login" role="group" aria-label="登录后报名">
+                      <p className="join-login-title">报名需要先登录</p>
+                      <p className="join-login-body">
+                        用微信扫码登录后即可报名。登录状态保留 7 天，下次不用再扫。
+                      </p>
+                      <div className="provider-list">
+                        {(account?.providers ?? []).map((provider) => (
+                          <button
+                            key={provider.id}
+                            type="button"
+                            className="provider-button"
+                            disabled={!account?.configured || !provider.configured}
+                            onClick={() => void signIn(provider.id, { callbackUrl: window.location.href })}
+                          >
+                            <span>使用 {provider.name} 登录</span>
+                            {!provider.configured && <span className="provider-state">未配置</span>}
+                          </button>
+                        ))}
+                      </div>
+                      {!account?.configured && <p className="join-login-body">本环境未配置登录。</p>}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Button className="primary-action" onClick={() => void confirmJoin()}>报名参赛</Button>
+              )}
               {joinError && <p className="submit-error" role="alert">{joinError}</p>}
               <p className="detail-join-note">
                 个人一键报名。报名后照着「怎么参加」四步走就行；正式阶段每天可领算力券。

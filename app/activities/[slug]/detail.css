@@ -53,6 +53,13 @@
 .detail-join-title{font-size:15px;font-weight:600;letter-spacing:1px;margin:0;color:#17273a}
 .detail-join .primary-action{width:100%;justify-content:center}
 .detail-join-note{font-size:12px;line-height:1.85;color:#8fa6bb;margin:0}
+/* 报名面板里的就地登录块：原先"请先登录"只是按钮下的一行 13px 红字，
+   用户看不到（2026-10-20 反馈）。现在做成有底色、有标题的提示块，一眼能看见。 */
+.join-login{display:flex;flex-direction:column;gap:10px;padding:16px;margin-top:2px;
+  border:1px solid #cfe4f7;border-radius:12px;background:#f2f9ff}
+.join-login-title{margin:0;font-size:14px;font-weight:600;letter-spacing:1px;color:#0b6fa8}
+.join-login-body{margin:0;font-size:13px;line-height:1.75;color:#4a6d8c}
+.join-login .provider-list{margin-top:2px}
 
 .detail-notfound{padding:150px 6%;display:flex;justify-content:center}
 .detail-notfound-card{max-width:520px;width:100%;border:1px dashed #c7d8e8;border-radius:16px;padding:48px 34px;text-align:center;display:flex;flex-direction:column;gap:16px;align-items:center;background:#fff}

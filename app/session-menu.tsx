@@ -31,8 +31,10 @@ function missingConfig(state: SessionState) {
  *
  * 为什么这条决定登录成败（2026-10-19）：微信「网站应用」的 qrconnect 有两种形态 ——
  *   · 普通浏览器：显示二维码，要用**另一台设备**的微信扫。手机上没有第二块屏幕，死路。
- *   · 微信内置浏览器：自动变成「微信快捷登录」，轻触允许即可，**根本不用扫码**
- *     （实测页面文案："使用微信快捷登录" / "在微信中轻触允许即可登录"）。
+ *   · 微信内置浏览器：**同样是二维码**，扫不了自己（2026-10-20 实测纠正）。
+ *     页面里确实有「微信快捷登录」这段文案，但它是 `display:none` 的备选分支，
+ *     只有页面探测到本机 `localhost.weixin.qq.com:13013-14015` 有微信客户端时才显示 ——
+ *     那是给**桌面微信客户端**用的，手机上没有这些端口在监听。
  *
  * 而微信明确禁止对登录二维码做长按/相册识别（用户截图里那句"该二维码仅支持在扫一扫时，
  * 通过摄像头来识别"），所以"截图存到相册再扫"这条路也被堵死了。
@@ -185,14 +187,15 @@ export default function SessionMenu() {
               */}
               {mobileOutsideWeChat && wechatProvider ? (
                 <div className="wechat-mobile-guide">
-                  <p className="wechat-mobile-guide-title">手机上的微信登录需要在微信里打开</p>
+                  <p className="wechat-mobile-guide-title">微信登录需要在电脑上扫码</p>
                   <p className="wechat-mobile-guide-body">
-                    微信扫码要「另一台设备」才能完成 —— 二维码就在这块屏幕上，同一台手机扫不了它，
-                    微信也不允许长按或从相册识别登录码。
+                    本站用的是微信「网站应用」登录：电脑上出二维码，用手机微信扫它。
+                    手机上做不到 —— 二维码就在这块屏幕上，同一台手机扫不了自己；
+                    微信也不允许长按或从相册识别登录码（截图同样不行）。
                   </p>
                   <p className="wechat-mobile-guide-body">
-                    在微信里打开本站，会变成「微信快捷登录」，轻触允许即可，不需要扫码。
-                    做法：点右上角「···」→「发送给朋友」发给自己，或复制下面的地址粘到微信里。
+                    手机上可以正常浏览活动、看排行榜；需要发起活动、报名或提交作品时，
+                    请在电脑上打开本站登录。
                   </p>
                   <div className="wechat-mobile-guide-actions">
                     <button
@@ -233,7 +236,10 @@ export default function SessionMenu() {
                 </div>
               )}
               {inWeChat && wechatProvider && (
-                <p className="wechat-inapp-note">已检测到微信环境：点上方「使用微信登录」会直接弹出授权，无需扫码。</p>
+                <p className="wechat-inapp-note">
+                  当前在微信内置浏览器里：网站应用登录仍需扫码，而二维码就在这块屏幕上，无法自扫。
+                  请改用电脑打开本站完成登录。
+                </p>
               )}
               <div className="dialog-note">
                 <span>{ready ? "说明" : "当前状态"}</span>
