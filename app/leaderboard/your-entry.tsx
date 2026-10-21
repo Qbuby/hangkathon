@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { honorLevel } from "@/lib/contribution";
+import { displayName } from "@/lib/display-name";
 
 type SessionState = {
   user: { name: string | null; email: string | null } | null;
@@ -57,7 +58,8 @@ export default function YourEntry() {
     <div className="lb-me">
       <span className="lb-you-tag" aria-hidden="true">你</span>
       <div className="lb-you-main">
-        <strong>{user.name ?? user.email}</strong>
+        {/* 微信账号的站内 email 是 openid 占位地址，不能直接当昵称展示 */}
+        <strong>{displayName(user, "数字市民")}</strong>
         <span>贡献值 0 · {level.title}{"★".repeat(level.stars)}</span>
         {level.next && (
           <>

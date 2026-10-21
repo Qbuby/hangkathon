@@ -18,6 +18,7 @@ import {
 } from "@/lib/activity";
 import { createActivity } from "@/lib/api/data";
 import { hasServerData } from "@/lib/api/client";
+import { displayName, isWechatPlaceholderEmail } from "@/lib/display-name";
 import FieldControl from "./fields";
 import SiteHeader from "../site-header";
 import { usePageMotion } from "../motion-scope";
@@ -130,7 +131,11 @@ export default function CreateActivityPage() {
       try {
         const response = await fetch("/api/session");
         const data = (await response.json()) as { user?: { name: string | null; email: string | null } | null };
-        const name = data.user?.name ?? data.user?.email ?? "";
+        /**
+         * 主持人名预填：用展示名，不要把微信占位邮箱（openid）填进可公开的活动字段。
+         * 微信账号的展示名是「微信用户 · XXXX」—— 当主持人名不像话，留空让用户自己填。
+         */
+        const name = data.user && !isWechatPlaceholderEmail(data.user.email) ? displayName(data.user, "") : "";
         if (!cancelled && name) setValues((prev) => (prev.host ? prev : { ...prev, host: name }));
       } catch {
         /* the field stays empty and the host types it */

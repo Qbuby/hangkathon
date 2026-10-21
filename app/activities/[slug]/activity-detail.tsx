@@ -37,6 +37,7 @@ import {
   submitWork as submitWorkRemote,
 } from "@/lib/api/data";
 import { hasServerData } from "@/lib/api/client";
+import { identityName } from "@/lib/display-name";
 import "./detail.css";
 
 type AccountState = {
@@ -196,7 +197,13 @@ export default function ActivityDetail({ slug, initial }: { slug: string; initia
 
   const isLocalActivity = mode === "local" && activity.id.startsWith("a_");
   const submissionTypeLabels = submissionLabels(activity.submissionTypes);
-  const accountName = account?.user?.name ?? account?.user?.email ?? "本机数字市民";
+  /**
+   * 邀请相关的身份键：必须与 lib/server/invites.ts 返回的 `inviter/invitee`
+   * 以及 lib/invites.ts 的匹配口径一致，所以两侧都走 identityName。
+   * 直接用 `name ?? email` 的旧写法会把微信占位邮箱（openid）写进邀请链接的
+   * `by=` 参数里，等于公开身份键；identityName 对微信账号给的是稳定短标签。
+   */
+  const accountName = identityName(account?.user, "本机数字市民");
   const district = factionById(activity.district);
   const activityTeams = getContribution(activity.id)?.teams ?? [];
   // 只有战队的队长可以邀请用户加入战队

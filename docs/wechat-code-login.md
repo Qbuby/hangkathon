@@ -104,7 +104,8 @@ WECHAT_MP_AES_KEY=...     # 安全模式解密用
 ## 检查
 
 ```
-node --test scripts/wechat-code-login.test.mjs   # 10 条：验签/XML/验证码/静态不变量
+node --test scripts/wechat-code-login.test.mjs   # 11 条：验签/XML/验证码/轮询换票/静态不变量
+node --test scripts/display-name.test.mjs        # 8 条：昵称脱敏、不泄露 openid、页面回归守卫
 node scripts/security/authz-matrix.mjs           # /api/wechat/mp 判定为 signature
 ```
 
@@ -117,3 +118,14 @@ node scripts/security/authz-matrix.mjs           # /api/wechat/mp 判定为 sign
    飞书是 `sha256(timestamp+nonce+encryptKey+body)`。抄错会让**所有真实消息被拒**，
    症状只是"公众号里发消息没反应"，日志里才看得到 401。
 3. **安全模式的签名要把 encrypt 一起参与排序**，与明文模式不是同一个函数。
+4. **登录成功不代表展示没问题**：公众号登录建号时 `users.name` 是空的，
+   站内身份是合成的 `<openid>@wechat.user`。任何 `name ?? email` 的兜底都会
+   把整串 openid 当昵称打到页面上（个人主页第一版就是这样，用户截图里
+   标题是一串 `oe8Tr3AQMIN1Y2qFWb…`）。现在统一走 `lib/display-name.ts`：
+   占位邮箱 → `微信用户 · XXXXXX`（openid 的 FNV-1a 散列前 6 位，稳定但不可反推）。
+   新增页面时**不要**再自己写 `name ?? email`，`scripts/display-name.test.mjs`
+   会扫描这几个文件守住这条。
+5. **前端换票会被 effect 清理取消**：轮询 effect 里 `setPhase("exchanging")`
+   会改依赖 → 触发 cleanup → `cancelled = true` → 紧接着的 `reload()` 被
+   `if (cancelled) return` 挡掉。症状是"服务端已经登录成功，页面永远卡在
+   正在完成登录"。修法是用同步的 `jumpingRef` 标记，不要靠 phase 防重。

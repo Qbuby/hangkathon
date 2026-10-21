@@ -10,6 +10,7 @@ import { inviteCount, type InviteEvent } from "@/lib/invites";
 import { factionById } from "@/lib/factions";
 import { listActivities, listMyInviteEvents, listMyJoins, type ActivityView } from "@/lib/api/data";
 import type { Activity } from "@/lib/activity";
+import { displayName, identityName } from "@/lib/display-name";
 import { usePageMotion } from "../motion-scope";
 import "../activities/[slug]/detail.css";
 import "./profile.css";
@@ -81,7 +82,13 @@ export default function ProfilePage() {
   }, []);
 
   const user = session?.user ?? null;
-  const accountName = user?.name ?? user?.email ?? "本机数字市民";
+  /**
+   * 邀请计数用的**身份键**，必须与 /api/invites 回传的 inviter 口径一致
+   * （服务端同样走 identityName），所以这里也用 identityName；不要把原值渲染出来。
+   */
+  const accountName = identityName(user, "本机数字市民");
+  /** 展示名：微信占位邮箱会被换成「微信用户 · XXXX」，绝不把 openid 打在页面上。 */
+  const accountLabel = displayName(user, "数字市民");
   // 真实起点：平台贡献值从 0 开始累计（接入后端后由结算写入）。
   const points = 0;
   const level = honorLevel(points);
@@ -142,7 +149,7 @@ export default function ProfilePage() {
         <div className="profile-body">
           <section className="medal-card" aria-labelledby="medal-title" data-reveal="block">
             <p className="eyebrow">HONOR · 数字杭州市民</p>
-            <h1>{user.name ?? user.email}</h1>
+            <h1>{accountLabel}</h1>
             <div className="medal-stars" role="img" aria-label={`数字杭州市民 ${level.stars} 星，${level.title}`}>
               {HONOR_LEVELS.map((item) => (
                 <Star

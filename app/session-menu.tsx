@@ -6,6 +6,7 @@ import { signIn, signOut } from "next-auth/react";
 import { ArrowRight, LogOut, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { avatarInitial, displayEmail, displayName } from "@/lib/display-name";
 
 type SessionState = {
   configured: boolean;
@@ -72,15 +73,14 @@ function ProviderMark({ id }: { id: string }) {
   return null;
 }
 
-function initial(user: { name: string | null; email: string | null }) {
-  const source = user.name?.trim() || user.email?.trim() || "";
-  return source.slice(0, 1).toUpperCase() || "·";
-}
-
-// 微信账号的 email 是 auth.ts 用 openid 合成的占位地址（<openid>@wechat.user），
-// 界面上不原样展示（数据库/管理端仍用它做身份键）。
-function displayEmail(email: string | null) {
-  return email?.endsWith("@wechat.user") ? "微信账号" : email;
+/**
+ * 顶栏的展示名统一走 lib/display-name：
+ * 微信账号没有昵称时，站内 email 是 `<openid>@wechat.user`，**绝不能直接显示** ——
+ * 那等于把 openid 打在页面上（个人主页曾经就这样泄露过）。共享工具会换成
+ * 「微信用户 · XXXX」的稳定短标签。
+ */
+function accountLabel(user: { name: string | null; email: string | null }): string {
+  return displayName(user, "已登录");
 }
 
 /**
@@ -386,14 +386,14 @@ export default function SessionMenu() {
         <button
           className="session-button"
           onClick={() => setOpen(true)}
-          aria-label={user ? `账号：${user.name ?? displayEmail(user.email) ?? "已登录"}` : "登录"}
+          aria-label={user ? `账号：${accountLabel(user)}` : "登录"}
         >
           {user ? (
-            <span className="session-avatar" aria-hidden="true">{initial(user)}</span>
+            <span className="session-avatar" aria-hidden="true">{avatarInitial(user)}</span>
           ) : (
             <UserRound size={19} />
           )}
-          <span className="session-label">{user ? user.name ?? displayEmail(user.email) ?? "已登录" : "登录"}</span>
+          <span className="session-label">{user ? accountLabel(user) : "登录"}</span>
         </button>
       )}
 
@@ -406,7 +406,7 @@ export default function SessionMenu() {
           {user ? (
             <>
               <p className="eyebrow">SIGNED IN</p>
-              <DialogTitle className="dialog-title">{user.name ?? displayEmail(user.email) ?? "已登录"}</DialogTitle>
+              <DialogTitle className="dialog-title">{accountLabel(user)}</DialogTitle>
               <DialogDescription className="dialog-description">{displayEmail(user.email)}</DialogDescription>
               <div className="dialog-note">
                 <span>当前状态</span>
