@@ -68,15 +68,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // 且跨「绑定开放平台」前后不变；unionid 只在绑定后才出现——若优先 unionid，
             // 绑定状态变化会把同一用户裂成两个账号，故 openid 优先（unionid 仅兜底；
             // 单应用部署下不同用户的 openid 必不相同，无需跨应用去重）。
-            profile(profile) {
+            //
+            // 2026-10-21：这里改成 async，先按 unionid 认人再返回身份。
+            // 原因：手机端走公众号验证码登录，拿到的是**公众号**的 openid；如果一个人
+            // 先在手机登录、后回电脑扫码，两边的占位邮箱不同，Auth.js 会照 email 再建一行，
+            // 同一个人裂成两个号。先查一次 users.union_id 就能落到同一行。
+            async profile(profile) {
               const p = profile as { unionid?: string; openid?: string; nickname?: string; headimgurl?: string };
               const wechatId = p.openid ?? p.unionid ?? "";
-              return {
+              /** 未配数据库的部署（Vercel 那份）保持原来的纯 JWT 行为。 */
+              const base = {
                 id: wechatId,
-                name: p.nickname,
+                name: p.nickname ?? null,
                 email: wechatId ? `${wechatId}@wechat.user` : null,
-                image: p.headimgurl,
+                image: p.headimgurl ?? null,
               };
+              if (!process.env.DATABASE_URL || !wechatId) return base;
+
+              try {
+                const { resolveWechatUser } = await import("@/lib/server/wechat-identity");
+                const resolved = await resolveWechatUser({
+                  openId: wechatId,
+                  unionId: p.unionid ?? null,
+                  nickname: p.nickname ?? null,
+                  image: p.headimgurl ?? null,
+                });
+                return {
+                  // id 仍是本应用的 openid：它只用于 Auth.js 内部的账户标识，
+                  // 站内身份一律以 email 为准（recordAuthEvent 按 email upsert）。
+                  id: wechatId,
+                  // 库里已有的昵称优先：用户可能在手机端设置过，别被本次返回值覆盖。
+                  name: resolved.name ?? p.nickname ?? null,
+                  // 关键：用命中那一行的 email，Auth.js 才不会另建一行
+                  email: resolved.email,
+                  image: resolved.image ?? p.headimgurl ?? null,
+                };
+              } catch (error) {
+                // 合并失败不能让登录挂掉：退回按 openid 建号的旧行为
+                console.error("[auth] 微信 unionid 合并失败，回退到按 openid 建号", error);
+                return base;
+              }
             },
           }),
         ]

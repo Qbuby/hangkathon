@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { encode } from "@auth/core/jwt";
 import { databaseRequired, jsonError } from "@/lib/server/http";
 import { consumeLoginCode, pollLoginCode } from "@/lib/server/wechat-code-login";
+import { getWechatSessionIdentity } from "@/lib/server/wechat-identity";
 import { enforceRateLimit, RULES } from "@/lib/server/rate-limit";
 
 /**
@@ -61,21 +62,28 @@ export async function POST(request: Request) {
   if (!secret) return jsonError(503, "服务端未配置 AUTH_SECRET");
 
   /**
-   * 站内身份仍然是 email —— 与扫码登录完全同一个约定（`<openid>@wechat.user`），
-   * 所以两种登录方式拿到的是**同一个 users 行**，不会裂号。
+   * 会话里的 `email` 必须是**命中那一行 users 的真实 email**，不能再用公众号 openid 现拼。
+   *
+   * 这是本次修 unionid 合并时踩到的关键点：当手机登录按 unionid 认到电脑端扫码建的
+   * 老账号时，那行的 email 是**网站应用**的 `<openid>@wechat.user`。若这里仍用公众号
+   * openid 拼 email，Auth.js 的 `ensureUser()` 会按 email upsert —— 直接又造出一行新用户，
+   * 合并白做。同理 `name`/`image` 也必须取库里的，否则手机端会话永远拿不到昵称
+   * （微信侧 2021-12-27 起不再返回昵称，昵称只存在于扫码时写下的那一行）。
    */
-  const email = `${consumed.openId}@wechat.user`;
+  const identity = await getWechatSessionIdentity(consumed.userId);
+  if (!identity) return jsonError(409, "账号已不存在，请重新登录");
+
   const secure = isHttps(request);
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
 
   const token = await encode({
-    token: { name: null, email, sub: consumed.userId, picture: null },
+    token: { name: identity.name, email: identity.email, sub: identity.id, picture: identity.image },
     secret,
     salt: cookieName,
     maxAge: SESSION_MAX_AGE,
   });
 
-  const response = NextResponse.json({ ok: true, email });
+  const response = NextResponse.json({ ok: true, email: identity.email, name: identity.name });
   response.cookies.set(cookieName, token, {
     httpOnly: true,
     sameSite: "lax",

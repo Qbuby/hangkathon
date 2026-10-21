@@ -30,10 +30,24 @@ export const users = pgTable("users", {
    */
   realName: text("real_name"),
   realNameStatus: text("real_name_status").notNull().default("unverified"),
+  /**
+   * 微信开放平台 unionid —— **跨应用认人的唯一稳定键**。
+   *
+   * 公众号（手机验证码登录）与网站应用（电脑扫码登录）绑在同一个开放平台账号下，
+   * 同一个微信号在两边的 openid 不同，但 unionid 相同。把它存在 users 上，
+   * 手机登录就能直接找到电脑端建的老账号、继承它的昵称与历史数据，
+   * 而不是各建各的。
+   *
+   * 唯一（Postgres 的唯一索引允许多个 NULL，所以未关联微信的账号不受影响）。
+   */
+  unionId: text("union_id"),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   lastLoginIp: text("last_login_ip"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [uniqueIndex("users_email_unique").on(table.email)]);
+}, (table) => [
+  uniqueIndex("users_email_unique").on(table.email),
+  uniqueIndex("users_union_id_unique").on(table.unionId),
+]);
 
 export const activities = pgTable("activities", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -92,6 +92,13 @@
       "when": 1792099200000,
       "tag": "0012_wechat_login_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792185600000,
+      "tag": "0013_users_union_id",
+      "breakpoints": true
     }
   ]
 }

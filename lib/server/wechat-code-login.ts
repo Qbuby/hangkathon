@@ -15,6 +15,7 @@
 
 import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { resolveWechatUser } from "./wechat-identity";
 
 /** 验证码有效期。够用户切到微信发一条消息，又不至于让泄露的码长期可用。 */
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -82,7 +83,13 @@ export class LoginCodeError extends Error {
 }
 
 export type BindResult =
-  | { ok: true; userId: string; alreadyBound: boolean }
+  | {
+      ok: true;
+      userId: string;
+      alreadyBound: boolean;
+      /** 本次绑定是否**新建**了站内用户（审计里区分"注册"与"登录"）。 */
+      created?: boolean;
+    }
   | { ok: false; reason: "not_found" | "expired" | "already_used" };
 
 /**
@@ -116,60 +123,16 @@ export async function bindCodeToOpenId(input: {
     return { ok: false, reason: "already_used" };
   }
 
-  const userId = await resolveUserId(input.openId, input.unionId);
+  // 身份解析统一走 wechat-identity：先按 unionid 认人（跨应用合并），再按占位邮箱，
+  // 最后新建。返回值带 created，供上层记"首次登录即注册"的审计。
+  const resolved = await resolveWechatUser({ openId: input.openId, unionId: input.unionId });
 
   await db
     .update(schema.wechatLoginCodes)
-    .set({ status: "bound", openId: input.openId, unionId: input.unionId, userId })
+    .set({ status: "bound", openId: input.openId, unionId: input.unionId, userId: resolved.id })
     .where(and(eq(schema.wechatLoginCodes.code, input.code), eq(schema.wechatLoginCodes.status, "pending")));
 
-  return { ok: true, userId, alreadyBound: false };
-}
-
-/**
- * 把公众号身份映射成站内用户 —— **新老账号统一的落点**。
- *
- * 关键：公众号与网站应用绑在同一个微信开放平台账号下，同一个微信号在两边的
- * **openid 不同、unionid 相同**。所以：
- *   1. 先按 unionid 找：老用户在电脑上扫码登录过，users 表里已有
- *      `<网站应用的 openid>@wechat.user`。若那条记录能反查到 unionid，就复用。
- *   2. 找不到就新建：用公众号 openid 合成 `<openid>@wechat.user`。
- *
- * 但这里有个现实约束：老记录的 email 里只有**网站应用的 openid**，没有 unionid
- * （当初没存）。所以第一次用公众号登录的人无法自动认领老账号 —— 除非当初存了 unionid。
- * 这版把 unionid 存进新记录，之后就能稳定关联；对**已有**的 5 个老账号，
- * 我提供了一条显式的"认领"路径（见 docs），而不是靠猜。
- */
-async function resolveUserId(openId: string, unionId: string | null): Promise<string> {
-  const db = getDb();
-
-  // 1) 同 unionid 的历史记录（同一微信号此前用公众号登录过）
-  if (unionId) {
-    const [existing] = await db
-      .select({ userId: schema.wechatLoginCodes.userId })
-      .from(schema.wechatLoginCodes)
-      .where(and(eq(schema.wechatLoginCodes.unionId, unionId), sql`${schema.wechatLoginCodes.userId} is not null`))
-      .limit(1);
-    if (existing?.userId) return existing.userId;
-  }
-
-  // 2) 同 openid 的历史记录（同一个公众号账号此前登录过）
-  const [byOpenId] = await db
-    .select({ userId: schema.wechatLoginCodes.userId })
-    .from(schema.wechatLoginCodes)
-    .where(and(eq(schema.wechatLoginCodes.openId, openId), sql`${schema.wechatLoginCodes.userId} is not null`))
-    .limit(1);
-  if (byOpenId?.userId) return byOpenId.userId;
-
-  // 3) 新建：合成邮箱，与网站应用扫码登录完全同一个约定，保证 users.email 唯一索引能复用
-  const email = `${openId}@wechat.user`;
-  const [row] = await db
-    .insert(schema.users)
-    .values({ email, name: null })
-    .onConflictDoUpdate({ target: schema.users.email, set: { lastLoginAt: new Date() } })
-    .returning({ id: schema.users.id });
-  if (!row) throw new LoginCodeError(500, "创建用户失败");
-  return row.id;
+  return { ok: true, userId: resolved.id, alreadyBound: false, created: resolved.created };
 }
 
 export type PollResult =

@@ -149,20 +149,48 @@ export function textReplyXml(toUser: string, fromUser: string, content: string):
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-async function getMpToken(env: NodeJS.ProcessEnv = process.env): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now) return cachedToken.token;
+/**
+ * 取公众号 access_token —— **必须用 stable_token 接口**。
+ *
+ * 踩坑记录（2026-10-21 线上）：原先调的是老的 `/cgi-bin/token`，日志里持续报
+ *   40001 invalid credential, access_token is invalid or not latest,
+ *   could get access_token by getStableAccessToken
+ * 后果不是「偶尔失败」，而是 **unionid 一直拿不到** —— 于是手机登录永远认不出
+ * 电脑端的老账号，昵称也就一直是空的。表现完全静默：登录成功、只是没有名字。
+ *
+ * 两个接口的差别：
+ *   · 老接口每次调用**签发新 token 并让旧的失效**（多实例/多进程互相踢）；
+ *   · stable_token 是幂等的，force_refresh=false 时返回同一个 token，
+ *     多实例共享也不会互相吊销。
+ * 我们没有任何理由用老接口。
+ */
+async function requestMpToken(env: NodeJS.ProcessEnv, forceRefresh: boolean): Promise<string | null> {
   const appId = env.WECHAT_MP_ID;
   const secret = env.WECHAT_MP_SECRET;
   if (!appId || !secret) throw new Error("缺少 WECHAT_MP_ID / WECHAT_MP_SECRET");
-  const res = await fetch(
-    `${MP_API}/token?grant_type=client_credential&appid=${encodeURIComponent(appId)}&secret=${encodeURIComponent(secret)}`,
-    { signal: AbortSignal.timeout(8000) },
-  );
+  const res = await fetch(`${MP_API}/stable_token`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ grant_type: "client_credential", appid: appId, secret, force_refresh: forceRefresh }),
+    signal: AbortSignal.timeout(8000),
+  });
   const data = (await res.json()) as { access_token?: string; expires_in?: number; errcode?: number; errmsg?: string };
-  if (!data.access_token) throw new Error(`取公众号 token 失败 errcode=${data.errcode} errmsg=${data.errmsg}`);
-  cachedToken = { token: data.access_token, expiresAt: now + Math.max((data.expires_in ?? 7200) - 300, 60) * 1000 };
+  if (!data.access_token) {
+    console.error(`[wechat-mp] 取 token 失败 errcode=${data.errcode} errmsg=${data.errmsg}`);
+    return null;
+  }
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + Math.max((data.expires_in ?? 7200) - 300, 60) * 1000,
+  };
   return cachedToken.token;
+}
+
+async function getMpToken(env: NodeJS.ProcessEnv = process.env, forceRefresh = false): Promise<string> {
+  if (!forceRefresh && cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.token;
+  const token = await requestMpToken(env, forceRefresh);
+  if (!token) throw new Error("取公众号 access_token 失败");
+  return token;
 }
 
 /**
@@ -173,31 +201,42 @@ async function getMpToken(env: NodeJS.ProcessEnv = process.env): Promise<string>
  * 用它就能把「手机验证码登录」和「电脑扫码登录」认成同一个人。
  *
  * 注意：2021-12-27 起微信不再返回头像与昵称，只保证 openid / unionid 可用。
- * 所以这里不要依赖 nickname 做任何事。
+ * 所以这里不要依赖 nickname 做任何事 —— **昵称只存在于扫码登录时写下的 users 行里**，
+ * 手机登录要显示昵称，靠的是按 unionid 命中那一行（见 wechat-identity.ts）。
  */
 export async function getMpUserInfo(
   openId: string,
   env: NodeJS.ProcessEnv = process.env,
   fetchImpl: typeof fetch = fetch,
 ): Promise<{ openId: string; unionId: string | null; subscribed: boolean } | null> {
-  try {
-    const token = await getMpToken(env);
+  const request = async (forceRefresh: boolean) => {
+    const token = await getMpToken(env, forceRefresh);
     const res = await fetchImpl(
       `${MP_API}/user/info?access_token=${encodeURIComponent(token)}&openid=${encodeURIComponent(openId)}&lang=zh_CN`,
       { signal: AbortSignal.timeout(8000) },
     );
-    const data = (await res.json()) as {
+    return (await res.json()) as {
       openid?: string;
       unionid?: string;
       subscribe?: number;
       errcode?: number;
       errmsg?: string;
     };
+  };
+
+  try {
+    let data = await request(false);
+    // 40001/40014/42001：token 失效/过期。多实例或后台手动刷新都会遇到，
+    // 强刷一次再试；只重试一次，避免把失效配置变成无限循环。
+    if ([40001, 40014, 42001].includes(data.errcode ?? 0)) {
+      console.warn(`[wechat-mp] token 失效（errcode=${data.errcode}），强刷后重试一次`);
+      data = await request(true);
+    }
     if (!data.openid) {
       console.error(`[wechat-mp] user/info 失败 errcode=${data.errcode} errmsg=${data.errmsg}`);
       return null;
     }
-    return { openId: data.openid, unionId: data.unionid ?? null, subscribed: data.subscribe === 1 };
+    return { openId: data.openid, unionId: data.unionid?.trim() || null, subscribed: data.subscribe === 1 };
   } catch (error) {
     // unionid 拿不到不算致命：老账号合并会退化成"按公众号 openid 建新号"，
     // 用户仍然能登录，只是不会和电脑端扫码的账号合并。所以这里只记日志。

@@ -1,0 +1,280 @@
+/**
+ * 微信身份 → 站内用户：**两种登录方式共用的唯一入口**。
+ *
+ * 背景（2026-10-21）：
+ *   · 电脑扫码走「网站应用」，拿到的是网站应用的 openid；
+ *   · 手机走公众号验证码，拿到的是公众号的 openid；
+ *   · 同一个微信号在这两个应用里 openid **不同**，但 unionid **相同**。
+ *
+ * 之前只把 unionid 存在一次性验证码表里，users 上没有，于是：
+ *   - 手机登录找不到电脑端建的老账号 → 另建一行，昵称/报名全丢；
+ *   - 反过来先在手机登录、再回电脑扫码，同样会裂号。
+ *
+ * 现在 users.union_id 是跨应用认人的稳定键。解析顺序：
+ *   1. unionid 命中 → 复用那行（唯一正确的合并依据）
+ *   2. 占位邮箱命中 → 复用，并顺手补上 unionid（历史数据自愈）
+ *   3. 两行都命中但不是同一行 → **合并**：把较新的那行折进较早的老账号
+ *   4. 都没有 → 新建
+ */
+
+import { eq, sql } from "drizzle-orm";
+import { getDb, schema } from "@/db";
+import { planIdentity, preferredProfile } from "./wechat-identity-pure";
+
+export type ResolvedWechatUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+  /** 本次调用是否新建了用户行（审计用："首次登录即注册"）。 */
+  created: boolean;
+  /** 本次是否把另一行合并进来（跨端首登时会发生）。 */
+  merged?: boolean;
+};
+
+export type WechatIdentityInput = {
+  openId: string;
+  unionId: string | null;
+  /** 扫码登录才有（sns/userinfo 仍返回）；公众号侧 2021-12-27 起恒为空。 */
+  nickname?: string | null;
+  image?: string | null;
+};
+
+const PLACEHOLDER_SUFFIX = "@wechat.user";
+
+/** 与 auth.ts / 换票路由共用的占位邮箱约定。 */
+export function wechatEmail(openId: string): string {
+  return `${openId}${PLACEHOLDER_SUFFIX}`;
+}
+
+type IdentityRow = { id: string; email: string; name: string | null; image: string | null; createdAt: Date };
+
+const identityColumns = {
+  id: schema.users.id,
+  email: schema.users.email,
+  name: schema.users.name,
+  image: schema.users.image,
+  createdAt: schema.users.createdAt,
+};
+
+async function findByUnionId(unionId: string): Promise<IdentityRow | null> {
+  const [row] = await getDb().select(identityColumns).from(schema.users).where(eq(schema.users.unionId, unionId)).limit(1);
+  return row ?? null;
+}
+
+async function findByEmail(email: string): Promise<IdentityRow | null> {
+  const [row] = await getDb().select(identityColumns).from(schema.users).where(eq(schema.users.email, email)).limit(1);
+  return row ?? null;
+}
+
+/**
+ * 把 unionid 写到某行用户上（用户行上还没有时）。
+ *
+ * 唯一索引冲突（另一行已经持有这个 unionid）时**静默放弃**：
+ * 说明并发首登的另一路已经赢了这个身份，调用方会重新按 unionid 查回来。
+ */
+async function attachUnionId(userId: string, unionId: string): Promise<void> {
+  try {
+    await getDb()
+      .update(schema.users)
+      .set({ unionId })
+      .where(sql`${schema.users.id} = ${userId} AND ${schema.users.unionId} IS NULL`);
+  } catch (error) {
+    console.error("[wechat-identity] 写入 unionid 失败（忽略，按 unionid 重查）", error);
+  }
+}
+
+/** 昵称/头像：本次的非空值更新到库里，空值**不回写**（公众号侧永远是空串，不能抹掉扫码拿到的昵称）。 */
+async function refreshProfile(userId: string, input: WechatIdentityInput): Promise<void> {
+  const name = input.nickname?.trim();
+  const image = input.image?.trim();
+  if (!name && !image) return;
+  await getDb()
+    .update(schema.users)
+    .set({
+      ...(name ? { name } : {}),
+      ...(image ? { image } : {}),
+    })
+    .where(eq(schema.users.id, userId));
+}
+
+/**
+ * 把 loser 这个账号折进 keeper，然后删掉 loser。
+ *
+ * 为什么需要它：历史上同一个微信号可能已经裂成两行 ——
+ * 手机先登录建了 `<公众号 openid>@wechat.user`，电脑扫码又建了
+ * `<网站应用 openid>@wechat.user`（老版本没存 unionid，认不出来）。
+ * 等到某次登录同时拿到「本应用的 openid」和「unionid」，就足以证明
+ * 这两行是同一个人，此时把数据并到当前应用这一行，用户不会丢报名/作品。
+ *
+ * 业务表对 users 的外键就这几处（见 db/schema.ts）；audit_logs 刻意不持有
+ * 外键（迁移 0011），所以历史审计不受影响、也不会被改。
+ */
+async function mergeUsers(
+  keeper: Pick<IdentityRow, "id" | "email" | "name" | "image">,
+  loser: Pick<IdentityRow, "id" | "email" | "name" | "image">,
+): Promise<void> {
+  const db = getDb();
+  const k = keeper.id;
+  const l = loser.id;
+
+  await db.transaction(async (tx) => {
+    // 报名：同一活动两边都报过时，保留 keeper 那条，先删掉 loser 的重复行
+    await tx.execute(sql`
+      DELETE FROM joins l
+      USING joins k
+      WHERE l.user_id = ${l} AND k.user_id = ${k} AND l.activity_id = k.activity_id
+    `);
+    await tx.update(schema.joins).set({ userId: k }).where(eq(schema.joins.userId, l));
+    await tx.update(schema.joins).set({ invitedBy: k }).where(eq(schema.joins.invitedBy, l));
+
+    await tx.update(schema.submissions).set({ userId: k }).where(eq(schema.submissions.userId, l));
+    await tx.update(schema.inviteEvents).set({ inviterId: k }).where(eq(schema.inviteEvents.inviterId, l));
+    await tx.update(schema.inviteEvents).set({ inviteeId: k }).where(eq(schema.inviteEvents.inviteeId, l));
+    await tx.update(schema.activities).set({ ownerId: k }).where(eq(schema.activities.ownerId, l));
+
+    // 代理商申请：一人一份（唯一索引），keeper 已有就删掉 loser 的
+    const existing = await tx
+      .select({ id: schema.agentApplications.id })
+      .from(schema.agentApplications)
+      .where(eq(schema.agentApplications.userId, k))
+      .limit(1);
+    if (existing.length > 0) {
+      await tx.delete(schema.agentApplications).where(eq(schema.agentApplications.userId, l));
+    } else {
+      await tx.update(schema.agentApplications).set({ userId: k }).where(eq(schema.agentApplications.userId, l));
+    }
+
+    await tx.update(schema.wechatLoginCodes).set({ userId: k }).where(eq(schema.wechatLoginCodes.userId, l));
+
+    /**
+     * 黑名单按 **email** 存、按当前会话 email 判。合并后登录身份会变成 keeper 的 email，
+     * 所以 loser 名下的条目必须跟着迁移 —— 否则一个因违规被拉黑的人，
+     * 只要换一种登录方式（另一条 email）就能绕过限制。
+     * keeper 已有条目时保留它（不覆盖管理员填的理由与期限），只删 loser 的。
+     */
+    const [blacklisted] = await tx
+      .select({ id: schema.userBlacklist.id })
+      .from(schema.userBlacklist)
+      .where(eq(schema.userBlacklist.email, keeper.email))
+      .limit(1);
+    if (blacklisted) {
+      await tx.delete(schema.userBlacklist).where(eq(schema.userBlacklist.email, loser.email));
+    } else {
+      await tx.update(schema.userBlacklist).set({ email: keeper.email }).where(eq(schema.userBlacklist.email, loser.email));
+    }
+    await tx.update(schema.userBlacklist).set({ createdBy: k }).where(eq(schema.userBlacklist.createdBy, l));
+    await tx.update(schema.userBlacklist).set({ revokedBy: k }).where(eq(schema.userBlacklist.revokedBy, l));
+    await tx.update(schema.agentApplications).set({ reviewedBy: k }).where(eq(schema.agentApplications.reviewedBy, l));
+
+    // 昵称/头像：keeper 没有才从 loser 抄；角色只升不降
+    const [loserRow] = await tx
+      .select({
+        name: schema.users.name,
+        image: schema.users.image,
+        role: schema.users.role,
+        unionId: schema.users.unionId,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.id, l));
+    await tx
+      .update(schema.users)
+      .set({
+        ...(keeper.name ? {} : loserRow?.name ? { name: loserRow.name } : {}),
+        ...(keeper.image ? {} : loserRow?.image ? { image: loserRow.image } : {}),
+        ...(loserRow?.role === "admin" ? { role: "admin" } : {}),
+      })
+      .where(eq(schema.users.id, k));
+
+    await tx.delete(schema.users).where(eq(schema.users.id, l));
+
+    /**
+     * unionid 必须**先删 loser 再写 keeper**：唯一索引在同一事务里也是即时校验的，
+     * 反过来写会撞上还没删掉的那一行。
+     */
+    if (loserRow?.unionId) {
+      await tx.update(schema.users).set({ unionId: loserRow.unionId }).where(eq(schema.users.id, k));
+    }
+  });
+}
+
+export async function resolveWechatUser(input: WechatIdentityInput): Promise<ResolvedWechatUser> {
+  const db = getDb();
+  const unionId = input.unionId?.trim() || null;
+  const email = wechatEmail(input.openId);
+
+  const byUnion = unionId ? await findByUnionId(unionId) : null;
+  const byEmail = await findByEmail(email);
+  const plan = planIdentity({ byUnion, byEmail });
+
+  // 两行都命中且不是同一行 → 同一个人（unionid 与本次 openid 同时由微信给出），合并。
+  // keeper/loser 的取舍见 planIdentity 的注释（keeper = 注册更早的那行，即老账号）。
+  if (plan.action === "merge") {
+    const { keeper, loser } = plan;
+    try {
+      await mergeUsers(keeper, loser);
+      const merged = {
+        ...keeper,
+        ...preferredProfile({ name: keeper.name ?? loser.name, image: keeper.image ?? loser.image }, input),
+      };
+      await refreshProfile(merged.id, input);
+      return { ...merged, created: false, merged: true };
+    } catch (error) {
+      // 合并失败不阻断登录：先用 unionid 那一行（同一个人，数据还在），
+      // 下次登录会再试一次合并。
+      console.error("[wechat-identity] 合并账号失败，暂用 unionid 命中行", error);
+      const row = byUnion ?? keeper;
+      await refreshProfile(row.id, input);
+      return { ...row, ...preferredProfile(row, input), created: false };
+    }
+  }
+
+  // unionid 命中：跨应用认人的正路
+  if (plan.action === "reuse") {
+    await refreshProfile(plan.row.id, input);
+    return { ...plan.row, ...preferredProfile(plan.row, input), created: false };
+  }
+
+  // 本应用的占位邮箱命中（unionid 还没落库的历史账号）→ 顺手补上 unionid
+  if (plan.action === "attach-union") {
+    if (unionId) await attachUnionId(plan.row.id, unionId);
+    await refreshProfile(plan.row.id, input);
+    return { ...plan.row, ...preferredProfile(plan.row, input), created: false };
+  }
+
+  // 新建。email 冲突（并发首登）时退回按 email/unionid 查，而不是再插一次。
+  try {
+    const [created] = await db
+      .insert(schema.users)
+      .values({
+        email,
+        name: input.nickname?.trim() || null,
+        image: input.image?.trim() || null,
+        unionId,
+      })
+      .returning(identityColumns);
+    if (created) return { ...created, created: true };
+  } catch (error) {
+    console.error("[wechat-identity] 新建用户失败，按邮箱/unionid 重查", error);
+  }
+
+  if (unionId) {
+    const again = await findByUnionId(unionId);
+    if (again) return { ...again, created: false };
+  }
+  const fallback = await findByEmail(email);
+  if (!fallback) throw new Error("微信身份解析失败：用户既未创建也无法回查");
+  return { ...fallback, created: false };
+}
+
+/**
+ * 按 id 取会话要用的身份字段。
+ *
+ * 公众号换票时用它签 JWT：`name`/`image` 必须来自 users 行，
+ * 否则手机登录拿到的会话永远是匿名的 —— 而微信侧从 2021-12-27 起
+ * 不再返回昵称，只有这里能把扫码时存下的昵称带进手机端会话。
+ */
+export async function getWechatSessionIdentity(userId: string): Promise<IdentityRow | null> {
+  const [row] = await getDb().select(identityColumns).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  return row ?? null;
+}

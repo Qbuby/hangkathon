@@ -167,7 +167,14 @@ export async function POST(request: Request) {
     targetId: code,
     result: "success",
     // 不记完整 openid：它是身份标识，日志里留前 8 位够排查了
-    detail: { openIdPrefix: message.fromUser.slice(0, 8), unionId: Boolean(unionId), userId: result.userId },
+    detail: {
+      openIdPrefix: message.fromUser.slice(0, 8),
+      unionId: Boolean(unionId),
+      userId: result.userId,
+      // 首次即注册 vs 认到老账号，是排查"合并有没有生效"的第一手信息
+      registered: Boolean(result.created),
+      matchedByUnionId: Boolean(unionId) && !result.created,
+    },
   }).catch(() => {});
 
   return xmlResponse(
