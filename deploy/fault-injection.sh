@@ -142,6 +142,18 @@ printf 'Filesystem      Size  Used Avail Use%% Mounted on\n'
 printf '/dev/vda3        40G   %sG   12G  %s%% /\n' "${FAKE_DISK_USED:-10}" "${FAKE_DISK_PCT:-30}"
 FAKE
 
+# 假 du：自检脚本用 `du -sm <buildkit 目录>` 统计构建缓存。
+# 沙箱里没有真实目录，必须由测试控制 —— 否则结果取决于开发机。
+cat > "$SANDBOX/bin/du" <<'FAKE'
+#!/bin/sh
+case "$*" in
+  *buildkit*) printf '%s	/var/lib/docker/buildkit
+' "${FAKE_BUILDKIT_MB:-100}" ;;
+  *) printf '0	%s
+' "$*" ;;
+esac
+FAKE
+
 # 假 ps / pidof：自检脚本要读 dockerd 的 RSS（守护进程内存涨到 ~1.4GB 会被 OOM 杀掉，
 # 连带带走所有容器）。开发机上没有 dockerd，真实现会让这一步恒失败，
 # 把"正常路径应当通过"的场景 6 冲掉 —— 于是按同样的方式注入可控值。
@@ -163,7 +175,7 @@ if [ "${FAKE_DOCKERD_PRESENT:-1}" = "1" ]; then echo 4242; fi
 exit 0
 FAKE
 
-chmod +x "$SANDBOX/bin/docker" "$SANDBOX/bin/curl" "$SANDBOX/bin/df" "$SANDBOX/bin/ps" "$SANDBOX/bin/pidof"
+chmod +x "$SANDBOX/bin/docker" "$SANDBOX/bin/curl" "$SANDBOX/bin/df" "$SANDBOX/bin/du" "$SANDBOX/bin/ps" "$SANDBOX/bin/pidof"
 
 # 沙箱执行器。用法：
 #   run_sandbox <casedir> <docker_mode> <db_mode> -- <命令...>
@@ -187,7 +199,8 @@ run_sandbox() {
     # 把可能从宿主机泄漏进来的变量清掉，否则测试结果取决于开发机环境
     unset PORT APP_DIR HK_LOG BACKUP_DIR STATUS_FILE SAFETY_DIR \
           DISK_ALERT_PCT DANGLING_ALERT_COUNT APP_CONTAINER BACKUP_MAX_AGE HK_DB_CONTAINER \
-          POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD HEALTHCHECK_PING_URL 2>/dev/null || true
+          POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD HEALTHCHECK_PING_URL \
+          BUILDKIT_ALERT_MB BUILDKIT_DIR 2>/dev/null || true
 
     APP_DIR="$SANDBOX/app"; export APP_DIR
     HK_LOG="$_case_dir/log/hk.log"; export HK_LOG
@@ -202,6 +215,10 @@ run_sandbox() {
     FAKE_DB_COUNT="${FAKE_DB_COUNT:-13}"; export FAKE_DB_COUNT
     FAKE_ORPHANS="${FAKE_ORPHANS:-1}"; export FAKE_ORPHANS
     FAKE_DISK_PCT="${FAKE_DISK_PCT:-30}"; export FAKE_DISK_PCT
+    # buildkit 缓存统计：沙箱里没有 /var/lib/docker，用可控目录 + 假 du
+    FAKE_BUILDKIT_MB="${FAKE_BUILDKIT_MB:-100}"; export FAKE_BUILDKIT_MB
+    BUILDKIT_DIR="$_case_dir/buildkit"; export BUILDKIT_DIR
+    mkdir -p "$BUILDKIT_DIR"
     SANDBOX_CURL_LOG="$_case_dir/log/curl.log"; export SANDBOX_CURL_LOG
     SANDBOX_ALERT_LOG="$_case_dir/log/alert.log"; export SANDBOX_ALERT_LOG
 
@@ -328,6 +345,28 @@ if [ "$SKIP" = "0" ]; then
   expect_contains "$SANDBOX/app/deploy/nginx-hangkathon.com.conf" "$P_INCLUDE" "主站 vhost 引用公共片段"
   expect_contains "$SANDBOX/app/deploy/nginx-proxy-common.inc" "$P_XFF_COVER" "公共片段用 remote_addr 覆盖（不是 proxy_add_x_forwarded_for）"
   expect_missing "$SANDBOX/app/deploy/nginx-hangkathon.com.conf" "$P_XFF_APPEND" "vhost 里没有残留的追加式 XFF"
+fi
+
+# ── 场景 9 ────────────────────────────────────────────────────────────────
+# 2026-10-22 真实事故：磁盘 98% 告警，但悬空镜像是 0、`docker image prune -f`
+# 回收 0B —— 真正吃掉 26G 的是 buildkit 构建缓存（每次 CI 构建一个约 1.3GB 的层）。
+# 自检原先只看悬空镜像数量，于是它给出的"磁盘告警"没有指向真正的原因。
+# 这条锁住：buildkit 缓存超阈值时必须单独报出来。
+case_start 9 "buildkit 缓存超阈值 → 必须单独告警（回归：告警只说悬空镜像，指错方向）"
+if [ "$SKIP" = "0" ]; then
+  C="$SANDBOX/c9"; seed_backup "$C"
+  # 磁盘正常、悬空镜像也正常，只有构建缓存超大 —— 这样失败只可能来自新分支
+  FAKE_DISK_PCT=30 FAKE_DANGLING=0 FAKE_BUILDKIT_MB=5120 \
+    run_sandbox "$C" running ok -- /bin/sh "$SANDBOX/app/deploy/integrity-check.sh"
+  expect_rc "自检返回非 0" 1 "$?"
+  expect_contains "$C/out.log" "buildkit 构建缓存" "日志点名 buildkit 缓存"
+  expect_contains "$C/out.log" "5120MB" "日志给出实测大小"
+
+  # 反向：缓存低于阈值时必须通过，防止"永远告警"
+  D="$SANDBOX/c9b"; seed_backup "$D"
+  FAKE_DISK_PCT=30 FAKE_DANGLING=0 FAKE_BUILDKIT_MB=100 \
+    run_sandbox "$D" running ok -- /bin/sh "$SANDBOX/app/deploy/integrity-check.sh"
+  expect_rc "缓存正常时自检返回 0" 0 "$?"
 fi
 
 echo

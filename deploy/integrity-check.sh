@@ -151,6 +151,14 @@ fi
 #      改用 `docker images -f dangling=true -q | wc -l`，快且够用。
 #   2. **绝不 `docker system prune`**（历史事故：会删掉运行中的容器与 compose 网络，站点直接 502）。
 #   3. 计划任务是每日 04:10，比 CI 每次重建滞后最多一天；这只是个提醒，不是实时看板。
+#
+# 2026-10-22 复盘（磁盘 98% 告警的真正原因）：
+#   悬空镜像只有 20 个、`docker image prune -f` 回收 **0B** —— 因为每次 CI 是用
+#   `docker build` 重建同名镜像，旧镜像的 layer 被 buildkit 缓存继续引用，
+#   并不是 dangling。真正吃掉 26G 的是 **buildkit 构建缓存**
+#   （`/var/lib/docker/buildkit`，每次构建一个约 1.3GB 的 standalone 层）。
+#   人工执行 `docker builder prune -f` 后：98% → 75%，可用空间 1.1G → 9.6G。
+#   因此这里增加一项独立的 buildkit 缓存统计（只读，不删）。
 DANGLING="$(docker images -f 'dangling=true' -q 2>/dev/null | wc -l || true)"
 DANGLING="$(printf '%s' "$DANGLING" | tr -d '[:space:]')"
 if ! is_int "$DANGLING"; then
@@ -159,6 +167,28 @@ elif [ "$DANGLING" -ge "$DANGLING_ALERT_COUNT" ]; then
   hk_check 0 "悬空镜像 $DANGLING 个（阈值 ${DANGLING_ALERT_COUNT}），需**人工** docker image prune -f 回收（脚本不会自动删；绝不要用 docker system prune）"
 else
   hk_check 1 "悬空镜像 $DANGLING 个"
+fi
+
+# buildkit 构建缓存：**磁盘水位上涨的真正主因**（见上方 2026-10-22 复盘）。
+# `du` 在 overlay2 上有硬链接重复计数问题，不能用来判总量；这里只量 buildkit
+# 自己的目录（它是纯文件，没有挂载嵌套），阈值取 3GB —— 约等于 2 次完整构建。
+#
+# 为什么只告警不自动清：`docker builder prune` 在本机会让 dockerd 短暂无响应
+# （2026-10-22 实测：命令输出超时，但清理其实已经完成）。半夜自动执行有可能
+# 撞上备份或部署，把一个"省空间"的动作变成故障源。人工在低峰执行更安全。
+BUILDKIT_ALERT_MB="${BUILDKIT_ALERT_MB:-3072}"
+BUILDKIT_DIR="${BUILDKIT_DIR:-/var/lib/docker/buildkit}"
+if [ ! -d "$BUILDKIT_DIR" ]; then
+  hk_check 1 "buildkit 缓存目录不存在（未使用 buildkit？）"
+else
+  BUILDKIT_MB="$(du -sm "$BUILDKIT_DIR" 2>/dev/null | cut -f1 || true)"
+  if ! is_int "${BUILDKIT_MB:-}"; then
+    hk_check 0 "读不到 buildkit 缓存大小（du 返回 '${BUILDKIT_MB:-}'）"
+  elif [ "$BUILDKIT_MB" -ge "$BUILDKIT_ALERT_MB" ]; then
+    hk_check 0 "buildkit 构建缓存 ${BUILDKIT_MB}MB（阈值 ${BUILDKIT_ALERT_MB}MB）—— 这是磁盘上涨主因，人工在低峰执行 docker builder prune -f（注意该命令会让 dockerd 短暂无响应，不要放进定时任务）"
+  else
+    hk_check 1 "buildkit 构建缓存 ${BUILDKIT_MB}MB"
+  fi
 fi
 
 # dockerd 内存：这台 2C2G 机器上 dockerd 的 RSS 会缓慢增长，涨到 ~1.4GB 时被内核
