@@ -18,13 +18,18 @@
 # ── 安全边界（三重，缺一不可）──────────────────────────────────────────────
 # 一个目录必须**同时**满足以下三条才会被删：
 #   1. layerdb 里没有它的 cache-id（Docker 不认为它属于任何镜像/构建缓存）；
-#   2. 不在任何容器（含已停止容器）的 UpperDir / MergedDir 里；
-#   3. 目录里没有 work/（有 work/ 说明它是容器可写层或被 dockerd 注册中的层）。
+#   2. 不在任何容器（含已停止容器）的 UpperDir / MergedDir / LowerDir 里；
+#   3. 名字不是 *-init（容器初始化层由 dockerd 管理）。
 #
-# 第 2、3 条是 2026-10-22 dry-run 时补上的：第一版只按 cache-id 判断，
+# 第 2 条是 2026-10-22 dry-run 时补上的：第一版只按 cache-id 判断，
 # 结果把 uptime-kuma 的**容器可写层**（有 diff/link/lower/work、但没有 cache-id）
 # 判成了孤儿 —— 直接 --apply 会删掉运行中容器的数据。这类误删不会报错，
 # 只会表现为"容器起来但数据没了"。
+#
+# ⚠️ 特别提醒：**不要**用"目录里有没有 work/ 或 committed 文件"来判断安全性。
+# 2026-10-22 实测 overlay2 下有 100+ 个带 work/ 与 committed 的目录（约 14.7GB），
+# 它们是 BuildKit 的历史构建快照缓存（可以清），而容器的可写层同样带 work/（不能清）。
+# 两者只能靠"是否被容器持有"区分。
 #
 # 用法（在服务器上以 root 执行）：
 #   sh deploy/docker-reclaim.sh --dry-run    # 只报告，不做任何修改（必须先跑）
@@ -69,20 +74,31 @@ KNOWN="$(wc -l < "$TMP/known.txt")"
 [ "$KNOWN" -gt 0 ] || die "layerdb 里一个 cache-id 都没读到 —— 路径或权限异常，拒绝继续（否则会把所有层都当成孤儿）"
 
 # ── 2) 容器持有的层（含已停止的容器）───────────────────────────────────────
-# 用 docker inspect 拿 GraphDriver 路径；dockerd 在 dry-run 阶段仍在运行，所以可用。
+# 用 docker inspect 拿 GraphDriver 的 UpperDir/MergedDir/LowerDir —— **三个都要**：
+#   · UpperDir  可写层（容器数据就在里面，误删 = 数据丢失）；
+#   · LowerDir  只读层链，删了容器起不来；
+#   · MergedDir 合并挂载点。
+# 每个字段是冒号分隔的路径列表，必须逐个拆开再取第一级目录名。
+#
 # 这一步失败就中止 —— 没有它就无法证明"不会删到容器数据"。
 : > "$TMP/container-layers.txt"
 if command -v docker >/dev/null 2>&1; then
   for c in $(docker ps -aq 2>/dev/null); do
     for key in UpperDir MergedDir LowerDir; do
       docker inspect "$c" --format "{{.GraphDriver.Data.$key}}" 2>/dev/null || true
+      printf '\n'
     done
-  done | tr ':' '\n' | sed "s#^$OVL/##; s#/.*##" | grep -v '^$' | sort -u > "$TMP/container-layers.txt"
+  done | tr ':' '\n' | while IFS= read -r p; do
+    case "$p" in
+      "$OVL"/*) rest="${p#"$OVL"/}"; printf '%s\n' "${rest%%/*}" ;;
+    esac
+  done | grep -v '^$' | sort -u > "$TMP/container-layers.txt"
 else
   die "没有 docker 命令，无法确认容器占用，拒绝继续"
 fi
 CONTAINER_LAYERS="$(wc -l < "$TMP/container-layers.txt")"
 log "容器持有 $CONTAINER_LAYERS 个层目录（含已停止容器）"
+[ "$CONTAINER_LAYERS" -gt 0 ] || die "一个容器层都没读到 —— docker inspect 异常，拒绝继续（否则可能删到运行中容器的数据）"
 
 # ── 3) overlay2 下的候选目录 ───────────────────────────────────────────────
 ls -d "$OVL"/*/ 2>/dev/null | sed "s#$OVL/##; s#/\$##" \
@@ -96,8 +112,13 @@ while IFS= read -r d; do
   if grep -qx "$d" "$TMP/known.txt"; then continue; fi
   # (2) 不被任何容器持有
   if grep -qx "$d" "$TMP/container-layers.txt"; then continue; fi
-  # (3) 没有 work/（容器可写层/注册中层的标志）
-  if [ -d "$OVL/$d/work" ]; then continue; fi
+  # (3) 不是 *-init（容器初始化层，由 dockerd 管理，删了容器起不来）
+  #
+  # ⚠️ 不能用"有没有 work/ 或 committed"来判定：2026-10-22 实测 overlay2 下有
+  # 100+ 个带 work/ 与 committed 的目录（合计约 14.7GB），它们是 BuildKit 的
+  # 历史构建快照缓存，不是容器数据；而容器的可写层同样带 work/。
+  # 两者只能靠"是否被容器持有"（上一段）区分。
+  case "$d" in *-init) continue ;; esac
   printf '%s\n' "$d" >> "$TMP/orphans.txt"
 done < "$TMP/all.txt"
 
@@ -142,10 +163,12 @@ RECLAIMED=0
 FAILED=0
 SKIPPED=0
 while IFS= read -r d; do
-  # 停机后再保护一次：目录里若出现 work/ 就跳过（防御性，不信任时间差）
-  if [ -d "$OVL/$d/work" ]; then
+  # 停机后再核一次：容器不可能再变化，但若这个目录仍被某个容器的 LowerDir 引用
+  # （例如 dry-run 与 apply 之间有人加了容器），跳过。这是防时间差的最后一道。
+  # 判据仍是"是否被容器持有"，**不是** work/ —— 见第 4 段注释。
+  if grep -qx "$d" "$TMP/container-layers.txt"; then
     SKIPPED=$((SKIPPED + 1))
-    log "跳过（出现 work/）：$d"
+    log "跳过（被容器持有）：$d"
     continue
   fi
   if rm -rf "$OVL/$d" 2>/dev/null; then
