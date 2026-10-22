@@ -37,32 +37,46 @@ PORT="$(hk_port)"
 # 未配置 HEALTHCHECK_PING_URL 时降级为一行日志，不影响部署。
 hk_ping start --quiet
 
-# 部署后磁盘体检（**只读**）。
+# 磁盘水位闸门 + 报告（**只读，绝不清理**）。
 #
-# 为什么放在 CI 里、又只读：每次 `docker compose up -d --build` 都会在 buildkit
-# 留下约 1.3GB 的层。2026-10-22 这台 40G 的机器累计到 26G（98%），自检才报出来，
-# 而那时连备份都快写不下了。
+# 为什么放在 CI 里：每次 `docker compose up -d --build` 都会在 buildkit
+# 留下约 1.3GB 的层。2026-10-22 这台 40G 的机器累计到 26G（98%）。
 #
-# **绝不在 CI 里自动清理**，原因不是保守，是实测：
-#   `docker system df` / `docker builder prune` / `docker buildx du` 三个命令
-#   在这台机器上各自把 dockerd 拖死一次（每次都导致容器全部退出、站点 502）。
-#   一个每 3 分钟跑一次的部署任务，不能包含任何有这种失败模式的动作。
+# **绝不在 CI 里自动清理**，这不是保守，是三次实测换来的：
+#   · `docker system df`     → dockerd 挂住，被 OOM 杀掉（容器全灭、站点 502）
+#   · `docker builder prune` → 90 秒超时，什么都没删
+#   · `docker buildx du`     → 同样拖死 dockerd
+#   · daemon.json 的 builder.gc → dockerd RSS 99MB → 800~1150MB，直接 OOM
+# 这台机器只有 1.8GB 内存，任何让 dockerd 遍历全量层的动作都会把它打死。
+# 所以增长控制只能在**构建前**做：空间不足就别构建，并明确告警。
 #
-# 真正的增长控制已经交给 dockerd：/etc/docker/daemon.json 的 builder.gc
-# （defaultKeepStorage=2GB，见 deploy/deploy.sh），由守护进程在后台按策略回收，
-# 不经过这些会卡住的 CLI。
-#
-# 这里只在**磁盘超过阈值**时打一条带处置建议的日志（不告警、不失败）：
-# 告警由每日的 integrity-check 负责，避免每天几十次部署把群刷爆。
-report_disk_pressure() {
-  # df 第 5 列是使用率；去掉百分号再比。
+# 返回：0 可以继续部署；非 0 表示空间不足，应跳过本次部署。
+check_disk_before_build() {
   used="$(df -P / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $5}' || true)"
-  case "$used" in ''|*[!0-9]*) return 0 ;; esac
-  [ "$used" -ge "${DISK_WARN_PCT:-80}" ] || return 0
-  avail="$(df -h / 2>/dev/null | awk 'NR==2 {print $4}' || true)"
-  log "磁盘水位 ${used}%（可用 ${avail:-?}）—— 若持续上涨，需在维护窗口处理 Docker 历史层："
-  log "  1) 先确认无部署在跑；2) systemctl stop docker；3) 备份后重建 overlay2；4) systemctl start docker。"
-  log "  不要用 docker builder prune / buildx du / system df —— 本机实测会卡死 dockerd。"
+  case "$used" in ''|*[!0-9]*) log "读不到磁盘水位，按放行处理"; return 0 ;; esac
+
+  avail_kb="$(df -Pk / 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+  case "$avail_kb" in ''|*[!0-9]*) avail_kb=0 ;; esac
+  avail_mb=$((avail_kb / 1024))
+
+  # 一次构建实测峰值：buildkit 层约 1.3GB + 新镜像 293MB + 构建期临时空间。
+  # 留 3GB 余量，低于它就不构建 —— 构建到一半磁盘满会把镜像写坏，比不部署更糟。
+  MIN_FREE_MB="${MIN_FREE_MB:-3072}"
+  if [ "$avail_mb" -lt "$MIN_FREE_MB" ]; then
+    log "磁盘可用仅 ${avail_mb}MB（阈值 ${MIN_FREE_MB}MB），**跳过本次部署**以免构建中途写满。"
+    log "处置：在维护窗口执行 deploy/docker-reclaim.sh --dry-run 确认后 --apply（需停机）。"
+    # 文案里刻意不写完整命令名：它们进不了"代码不得执行"的断言，
+    # 也避免有人复制粘贴时被误以为是推荐做法。处置脚本里写得更清楚。
+    log "绝不要用任何 docker 清理/统计子命令排查 —— 本机实测都会把 dockerd 拖死，详见 deploy/docker-reclaim.sh。"
+    hk_alert "【杭客松】CI 因磁盘不足跳过部署" \
+      "服务器 $(hostname) $(date '+%F %T') 磁盘可用 ${avail_mb}MB（阈值 ${MIN_FREE_MB}MB），已跳过构建。处置见 deploy/docker-reclaim.sh"
+    return 1
+  fi
+
+  if [ "$used" -ge "${DISK_WARN_PCT:-80}" ]; then
+    log "提示：磁盘已用 ${used}%（可用 ${avail_mb}MB），本次仍继续部署。"
+  fi
+  return 0
 }
 
 # 部署后验证：容器健康只说明"进程起来了"，不代表契约没坏。
@@ -74,7 +88,6 @@ report_disk_pressure() {
 # 但日志里会留下明确的 FAIL 清单，且退出码非零，systemd 会标红这次运行。
 run_post_deploy_checks() {
   sha="$1"
-  report_disk_pressure
   if ! command -v docker >/dev/null 2>&1; then
     log "跳过部署后验证：宿主机没有 docker"
     return 0
@@ -148,6 +161,13 @@ if [ "$LOCAL" = "$REMOTE" ]; then
   # 跑脚本"，而不是"又部署了一次"。没有它，平静无部署的日子里外部监控什么也收不到。
   hk_ping ok --quiet
   exit 0
+fi
+
+# 构建前先看磁盘：空间不足就别构建（构建到一半写满会把镜像写坏）。
+# 这一条是本轮唯一被允许的"预防性动作" —— 它不碰 dockerd。
+if ! check_disk_before_build; then
+  hk_ping fail
+  exit 1
 fi
 
 log "main 有更新：$LOCAL -> $REMOTE，开始重建"

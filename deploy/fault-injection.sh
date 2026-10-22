@@ -32,6 +32,7 @@ if [ "$ONLY" = "--list" ]; then
 8  nginx 配置校验失败 → deploy-nginx.sh 必须回滚且恢复原文件
 9  buildkit 缓存超阈值 → 完整性自检必须单独告警（原先只说悬空镜像）
 10 docker-reclaim 必须跳过容器可写层（回归：误删运行中容器数据）
+11 磁盘不足 → CI 必须跳过构建（回归：构建到一半写满/OOM）
 LIST
   exit 0
 fi
@@ -57,6 +58,7 @@ cp "$REPO_DIR/deploy/nginx-hangkathon.com.conf" "$SANDBOX/app/deploy/"
 cp "$REPO_DIR/deploy/nginx-proxy-common.inc"    "$SANDBOX/app/deploy/"
 cp "$REPO_DIR/deploy/lib/common.sh"      "$SANDBOX/app/deploy/lib/"
 cp "$REPO_DIR/deploy/docker-reclaim.sh"  "$SANDBOX/app/deploy/"
+cp "$REPO_DIR/deploy/ci.sh"              "$SANDBOX/app/deploy/"
 # alert.sh 也放进来：告警链路要真的被调到（沙箱里它只往日志写）
 cat > "$SANDBOX/app/deploy/alert.sh" <<'FAKE'
 #!/bin/sh
@@ -417,6 +419,53 @@ FAKE
   expect_missing "$D/out.log" "containerlayer" "容器可写层不得出现在删除清单"
   expect_missing "$D/out.log" "live1" "layerdb 记录的层不得出现在删除清单"
   expect_contains "$D/out.log" "判定为孤儿 1 个" "只判定出 1 个真孤儿"
+fi
+
+# ── 场景 11 ────────────────────────────────────────────────────────────────
+# 2026-10-22 事故链：buildkit 缓存涨到 26G → 磁盘 98% → 一次构建中途 dockerd 被
+# OOM 杀掉 → 三个容器全灭、站点 502。真正的护栏只能是**构建前**看空间：
+# 空间不足就别构建。这条锁住那个闸门。
+case_start 11 "磁盘不足 → CI 必须跳过构建并告警（而非硬着头皮构建到写满）"
+if [ "$SKIP" = "0" ]; then
+  C="$SANDBOX/c11"; mkdir -p "$C/log" "$C/run"
+  # 假 df：可用空间 500MB（低于默认 3072MB 阈值）
+  cat > "$SANDBOX/bin/df" <<'FAKE'
+#!/bin/sh
+case "$*" in
+  *-Pk*) printf 'Filesystem 1024-blocks Used Available Capacity Mounted on
+/dev/vda3 41943040 40000000 512000 98%% /
+' ;;
+  *)     printf 'Filesystem Size Used Avail Use%% Mounted on
+/dev/vda3 40G 38G 500M 98%% /
+' ;;
+esac
+FAKE
+  chmod +x "$SANDBOX/bin/df"
+  # 静态断言：闸门必须在构建之前，且失败时 exit
+  expect_contains "$SANDBOX/app/deploy/ci.sh" "check_disk_before_build" "存在磁盘闸门函数调用"
+  expect_contains "$SANDBOX/app/deploy/ci.sh" "跳过本次部署" "空间不足时明确说跳过部署"
+  expect_contains "$SANDBOX/app/deploy/ci.sh" "docker-reclaim.sh" "处置指向回收脚本"
+  # 闸门必须在**真正执行**构建的那一行之前。
+  # 注意不能用 `grep 'docker compose up -d --build'`：注释里也有这串字，
+  # 会拿到注释的行号（本次就踩了：build=42 是注释，闸门在 166 被误判成"之后"）。
+  # 只匹配以 `if ! docker compose` / `docker compose` 开头的可执行行。
+  gate_line=$(grep -n 'if ! check_disk_before_build' "$SANDBOX/app/deploy/ci.sh" | head -1 | cut -d: -f1)
+  build_line=$(grep -n '^[[:space:]]*if ! docker compose up -d --build' "$SANDBOX/app/deploy/ci.sh" | head -1 | cut -d: -f1)
+  if [ -n "$gate_line" ] && [ -n "$build_line" ] && [ "$gate_line" -lt "$build_line" ]; then
+    ok "闸门在构建之前（第 $gate_line 行 < 第 $build_line 行）"
+  else
+    bad "闸门必须在 docker compose 构建之前（gate=${gate_line:-无} build=${build_line:-无}）"
+  fi
+
+  # 反向：绝不能**执行**任何自动清理命令。
+  # 注释里出现这些字符串是正常的（那正是解释"为什么不能用"），
+  # 所以先去注释再查 —— 否则会把说明文字当成违规。
+  CODE="$(mktemp)"
+  sed 's/^[[:space:]]*#.*$//' "$SANDBOX/app/deploy/ci.sh" | sed 's/[[:space:]]#.*$//' > "$CODE"
+  for forbidden in 'docker builder prune' 'docker buildx du' 'docker system df' 'docker system prune'; do
+    expect_missing "$CODE" "$forbidden" "CI 代码不得执行 '$forbidden'（注释里说明原因是可以的）"
+  done
+  rm -f "$CODE"
 fi
 
 echo
