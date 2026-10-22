@@ -180,6 +180,27 @@ while IFS= read -r d; do
 done < "$TMP/orphans.txt"
 
 log "删除完成：成功 $RECLAIMED，跳过 $SKIPPED，失败 $FAILED"
+
+# ── 5b) 重置 BuildKit 缓存索引 ─────────────────────────────────────────────
+# **必须做**（2026-10-22 实测踩过）：删掉层目录后，BuildKit 的 metadata_v2.db
+# 里仍记着这些层，下一次 `docker compose build` 会直接失败：
+#   #1 ERROR: stat /var/lib/docker/overlay2/<已删目录>: no such file or directory
+#   failed to solve: failed to read dockerfile
+# 而 `docker builder prune` 在本机会卡死 dockerd，没法用它让 BuildKit 自愈。
+#
+# 做法：把 buildkit 目录整个挪走（不是删除，留作证据），让 dockerd 重建空索引。
+# 代价是丢失构建缓存 —— 下一次构建会慢一些（实测约 6 分钟），但这是唯一安全的路径。
+BUILDKIT_DIR="${BUILDKIT_DIR:-$DOCKER_ROOT/buildkit}"
+if [ -d "$BUILDKIT_DIR" ]; then
+  STAMP="$(date '+%Y%m%d%H%M%S')"
+  if mv "$BUILDKIT_DIR" "$BUILDKIT_DIR.broken.$STAMP" 2>/dev/null; then
+    mkdir -p "$BUILDKIT_DIR"
+    log "已重置 BuildKit 索引（旧目录留作 $BUILDKIT_DIR.broken.$STAMP，确认构建正常后可删）"
+  else
+    log "警告：无法重置 BuildKit 索引，下一次构建可能因 'stat ... no such file' 失败"
+  fi
+fi
+
 log "重新启动 docker"
 systemctl start docker || {
   log "严重：systemctl start docker 失败，需要人工介入"
