@@ -37,6 +37,34 @@ PORT="$(hk_port)"
 # 未配置 HEALTHCHECK_PING_URL 时降级为一行日志，不影响部署。
 hk_ping start --quiet
 
+# 部署后磁盘体检（**只读**）。
+#
+# 为什么放在 CI 里、又只读：每次 `docker compose up -d --build` 都会在 buildkit
+# 留下约 1.3GB 的层。2026-10-22 这台 40G 的机器累计到 26G（98%），自检才报出来，
+# 而那时连备份都快写不下了。
+#
+# **绝不在 CI 里自动清理**，原因不是保守，是实测：
+#   `docker system df` / `docker builder prune` / `docker buildx du` 三个命令
+#   在这台机器上各自把 dockerd 拖死一次（每次都导致容器全部退出、站点 502）。
+#   一个每 3 分钟跑一次的部署任务，不能包含任何有这种失败模式的动作。
+#
+# 真正的增长控制已经交给 dockerd：/etc/docker/daemon.json 的 builder.gc
+# （defaultKeepStorage=2GB，见 deploy/deploy.sh），由守护进程在后台按策略回收，
+# 不经过这些会卡住的 CLI。
+#
+# 这里只在**磁盘超过阈值**时打一条带处置建议的日志（不告警、不失败）：
+# 告警由每日的 integrity-check 负责，避免每天几十次部署把群刷爆。
+report_disk_pressure() {
+  # df 第 5 列是使用率；去掉百分号再比。
+  used="$(df -P / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $5}' || true)"
+  case "$used" in ''|*[!0-9]*) return 0 ;; esac
+  [ "$used" -ge "${DISK_WARN_PCT:-80}" ] || return 0
+  avail="$(df -h / 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+  log "磁盘水位 ${used}%（可用 ${avail:-?}）—— 若持续上涨，需在维护窗口处理 Docker 历史层："
+  log "  1) 先确认无部署在跑；2) systemctl stop docker；3) 备份后重建 overlay2；4) systemctl start docker。"
+  log "  不要用 docker builder prune / buildx du / system df —— 本机实测会卡死 dockerd。"
+}
+
 # 部署后验证：容器健康只说明"进程起来了"，不代表契约没坏。
 # 两个套件用仓库里的脚本（纯 Node 标准库，不需要在宿主机装依赖），
 # 通过一个临时 node 容器执行 —— 宿主机上没有 node。
@@ -46,6 +74,7 @@ hk_ping start --quiet
 # 但日志里会留下明确的 FAIL 清单，且退出码非零，systemd 会标红这次运行。
 run_post_deploy_checks() {
   sha="$1"
+  report_disk_pressure
   if ! command -v docker >/dev/null 2>&1; then
     log "跳过部署后验证：宿主机没有 docker"
     return 0

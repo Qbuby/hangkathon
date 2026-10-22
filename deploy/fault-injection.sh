@@ -30,6 +30,8 @@ if [ "$ONLY" = "--list" ]; then
 6  一切正常 → 自检必须返回 0 并写 OK（防止修过头）
 7  备份校验和不匹配 → 自检必须非 0
 8  nginx 配置校验失败 → deploy-nginx.sh 必须回滚且恢复原文件
+9  buildkit 缓存超阈值 → 完整性自检必须单独告警（原先只说悬空镜像）
+10 docker-reclaim 必须跳过容器可写层（回归：误删运行中容器数据）
 LIST
   exit 0
 fi
@@ -54,6 +56,7 @@ cp "$REPO_DIR/deploy/deploy-nginx.sh"    "$SANDBOX/app/deploy/"
 cp "$REPO_DIR/deploy/nginx-hangkathon.com.conf" "$SANDBOX/app/deploy/"
 cp "$REPO_DIR/deploy/nginx-proxy-common.inc"    "$SANDBOX/app/deploy/"
 cp "$REPO_DIR/deploy/lib/common.sh"      "$SANDBOX/app/deploy/lib/"
+cp "$REPO_DIR/deploy/docker-reclaim.sh"  "$SANDBOX/app/deploy/"
 # alert.sh 也放进来：告警链路要真的被调到（沙箱里它只往日志写）
 cat > "$SANDBOX/app/deploy/alert.sh" <<'FAKE'
 #!/bin/sh
@@ -367,6 +370,53 @@ if [ "$SKIP" = "0" ]; then
   FAKE_DISK_PCT=30 FAKE_DANGLING=0 FAKE_BUILDKIT_MB=100 \
     run_sandbox "$D" running ok -- /bin/sh "$SANDBOX/app/deploy/integrity-check.sh"
   expect_rc "缓存正常时自检返回 0" 0 "$?"
+fi
+
+# ── 场景 10 ────────────────────────────────────────────────────────────────
+# 2026-10-22 真实险情：docker-reclaim.sh 第一版只按 "layerdb 里有没有 cache-id" 判断，
+# dry-run 时把 uptime-kuma 的**容器可写层**列进了删除清单 —— 它有 diff/work 但没有
+# cache-id。真跑 --apply 会删掉运行中容器的数据，且不会报任何错。
+# 这条用一个假的 DOCKER_ROOT 断言：容器持有的层必须被跳过。
+case_start 10 "docker-reclaim 必须跳过容器持有的层（回归：误把可写层当孤儿）"
+if [ "$SKIP" = "0" ]; then
+  D="$SANDBOX/c10"
+  mkdir -p "$D/docker/overlay2" "$D/docker/image/overlay2/layerdb/sha256"
+  # 一个正常的可回收孤儿：只有 diff，无 work、无 cache-id、不在容器清单
+  mkdir -p "$D/docker/overlay2/orphan1/diff"
+  # 一个容器可写层：有 diff + work，无 cache-id —— 旧逻辑会误删
+  mkdir -p "$D/docker/overlay2/containerlayer/diff" "$D/docker/overlay2/containerlayer/work"
+  # 一个被 layerdb 记录的活层
+  mkdir -p "$D/docker/overlay2/live1/diff"
+  mkdir -p "$D/docker/image/overlay2/layerdb/sha256/abc"
+  printf 'live1
+' > "$D/docker/image/overlay2/layerdb/sha256/abc/cache-id"
+
+  # 假 docker inspect 返回容器持有 containerlayer
+  cat > "$SANDBOX/bin/docker" <<FAKE
+#!/bin/sh
+case "\$1" in
+  ps) echo "c1"; exit 0 ;;
+  inspect) echo "$D/docker/overlay2/containerlayer/diff"; exit 0 ;;
+  *) exit 0 ;;
+esac
+FAKE
+  chmod +x "$SANDBOX/bin/docker"
+
+  # PATH 必须把沙箱 bin 放最前，否则 `command -v docker` 找不到（本机开发环境没有 docker）
+  # shellcheck disable=SC2086  # 变量都是本脚本自己拼的路径，不含空格
+  (
+    PATH="$SANDBOX/bin:/usr/bin:/bin"
+    export PATH
+    RECLAIM_LOG="$D/reclaim.log"
+    DOCKER_ROOT="$D/docker"
+    export RECLAIM_LOG DOCKER_ROOT
+    /bin/sh "$SANDBOX/app/deploy/docker-reclaim.sh" --dry-run
+  ) > "$D/out.log" 2>&1
+  expect_rc "dry-run 返回 0" 0 "$?"
+  expect_contains "$D/out.log" "orphan1" "可回收的孤儿被列出"
+  expect_missing "$D/out.log" "containerlayer" "容器可写层不得出现在删除清单"
+  expect_missing "$D/out.log" "live1" "layerdb 记录的层不得出现在删除清单"
+  expect_contains "$D/out.log" "判定为孤儿 1 个" "只判定出 1 个真孤儿"
 fi
 
 echo
