@@ -52,3 +52,10 @@ next-env.d.ts
 __pycache__/
 *.pyc
 pentest-evidence/
+
+# 微信开发者工具会自动写入：真实 AppID、本地私有设置、上传记录
+# project.config.json 是**要**提交的（含占位 AppID + 编译配置），但下面这些是本机状态
+miniprogram/project.private.config.json
+miniprogram/.idea/
+miniprogram/node_modules/
+miniprogram/miniprogram_npm/

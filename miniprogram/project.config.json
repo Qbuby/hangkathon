@@ -5,7 +5,7 @@
     "include": []
   },
   "setting": {
-    "urlCheck": true,
+    "urlCheck": false,
     "es6": true,
     "enhance": true,
     "postcss": true,
@@ -39,7 +39,10 @@
     "disableUseStrict": false,
     "minifyWXML": true,
     "showES6CompileOption": false,
-    "useCompilerPlugins": false
+    "useCompilerPlugins": false,
+    "compileWorklet": false,
+    "localPlugins": false,
+    "condition": false
   },
   "compileType": "miniprogram",
   "libVersion": "3.5.5",
@@ -51,5 +54,6 @@
     "tabSize": 2
   },
   "miniprogramRoot": "./",
-  "srcMiniprogramRoot": "./"
+  "srcMiniprogramRoot": "./",
+  "simulatorPluginLibVersion": {}
 }

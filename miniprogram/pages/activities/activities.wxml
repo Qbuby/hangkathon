@@ -1,48 +1,212 @@
 <view class="page">
-  <!-- 顶部横幅 -->
-  <view class="hero">
-    <text class="hero-title">世界 AI 上杭州</text>
-    <text class="hero-sub">杭州的 AI 活动与赛事平台</text>
+  <!-- ── 页头：与网页 /activities 的 board-head 对齐 ───────────────────── -->
+  <view class="board-head">
+    <text class="eyebrow">LOCAL EVENTS</text>
+    <text class="board-title">本地赛事</text>
+    <text class="board-sub">
+      杭客松的自有活动对个人开放：点进去报名，完成作品或任务，积累荣誉、赢取奖励。
+      下面还收录了每日从国内平台抓取的江浙沪线下活动。
+    </text>
+
+    <view class="flow">
+      <view wx:for="{{flowSteps}}" wx:key="*this" class="flow-step">
+        <text class="flow-no">{{index + 1}}</text>
+        <text class="flow-text">{{item}}</text>
+        <text wx:if="{{index < flowSteps.length - 1}}" class="flow-arrow">→</text>
+      </view>
+    </view>
+
+    <button class="btn-launch" bindtap="goCreate">发起活动 <text class="launch-arrow">↗</text></button>
   </view>
 
-  <!-- 区筛选 -->
-  <scroll-view class="district-bar" scroll-x enable-flex>
-    <view
-      wx:for="{{districts}}"
-      wx:key="id"
-      class="district-chip {{district === item.id ? 'is-on' : ''}}"
-      data-id="{{item.id}}"
-      bindtap="onDistrictTap"
-    >{{item.name}}</view>
-  </scroll-view>
+  <!-- ── 筛选面板 ─────────────────────────────────────────────────────── -->
+  <view class="filter-panel">
+    <view class="filter-head" bindtap="toggleFilter">
+      <text class="filter-title">筛选与排序</text>
+      <text class="filter-toggle">{{filterOpen ? '收起' : '展开'}} {{filterOpen ? '▲' : '▼'}}</text>
+    </view>
 
-  <view wx:if="{{loading}}" class="loading">正在加载活动…</view>
+    <block wx:if="{{filterOpen}}">
+      <view class="filter-row">
+        <text class="filter-label">类别</text>
+        <view class="chips">
+          <view
+            wx:for="{{categories}}"
+            wx:key="value"
+            class="chip {{category === item.value ? 'on' : ''}}"
+            data-field="category"
+            data-value="{{item.value}}"
+            bindtap="pickFilter"
+          >{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="filter-row">
+        <text class="filter-label">奖金</text>
+        <view class="chips">
+          <view
+            wx:for="{{prizeFilters}}"
+            wx:key="value"
+            class="chip {{prize === item.value ? 'on' : ''}}"
+            data-field="prize"
+            data-value="{{item.value}}"
+            bindtap="pickFilter"
+          >{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="filter-row">
+        <text class="filter-label">形式</text>
+        <view class="chips">
+          <view
+            wx:for="{{formatFilters}}"
+            wx:key="value"
+            class="chip {{format === item.value ? 'on' : ''}}"
+            data-field="format"
+            data-value="{{item.value}}"
+            bindtap="pickFilter"
+          >{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="filter-row">
+        <text class="filter-label">费用</text>
+        <view class="chips">
+          <view
+            wx:for="{{costFilters}}"
+            wx:key="value"
+            class="chip {{cost === item.value ? 'on' : ''}}"
+            data-field="cost"
+            data-value="{{item.value}}"
+            bindtap="pickFilter"
+          >{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="filter-row">
+        <text class="filter-label">排序</text>
+        <view class="chips">
+          <view
+            wx:for="{{sorts}}"
+            wx:key="value"
+            class="chip {{sort === item.value ? 'on' : ''}}"
+            data-field="sort"
+            data-value="{{item.value}}"
+            bindtap="pickFilter"
+          >{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="filter-row">
+        <text class="filter-label">日期</text>
+        <view class="date-row">
+          <picker mode="date" data-field="dateFrom" value="{{dateFrom}}" bindchange="onDateChange">
+            <view class="date-input">{{dateFrom || '开始'}}</view>
+          </picker>
+          <text class="date-sep">至</text>
+          <picker mode="date" data-field="dateTo" value="{{dateTo}}" bindchange="onDateChange">
+            <view class="date-input">{{dateTo || '结束'}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="filter-actions">
+        <text class="clear-link" bindtap="clearFilters">清除筛选</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- ── 信息流 ───────────────────────────────────────────────────────── -->
+  <view wx:if="{{loading}}" class="loading">正在读取活动…</view>
 
   <view wx:elif="{{error}}" class="empty">
-    <text>{{error}}</text>
+    <text class="err-main">{{error}}</text>
+    <text wx:if="{{apiBase}}" class="err-detail">接口地址：{{apiBase}}</text>
+    <text wx:if="{{errorDetail}}" class="err-detail">错误详情：{{errorDetail}}</text>
     <button class="btn btn-ghost retry" bindtap="onRetry">重新加载</button>
   </view>
 
-  <view wx:elif="{{activities.length === 0}}" class="empty">这个区暂时没有活动。</view>
-
   <block wx:else>
-    <view
-      wx:for="{{activities}}"
-      wx:key="id"
-      class="card activity-card"
-      data-slug="{{item.slug}}"
-      bindtap="openDetail"
-    >
-      <view class="activity-head">
-        <text class="activity-title">{{item.title}}</text>
-        <text wx:if="{{item.reviewStatus === 'pending'}}" class="tag tag-gold">审核中</text>
-        <text wx:elif="{{item.mine}}" class="tag">我发起的</text>
+    <view wx:if="{{groups.length === 0 && externalEvents.length === 0}}" class="empty">
+      没有符合当前筛选的活动。换一组条件，或者清除筛选看看全部。
+    </view>
+
+    <view wx:for="{{groups}}" wx:key="id" class="feed-group">
+      <view class="group-head">
+        <text class="group-title">{{item.title}}</text>
+        <text class="group-count">{{item.items.length}} 场</text>
       </view>
-      <text wx:if="{{item.subtitle}}" class="activity-sub">{{item.subtitle}}</text>
-      <view class="activity-meta">
-        <text class="tag">{{item.districtText}}</text>
-        <text class="tag">{{item.priceText}}</text>
-        <text class="muted">{{item.dateText}}</text>
+
+      <view
+        wx:for="{{item.items}}"
+        wx:for-item="act"
+        wx:key="id"
+        class="feed-item"
+        data-slug="{{act.slug}}"
+        bindtap="openDetail"
+      >
+        <view class="feed-top">
+          <view class="feed-date" style="background: {{act.badgeColor}}">
+            <text class="feed-month">{{act.badge.month}}</text>
+            <text class="feed-day">{{act.badge.day}}</text>
+          </view>
+          <view class="feed-head">
+            <view class="feed-title-row">
+              <text class="feed-title">{{act.title}}</text>
+              <text wx:if="{{act.isPending}}" class="feed-pending">待审核</text>
+            </view>
+            <text class="feed-when">{{act.whenText}}</text>
+          </view>
+        </view>
+
+        <view class="feed-where">
+          <text class="pin">◎</text>
+          <text>{{act.whereText}}</text>
+          <text wx:if="{{act.host}}" class="sep">·</text>
+          <text wx:if="{{act.host}}">{{act.host}}</text>
+        </view>
+
+        <text wx:if="{{act.intro}}" class="feed-intro">{{act.intro}}</text>
+
+        <view class="feed-meta">
+          <text class="tag">{{act.categoryText}}</text>
+          <text class="feed-cta">查看详情 →</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 国内平台活动（外部抓取） -->
+    <view wx:if="{{externalEvents.length > 0}}" class="feed-group">
+      <view class="group-head">
+        <text class="group-title">国内平台活动</text>
+        <text class="group-count">{{externalEvents.length}} 场</text>
+      </view>
+
+      <view
+        wx:for="{{externalEvents}}"
+        wx:key="id"
+        class="feed-item"
+        data-url="{{item.url}}"
+        bindtap="openExternal"
+      >
+        <view class="feed-top">
+          <view class="feed-date" style="background: {{item.badgeColor}}">
+            <text class="feed-month">{{item.badge.month}}</text>
+            <text class="feed-day">{{item.badge.day}}</text>
+          </view>
+          <view class="feed-head">
+            <text class="feed-title">{{item.titleZh || item.title}}</text>
+            <text class="feed-when">{{item.whenText}}</text>
+          </view>
+        </view>
+        <view wx:if="{{item.whereText}}" class="feed-where">
+          <text class="pin">◎</text>
+          <text>{{item.whereText}}</text>
+        </view>
+        <text wx:if="{{item.intro}}" class="feed-intro">{{item.intro}}</text>
+        <view class="feed-meta">
+          <text class="feed-cta">查看详情 →</text>
+        </view>
       </view>
     </view>
   </block>

@@ -1,11 +1,15 @@
 <view class="page">
-  <view class="hero">
-    <text class="hero-eyebrow">LEADERBOARD</text>
-    <text class="hero-title">排行榜</text>
-    <text class="hero-sub">在杭客松参加活动、完成作品、获得认可，就会积累贡献值。</text>
+  <!-- 页头 -->
+  <view class="lb-hero">
+    <text class="eyebrow">LEADERBOARD</text>
+    <text class="lb-title">排行榜</text>
+    <text class="lb-sub">
+      在杭客松参加活动、完成作品、获得认可，就会积累你的荣誉 ——
+      平台里把它叫作「贡献值」。榜单上的数字越高，说明这位参与者做的事情越多、越被认可。
+    </text>
   </view>
 
-  <view wx:if="{{loading}}" class="loading">正在加载…</view>
+  <view wx:if="{{loading}}" class="loading">正在读取榜单…</view>
 
   <view wx:elif="{{error}}" class="empty">
     <text>{{error}}</text>
@@ -13,22 +17,69 @@
   </view>
 
   <block wx:else>
+    <!-- 四宫格统计 -->
     <view class="stats">
       <view class="stat"><text class="stat-num">{{totalText}}</text><text class="stat-label">累计荣誉值</text></view>
-      <view class="stat"><text class="stat-num">{{activityCount}}</text><text class="stat-label">已发布活动</text></view>
-      <view class="stat"><text class="stat-num">{{citizenCount}}</text><text class="stat-label">参与者</text></view>
-      <view class="stat"><text class="stat-num">{{teams.length}}</text><text class="stat-label">战队</text></view>
+      <view class="stat"><text class="stat-num">{{activityCount}} 场</text><text class="stat-label">已发布活动</text></view>
+      <view class="stat"><text class="stat-num">{{citizenCount}} 位</text><text class="stat-label">参与者</text></view>
+      <view class="stat"><text class="stat-num">{{teams.length}} 支</text><text class="stat-label">战队</text></view>
     </view>
 
-    <view class="card">
-      <text class="eyebrow">CITIZENS</text>
-      <text class="h2">个人的贡献</text>
-      <text class="muted rule-note">贡献值决定「数字杭州市民」的星级 —— 只升不降。</text>
+    <!-- 我的荣誉 -->
+    <view class="lb-section">
+      <text class="eyebrow">MY HONOR</text>
+      <text class="section-title">我的荣誉</text>
+      <view class="my-honor">
+        <view class="my-honor-tag">你</view>
+        <view class="my-honor-main">
+          <text class="my-honor-title">{{myTitle}}</text>
+          <text class="my-honor-sub">{{mySub}}</text>
+        </view>
+      </view>
+    </view>
 
+    <!-- 各区统计 -->
+    <view class="lb-section">
+      <text class="eyebrow">DISTRICTS</text>
+      <text class="section-title">各区统计</text>
+      <text class="explain">
+        区是活动的归属标签：这里统计各区名下已发布的活动场数。区不计入贡献值。
+      </text>
+      <view class="district-list">
+        <view wx:for="{{districts}}" wx:key="id" class="district-row">
+          <view class="district-dot" style="background: {{item.color}}"></view>
+          <text class="district-name">{{item.name}}</text>
+          <text class="district-count">{{item.count}} 场活动</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 战队荣誉 -->
+    <view class="lb-section">
+      <text class="eyebrow">TEAMS</text>
+      <text class="section-title">战队荣誉</text>
+      <text class="explain">战队是一起参加活动的队伍：战队荣誉 = 队员贡献之和，大家一起参赛、一起分享荣誉。</text>
+      <view wx:if="{{teams.length === 0}}" class="empty small">暂无战队荣誉数据。</view>
+      <view wx:else class="rank-list">
+        <view wx:for="{{teams}}" wx:key="id" class="rank-row">
+          <view class="district-dot" style="background: {{item.color}}"></view>
+          <view class="rank-main"><text class="rank-name">{{item.name}}</text></view>
+          <text class="rank-points">{{item.pointsText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 个人贡献 -->
+    <view class="lb-section">
+      <text class="eyebrow">CITIZENS</text>
+      <text class="section-title">个人的贡献</text>
+      <text class="explain">
+        「贡献值」就是你在杭客松参与活动、完成作品和获得认可所积累的荣誉值。
+        它同时决定「数字杭州市民」的星级 —— 只升不降。
+      </text>
       <view wx:if="{{topUsers.length === 0}}" class="empty small">
         还没有贡献记录。报名参加一场活动，就会开始积累。
       </view>
-
       <view wx:else class="rank-list">
         <view wx:for="{{topUsers}}" wx:key="name" class="rank-row">
           <text class="rank-no">{{item.rank}}</text>
@@ -37,36 +88,6 @@
             <text class="rank-meta">{{item.activities}} 场活动{{item.team ? ' · ' + item.team.name : ''}}</text>
           </view>
           <text class="rank-points">{{item.pointsText}}</text>
-        </view>
-      </view>
-    </view>
-
-    <view class="card">
-      <text class="eyebrow">TEAMS</text>
-      <text class="h2">战队荣誉</text>
-      <text class="muted rule-note">战队荣誉 = 队员贡献之和。</text>
-
-      <view wx:if="{{teams.length === 0}}" class="empty small">暂无战队荣誉数据。</view>
-
-      <view wx:else class="rank-list">
-        <view wx:for="{{teams}}" wx:key="id" class="rank-row">
-          <view class="team-dot" style="background: {{item.color}}"></view>
-          <view class="rank-main">
-            <text class="rank-name">{{item.name}}</text>
-          </view>
-          <text class="rank-points">{{item.pointsText}}</text>
-        </view>
-      </view>
-    </view>
-
-    <view class="card">
-      <text class="eyebrow">DISTRICTS</text>
-      <text class="h2">各区活动数</text>
-      <view class="district-grid">
-        <view wx:for="{{districts}}" wx:key="id" class="district-cell">
-          <view class="district-dot" style="background: {{item.color}}"></view>
-          <text class="district-name">{{item.name}}</text>
-          <text class="district-count">{{item.count}} 场</text>
         </view>
       </view>
     </view>

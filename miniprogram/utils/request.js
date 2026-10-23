@@ -94,9 +94,26 @@ function request(path, options = {}) {
         reject(new ApiError(res.statusCode, message, extra));
       },
       fail(err) {
-        const message = "网络异常，请检查连接后重试";
+        /**
+         * 这里最容易被误判成"网络不好"，实际常见原因有三个，必须能区分：
+         *   1. 开发者工具没关「校验合法域名」，而域名还没加进小程序后台白名单
+         *      → errMsg 通常是 "request:fail url not in domain list"
+         *   2. 手机没网 / 服务器不可达 → "request:fail timeout" 或 "fail"
+         *   3. 证书问题 → "request:fail ssl handshake failed"
+         * 只显示"网络异常"的话，排查要多花很久，所以把 errMsg 带进 message。
+         */
+        const detail = String((err && err.errMsg) || "").replace(/^request:fail\s*/, "");
+        let message = "网络异常，请检查连接后重试";
+        if (/domain list/i.test(detail)) {
+          message = "域名未加入小程序白名单：请在小程序后台配置 request 合法域名，或在开发者工具中关闭域名校验";
+        } else if (/ssl|handshake|certificate/i.test(detail)) {
+          message = "证书校验失败，请确认使用 https 且证书有效";
+        } else if (/timeout/i.test(detail)) {
+          message = "请求超时，请检查网络后重试";
+        }
         if (!options.silent) wx.showToast({ title: message, icon: "none" });
-        reject(new ApiError(0, message, { raw: err }));
+        console.error("[request] 失败", BASE_URL + path, detail);
+        reject(new ApiError(0, message, { raw: err, detail }));
       },
     });
   });

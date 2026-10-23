@@ -1,5 +1,6 @@
 const { get } = require("../../utils/request");
-const { formatNumber } = require("../../utils/format");
+const { formatNumber, displayName } = require("../../utils/format");
+const { getCachedUser } = require("../../utils/auth");
 
 /**
  * 排行榜。
@@ -21,6 +22,8 @@ Page({
     activityCount: 0,
     totalText: "0",
     citizenCount: 0,
+    myTitle: "登录后，这里就是你的荣誉面板",
+    mySub: "报名一场活动、完成一件作品，荣誉就会开始积累。",
     teams: [],
     topUsers: [],
   },
@@ -56,9 +59,20 @@ Page({
         })),
         loading: false,
       });
+      this.refreshMyHonor();
     } catch (error) {
       this.setData({ loading: false, error: error.message || "加载失败" });
     }
+  },
+
+  /** 「我的荣誉」：登录后显示展示名与当前贡献值（结算未接入，按 0 展示）。 */
+  refreshMyHonor() {
+    const user = getCachedUser();
+    if (!user) return;
+    this.setData({
+      myTitle: displayName(user, "数字市民"),
+      mySub: "贡献值 0 · 初来数字市民。报名参加活动后，这里会开始积累。",
+    });
   },
 
   onRetry() {

@@ -1,5 +1,5 @@
 <view class="page">
-  <view wx:if="{{loading}}" class="loading">正在加载…</view>
+  <view wx:if="{{loading}}" class="loading">正在读取活动…</view>
 
   <view wx:elif="{{error}}" class="empty">
     <text>{{error}}</text>
@@ -7,55 +7,90 @@
   </view>
 
   <block wx:elif="{{activity}}">
-    <view class="banner">
-      <text class="banner-eyebrow">ACTIVITY</text>
-      <text class="banner-title">{{activity.title}}</text>
-      <text wx:if="{{activity.subtitle}}" class="banner-sub">{{activity.subtitle}}</text>
-      <view class="banner-meta">
-        <text class="banner-tag">{{activity.dateText}}</text>
-        <text class="banner-tag">{{joinCount}} 人已报名</text>
+    <!-- ── 标题区（对齐网页 detail-hero）───────────────────────────── -->
+    <view class="detail-hero">
+      <text class="hero-title">{{activity.title}}</text>
+      <text wx:if="{{activity.subtitle}}" class="hero-sub">{{activity.subtitle}}</text>
+      <text wx:if="{{activity.host}}" class="hero-line">主办方 · {{activity.host}}</text>
+      <text wx:if="{{activity.contact}}" class="hero-line">联系方式 · {{activity.contact}}</text>
+    </view>
+
+    <!-- ── 关键信息（对齐 detail-facts）────────────────────────────── -->
+    <view class="facts">
+      <text class="facts-title">关键信息</text>
+      <view wx:for="{{facts}}" wx:key="label" class="fact-row">
+        <text class="fact-label">{{item.label}}</text>
+        <view class="fact-value-wrap">
+          <view wx:if="{{item.color}}" class="fact-district">
+            <view class="fact-dot" style="background: {{item.color}}"></view>
+            <text>{{item.value}}</text>
+          </view>
+          <text wx:else class="fact-value">{{item.value}}</text>
+        </view>
       </view>
     </view>
 
-    <view class="card">
+    <!-- ── 活动说明（对齐 detail-section）──────────────────────────── -->
+    <view class="section">
       <text class="eyebrow">WHAT YOU DO</text>
-      <text class="h2">你要做什么</text>
-      <text class="body-text">{{activity.overview || "暂无活动说明。"}}</text>
+      <text class="section-title">你要做什么</text>
+      <text class="section-text">{{activity.overview || '主办方还没有填写活动说明。'}}</text>
+
+      <block wx:if="{{activity.criteriaText}}">
+        <text class="section-label">评审维度</text>
+        <text class="section-text">{{activity.criteriaText}}</text>
+      </block>
+
+      <block wx:if="{{activity.awardsText}}">
+        <text class="section-label">奖项</text>
+        <text class="section-text">{{activity.awardsText}}</text>
+      </block>
+
+      <text class="section-label">参加流程</text>
+      <text class="section-text">发现活动 → 报名参加 → 完成作品/任务 → 获得荣誉。报名后可在本页提交抖音作品链接。</text>
     </view>
 
-    <view class="card">
-      <text class="eyebrow">DETAILS</text>
-      <text class="h2">活动信息</text>
-      <view class="kv"><text class="k">主办方</text><text class="v">{{activity.host || "—"}}</text></view>
-      <view class="kv"><text class="k">形式</text><text class="v">{{activity.format === 'online' ? '线上' : '线下'}}</text></view>
-      <view wx:if="{{activity.format !== 'online'}}" class="kv"><text class="k">地点</text><text class="v">{{activity.venue || "待定"}}</text></view>
-      <view class="kv"><text class="k">奖金</text><text class="v">{{activity.prizeText}}</text></view>
-      <view class="kv"><text class="k">费用</text><text class="v">{{activity.pricing === 'paid' ? activity.fee : '免费'}}</text></view>
-      <view wx:if="{{activity.criteriaText}}" class="kv"><text class="k">评审</text><text class="v">{{activity.criteriaText}}</text></view>
-      <view wx:if="{{activity.awardsText}}" class="kv"><text class="k">奖项</text><text class="v">{{activity.awardsText}}</text></view>
-      <view wx:if="{{activity.contact}}" class="kv"><text class="k">联系</text><text class="v">{{activity.contact}}</text></view>
+    <!-- ── 报名区（对齐 detail-join）──────────────────────────────── -->
+    <view class="join-card">
+      <block wx:if="{{joined}}">
+        <text class="join-title">已报名 · 个人参赛</text>
+        <view class="join-badge">
+          <view class="join-badge-dot"></view>
+          <text>个人参赛</text>
+        </view>
+        <text class="join-note">{{joinCount}} 人已报名 · 报名后照「怎么参加」四步走就行。</text>
+
+        <button class="btn btn-primary btn-block join-action" bindtap="onSubmitWork">提交作品</button>
+        <button class="btn btn-ghost btn-block join-action" bindtap="onInvite">
+          {{inviteCopied ? '邀请链接已复制' : '复制邀请链接'}}
+        </button>
+      </block>
+
+      <block wx:else>
+        <text class="join-title">想参加这场活动？</text>
+        <button class="btn btn-primary btn-block" loading="{{joining}}" disabled="{{joining}}" bindtap="onJoin">
+          {{joining ? '报名中…' : '登录后报名'}}
+        </button>
+        <text class="join-note">个人一键报名。报名后照着「怎么参加」四步走就行。</text>
+      </block>
     </view>
 
-    <view class="card">
-      <text wx:if="{{joined}}" class="joined-note">你已报名本场活动</text>
-      <button
-        wx:if="{{!joined}}"
-        class="btn btn-primary btn-block"
-        loading="{{joining}}"
-        disabled="{{joining}}"
-        bindtap="onJoin"
-      >报名参加</button>
-
-      <button wx:if="{{joined}}" class="btn btn-ghost btn-block submit-gap" bindtap="onSubmitWork">提交作品</button>
-      <button class="btn btn-ghost btn-block submit-gap" bindtap="onInvite">复制邀请链接</button>
-    </view>
-
-    <view class="card">
-      <text class="eyebrow">MORE</text>
-      <text class="h2">关于本活动</text>
-      <text class="body-text small">
-        报名与作品数据与网页版完全同步。你也可以在浏览器打开 https://hangkathon.com 查看完整页面。
-      </text>
+    <!-- ── 我的作品 ───────────────────────────────────────────────── -->
+    <view wx:if="{{joined}}" class="section">
+      <text class="eyebrow">MY WORKS</text>
+      <text class="section-title">我的作品</text>
+      <view wx:if="{{mySubmissions.length === 0}}" class="section-text">
+        还没有提交过作品。可以反复提交，每次提交都会进入审核队列。
+      </view>
+      <view wx:else class="work-list">
+        <view wx:for="{{mySubmissions}}" wx:key="url" class="work-row" data-url="{{item.url}}" bindtap="onCopyWork">
+          <text class="work-url">{{item.url}}</text>
+          <text class="work-meta">
+            {{item.diggCount !== undefined ? '赞 ' + item.diggCount : '尚未抓到数据'}}
+          </text>
+        </view>
+      </view>
+      <text class="section-hint">提交记录保存在平台，只有你自己能看到。</text>
     </view>
   </block>
 </view>

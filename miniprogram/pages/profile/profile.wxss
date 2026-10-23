@@ -1,30 +1,24 @@
-.login-card {
-  display: flex;
-  flex-direction: column;
-  gap: 18rpx;
-  margin-top: 60rpx;
-}
+/* 我的 —— 对齐网页 profile.css 的勋章卡：
+   白色圆角卡、HONOR · 数字杭州市民 小标题、大字昵称、五颗星、
+   金色档位文字、大号贡献值、进度条。 */
 
-.login-btn {
-  margin-top: 12rpx;
-}
-
+/* ── 勋章卡 ───────────────────────────────────────────────────────────── */
 .medal {
-  margin: 24rpx;
-  padding: 36rpx 32rpx;
+  margin: 32rpx 24rpx 0;
+  padding: 40rpx 32rpx;
   background: #fff;
-  border: 1rpx solid var(--hk-border);
+  border: 1rpx solid #dce7f2;
   border-radius: 24rpx;
-  box-shadow: 0 2rpx 16rpx rgba(23, 58, 102, 0.05);
+  box-shadow: 0 4rpx 20rpx rgba(23, 58, 102, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 20rpx;
 }
 
 .medal-eyebrow {
   font-size: 20rpx;
-  letter-spacing: 4rpx;
-  color: var(--hk-muted);
+  letter-spacing: 5rpx;
+  color: #5f7f9e;
 }
 
 .medal-identity {
@@ -34,14 +28,14 @@
 }
 
 .avatar {
-  width: 72rpx;
-  height: 72rpx;
+  width: 84rpx;
+  height: 84rpx;
   border-radius: 50%;
   background: #e3f4ff;
   border: 1rpx solid #cfe1f2;
   color: #0b6fa8;
   font-weight: 600;
-  font-size: 30rpx;
+  font-size: 32rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -49,9 +43,10 @@
 }
 
 .medal-name {
-  font-size: 40rpx;
-  font-weight: 600;
-  color: var(--hk-foreground);
+  font-size: 48rpx;
+  font-weight: 650;
+  letter-spacing: 2rpx;
+  color: #17273a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -59,11 +54,12 @@
 
 .stars {
   display: flex;
-  gap: 10rpx;
+  gap: 12rpx;
 }
 
 .star {
-  font-size: 36rpx;
+  font-size: 44rpx;
+  line-height: 1;
 }
 
 .star.on {
@@ -75,31 +71,33 @@
 }
 
 .medal-title {
-  font-size: 26rpx;
+  font-size: 27rpx;
   letter-spacing: 1rpx;
-  color: var(--hk-gold);
+  color: #c9952a;
 }
 
 .points {
   display: flex;
   align-items: baseline;
-  gap: 14rpx;
+  gap: 16rpx;
+  margin-top: 8rpx;
 }
 
 .points-num {
-  font-size: 56rpx;
+  font-size: 64rpx;
   font-weight: 700;
-  color: var(--hk-foreground);
+  letter-spacing: 1rpx;
+  color: #17273a;
 }
 
 .points-label {
   font-size: 24rpx;
   letter-spacing: 1rpx;
-  color: var(--hk-muted);
+  color: #8fa6bb;
 }
 
 .progress-bar {
-  height: 12rpx;
+  height: 14rpx;
   border-radius: 8rpx;
   background: #e8f0f8;
   overflow: hidden;
@@ -113,41 +111,76 @@
 
 .medal-next {
   font-size: 24rpx;
-  color: var(--hk-muted);
+  color: #8fa6bb;
 }
 
 .medal-note {
-  font-size: 22rpx;
-  line-height: 1.75;
-  color: #93a8bd;
+  font-size: 24rpx;
+  line-height: 1.85;
+  color: #8fa6bb;
 }
 
+/* ── 分区（对齐 profile 的 ACTIVITIES 段）────────────────────────────── */
+.profile-section {
+  padding: 48rpx 40rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.detail-eyebrow {
+  font-size: 20rpx;
+  letter-spacing: 5rpx;
+  color: #5f7f9e;
+}
+
+.section-title {
+  font-size: 38rpx;
+  font-weight: 650;
+  letter-spacing: 2rpx;
+  color: #17273a;
+}
+
+.section-sub {
+  font-size: 24rpx;
+  color: #8fa6bb;
+}
+
+/* 报名行 */
 .join-list {
-  margin-top: 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin-top: 10rpx;
 }
 
 .join-row {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  padding: 22rpx 0;
-  border-bottom: 1rpx solid #f2f7fc;
-}
-
-.join-row:last-child {
-  border-bottom: none;
+  gap: 18rpx;
+  padding: 28rpx 30rpx;
+  background: #fff;
+  border: 1rpx solid #e3edf6;
+  border-radius: 20rpx;
+  box-shadow: 0 1rpx 8rpx rgba(23, 58, 102, 0.04);
 }
 
 .join-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 6rpx;
+}
+
+.join-title {
+  font-size: 29rpx;
+  font-weight: 600;
+  color: #17273a;
 }
 
 .join-date {
-  font-size: 26rpx;
-  color: var(--hk-foreground);
+  font-size: 23rpx;
+  color: #8fa6bb;
 }
 
 .join-arrow {
@@ -155,18 +188,47 @@
   color: #b9cee0;
 }
 
+/* ── 未登录卡 ─────────────────────────────────────────────────────────── */
+.login-card {
+  margin: 60rpx 24rpx 0;
+  padding: 40rpx 32rpx;
+  background: #fff;
+  border: 1rpx solid #dce7f2;
+  border-radius: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.login-title {
+  font-size: 44rpx;
+  font-weight: 650;
+  letter-spacing: 1rpx;
+  color: #17273a;
+}
+
+.login-body {
+  font-size: 26rpx;
+  line-height: 1.9;
+  color: #7c93a8;
+}
+
+.login-btn {
+  margin-top: 8rpx;
+}
+
 .tiny {
   font-size: 22rpx;
   line-height: 1.7;
+  color: #9fb2c4;
 }
 
-.gap {
-  margin-top: 18rpx;
-}
-
-.empty.small {
-  padding: 40rpx 20rpx;
-  font-size: 24rpx;
+/* ── 更多操作 ─────────────────────────────────────────────────────────── */
+.more-actions {
+  padding: 40rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
 }
 
 .retry {

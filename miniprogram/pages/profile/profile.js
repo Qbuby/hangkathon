@@ -1,14 +1,16 @@
 const { get, ApiError } = require("../../utils/request");
 const { ensureLogin, logout, getCachedUser } = require("../../utils/auth");
-const { displayName, avatarInitial, timeAgo, formatNumber, honorLevel, formatDate } = require("../../utils/format");
+const { displayName, avatarInitial, formatNumber, honorLevel, formatDate } = require("../../utils/format");
 
 /**
- * 我的：身份、勋章、我的报名、我的作品、入口。
+ * 我的 —— 与网页 /profile 对齐：
+ *   勋章卡（星 / 档位 / 贡献值 / 进度）→ 我的报名 → 更多操作。
  *
- * 数据来源：
- *   GET /api/me           → { user, joins, submissionCount }（唯一返回 id/role 的接口）
- *   GET /api/leaderboard  → honorLevels（勋章档位，避免前端硬编码阈值）
- *   GET /api/agent/session→ canPublish（决定要不要显示"发起活动"入口）
+ * 数据：
+ *   GET /api/me           → user + joins(activityId) + submissionCount
+ *   GET /api/activities   → 用 activityId 关联出活动标题与 slug（/api/me 不返回标题）
+ *   GET /api/leaderboard  → 勋章档位（避免前端硬编码 500/2000/6000/15000）
+ *   GET /api/agent/session→ canPublish
  */
 Page({
   data: {
@@ -18,8 +20,8 @@ Page({
     user: null,
     nameText: "",
     avatarText: "·",
-    points: 0,
-    level: null,
+    pointsText: "0",
+    level: { stars: 1, title: "初来数字市民", next: null },
     nextText: "",
     progress: 0,
     joins: [],
@@ -40,14 +42,13 @@ Page({
   async refresh() {
     this.setData({ loading: true, error: "" });
     try {
-      // 先确认会话。没 token 时 fetchSession 直接返回 null，不会弹授权。
       const cached = getCachedUser();
-      if (!cached) {
-        await ensureLogin();
-      }
-      const [me, board] = await Promise.all([
+      if (!cached) await ensureLogin();
+
+      const [me, board, activities] = await Promise.all([
         get("/api/me", { silent: true }),
         get("/api/leaderboard", { silent: true }).catch(() => ({ honorLevels: [] })),
+        get("/api/activities", { silent: true }).catch(() => ({ activities: [] })),
       ]);
 
       const user = me.user || null;
@@ -57,17 +58,23 @@ Page({
       }
 
       const honorLevels = (board && board.honorLevels) || [];
-      // 贡献值结算尚未接入（CONTRIBUTIONS 为空），这里按 0 展示，
-      // 与网页端 /profile 的口径一致 —— 不编造数字。
+      // 贡献值结算尚未接入（CONTRIBUTIONS 为空），与网页 /profile 口径一致按 0 展示
       const points = 0;
-      const level = honorLevel(user ? 0 : points, honorLevels);
+      const level = honorLevel(points, honorLevels);
 
-      const joins = (me.joins || []).map((row) => ({
-        activityId: row.activityId,
-        joinedAt: formatDate(row.joinedAt),
-        ago: timeAgo(row.joinedAt),
-        invited: Boolean(row.invitedBy),
-      }));
+      // /api/me 只给 activityId，标题要从活动列表里关联
+      const byId = new Map();
+      for (const item of activities.activities || []) byId.set(item.id, item);
+      const joins = (me.joins || []).map((row) => {
+        const act = byId.get(row.activityId);
+        return {
+          activityId: row.activityId,
+          slug: act ? act.slug : "",
+          title: act ? act.title : "（活动已下线）",
+          joinedAt: formatDate(row.joinedAt),
+          invited: Boolean(row.invitedBy),
+        };
+      });
 
       let canPublish = false;
       try {
@@ -83,9 +90,11 @@ Page({
         user,
         nameText: displayName(user, "数字市民"),
         avatarText: avatarInitial(user),
-        points,
+        pointsText: formatNumber(points),
         level,
-        nextText: level.next ? "距 ★" + level.next.stars + " " + level.next.title + " 还差 " + formatNumber(level.next.min - points) + " 贡献值" : "已达最高星级",
+        nextText: level.next
+          ? "距 ★" + level.next.stars + " " + level.next.title + " 还差 " + formatNumber(level.next.min - points) + " 贡献值"
+          : "已达最高星级。",
         progress: level.progress,
         joins,
         joinCount: joins.length,
@@ -94,8 +103,10 @@ Page({
         isAdmin: user.role === "admin",
       });
     } catch (error) {
-      // 401 时 ensureLogin 已经处理过；其他错误给一次重试机会
-      this.setData({ loading: false, error: error instanceof ApiError ? error.message : "加载失败" });
+      this.setData({
+        loading: false,
+        error: error instanceof ApiError ? error.message : "加载失败",
+      });
     }
   },
 
@@ -110,22 +121,25 @@ Page({
       title: "退出登录",
       content: "退出后需要重新用微信登录。",
       success: (res) => {
-        if (res.confirm) {
-          logout();
-          this.setData({ loggedIn: false, user: null });
-          wx.showToast({ title: "已退出", icon: "success" });
-        }
+        if (!res.confirm) return;
+        logout();
+        this.setData({ loggedIn: false, user: null, joins: [] });
+        wx.showToast({ title: "已退出", icon: "success" });
       },
     });
   },
 
   openActivity(event) {
-    const id = event.currentTarget.dataset.id;
-    // joins 里存的是 activityId（UUID），详情页要 slug。这里退回看板页让用户自己点。
-    wx.switchTab({ url: "/pages/activities/activities" });
-    if (id) {
-      wx.showToast({ title: "请在看板中打开该活动", icon: "none" });
+    const slug = event.currentTarget.dataset.slug;
+    if (!slug) {
+      wx.showToast({ title: "该活动已下线", icon: "none" });
+      return;
     }
+    wx.navigateTo({ url: "/pages/activity-detail/activity-detail?slug=" + encodeURIComponent(slug) });
+  },
+
+  goActivities() {
+    wx.switchTab({ url: "/pages/activities/activities" });
   },
 
   goCreate() {

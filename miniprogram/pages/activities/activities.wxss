@@ -1,81 +1,362 @@
-.hero {
-  padding: 56rpx 40rpx 44rpx;
-  background: linear-gradient(160deg, #0b2748, #123a63);
+/* 活动看板 —— 对齐网页 board.css 的视觉语言：
+   白底、浅蓝分隔、圆角卡片、青色主色、日期徽章按类别渐变。 */
+
+/* ── 页头 ─────────────────────────────────────────────────────────────── */
+.board-head {
+  padding: 56rpx 40rpx 40rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #e2ecf6;
   display: flex;
   flex-direction: column;
+  gap: 16rpx;
+}
+
+.eyebrow {
+  font-size: 20rpx;
+  letter-spacing: 5rpx;
+  color: #5f7f9e;
+}
+
+.board-title {
+  font-size: 56rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  color: #17273a;
+}
+
+.board-sub {
+  font-size: 26rpx;
+  line-height: 1.9;
+  color: #7c93a8;
+}
+
+/* 四步流程 */
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12rpx 16rpx;
+  margin-top: 12rpx;
+}
+
+.flow-step {
+  display: flex;
+  align-items: center;
   gap: 10rpx;
 }
 
-.hero-title {
-  font-size: 52rpx;
-  font-weight: 700;
-  letter-spacing: 8rpx;
-  color: #f4f8ff;
+.flow-no {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: #e3f4ff;
+  border: 1rpx solid #b9dcf5;
+  color: #0b6fa8;
+  font-size: 22rpx;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
 }
 
-.hero-sub {
+.flow-text {
+  font-size: 25rpx;
+  color: #35506b;
+}
+
+.flow-arrow {
+  margin-left: 8rpx;
+  color: #b9cee0;
   font-size: 24rpx;
-  letter-spacing: 2rpx;
-  color: #a9c6e4;
 }
 
-.district-bar {
-  white-space: nowrap;
-  padding: 20rpx 24rpx;
-  background: #fff;
-  border-bottom: 1rpx solid var(--hk-border);
-}
-
-.district-chip {
-  display: inline-block;
-  margin-right: 16rpx;
-  padding: 10rpx 26rpx;
-  border-radius: 30rpx;
-  background: var(--hk-bg);
-  color: var(--hk-muted);
-  font-size: 26rpx;
-}
-
-.district-chip.is-on {
-  background: var(--hk-primary);
+/* 发起活动按钮（网页是蓝色药丸 + 发光） */
+.btn-launch {
+  align-self: flex-start;
+  margin-top: 20rpx;
+  height: 88rpx;
+  padding: 0 56rpx;
+  border-radius: 44rpx;
+  background: linear-gradient(92deg, #3ec2f7, #1b9cfc);
   color: #fff;
+  font-size: 32rpx;
   font-weight: 600;
+  letter-spacing: 2rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  border: none;
+  box-shadow: 0 8rpx 24rpx rgba(27, 156, 252, 0.24);
 }
 
-.activity-card {
+.launch-arrow {
+  font-size: 30rpx;
+}
+
+/* ── 筛选面板 ─────────────────────────────────────────────────────────── */
+.filter-panel {
+  margin: 24rpx 24rpx 8rpx;
+  padding: 8rpx 24rpx 24rpx;
+  background: #f8fbfe;
+  border: 1rpx solid #e8f0f8;
+  border-radius: 24rpx;
+}
+
+.filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+}
+
+.filter-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #35506b;
+  letter-spacing: 1rpx;
+}
+
+.filter-toggle {
+  font-size: 22rpx;
+  color: #7c93a8;
+}
+
+.filter-row {
   display: flex;
   flex-direction: column;
   gap: 12rpx;
+  padding: 12rpx 0;
 }
 
-.activity-head {
+.filter-label {
+  font-size: 23rpx;
+  color: #8fa6bb;
+  letter-spacing: 1rpx;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.chip {
+  height: 60rpx;
+  padding: 0 26rpx;
+  border-radius: 40rpx;
+  border: 1rpx solid #dce7f2;
+  background: #fff;
+  color: #42566b;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+}
+
+.chip.on {
+  border-color: #1b9cfc;
+  background: #e3f4ff;
+  color: #0b6fa8;
+  font-weight: 600;
+}
+
+.date-row {
   display: flex;
   align-items: center;
   gap: 14rpx;
 }
 
-.activity-title {
-  flex: 1;
+.date-input {
+  min-width: 200rpx;
+  padding: 14rpx 20rpx;
+  border: 1rpx solid #dce7f2;
+  border-radius: 14rpx;
+  background: #fff;
+  font-size: 24rpx;
+  color: #42566b;
+  text-align: center;
+}
+
+.date-sep {
+  font-size: 22rpx;
+  color: #b9cee0;
+}
+
+.filter-actions {
+  padding-top: 16rpx;
+  text-align: right;
+}
+
+.clear-link {
+  font-size: 23rpx;
+  color: #0aa2e0;
+}
+
+/* ── 信息流 ───────────────────────────────────────────────────────────── */
+.feed-group {
+  padding: 8rpx 32rpx 0;
+}
+
+.group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14rpx;
+  padding: 28rpx 0 12rpx;
+  border-bottom: 1rpx solid #eef3f8;
+}
+
+.group-title {
   font-size: 32rpx;
-  font-weight: 600;
-  color: var(--hk-foreground);
+  font-weight: 650;
+  letter-spacing: 1rpx;
+  color: #17273a;
 }
 
-.activity-sub {
-  font-size: 26rpx;
-  color: var(--hk-muted);
-  line-height: 1.7;
+.group-count {
+  font-size: 23rpx;
+  color: #9fb2c4;
 }
 
-.activity-meta {
+.feed-item {
+  padding: 30rpx 0 34rpx;
+  border-bottom: 1rpx solid #f2f7fc;
+}
+
+.feed-item:last-child {
+  border-bottom: none;
+}
+
+.feed-top {
+  display: flex;
+  gap: 24rpx;
+  align-items: flex-start;
+}
+
+/* 日期徽章：58×58px → 116rpx（小程序的 rpx = px×2） */
+.feed-date {
+  flex: none;
+  width: 116rpx;
+  height: 116rpx;
+  border-radius: 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rpx;
+  color: #fff;
+}
+
+.feed-month {
+  font-size: 20rpx;
+  opacity: 0.92;
+}
+
+.feed-day {
+  font-size: 38rpx;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.feed-head {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.feed-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10rpx;
+}
+
+.feed-title {
+  flex: 1;
+  font-size: 33rpx;
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: 0.5rpx;
+  color: #17273a;
+}
+
+.feed-pending {
+  flex: none;
+  margin-top: 6rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 14rpx;
+  font-size: 20rpx;
+  background: #fff4e0;
+  color: #c9822a;
+  border: 1rpx solid #f2b263;
+}
+
+.feed-when {
+  font-size: 25rpx;
+  letter-spacing: 0.5rpx;
+  color: #7c93a8;
+}
+
+.feed-where {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12rpx;
-  margin-top: 4rpx;
+  gap: 8rpx;
+  margin-top: 20rpx;
+  font-size: 25rpx;
+  color: #66809a;
+}
+
+.pin {
+  font-size: 22rpx;
+  opacity: 0.85;
+}
+
+.sep {
+  color: #c4d3e0;
+}
+
+.feed-intro {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 26rpx;
+  line-height: 1.75;
+  color: #5b6b7d;
+}
+
+.feed-meta {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.feed-cta {
+  margin-left: auto;
+  font-size: 26rpx;
+  color: #0b6fa8;
+  font-weight: 600;
+  letter-spacing: 1rpx;
 }
 
 .retry {
   margin-top: 24rpx;
   width: 240rpx;
+}
+
+/* 错误态：把底层原因也显示出来，避免用户只看到"网络异常"却无从排查 */
+.err-main {
+  display: block;
+  color: #c94b4b;
+  font-size: 26rpx;
+  line-height: 1.7;
+}
+
+.err-detail {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: #9fb2c4;
+  word-break: break-all;
 }

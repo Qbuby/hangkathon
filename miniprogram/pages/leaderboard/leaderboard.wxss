@@ -1,75 +1,142 @@
-.hero {
-  padding: 48rpx 40rpx 36rpx;
-  background: linear-gradient(160deg, #0b2748, #123a63);
+/* 排行榜 —— 对齐网页 leaderboard.css：
+   页头（LEADERBOARD / 排行榜 / 说明）→ 四宫格统计 →
+   各区统计（单列卡片，彩色圆点）→ 战队 → 个人榜。 */
+
+/* ── 页头 ─────────────────────────────────────────────────────────────── */
+.lb-hero {
+  padding: 56rpx 40rpx 40rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #e2ecf6;
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
+  gap: 14rpx;
 }
 
-.hero-eyebrow {
-  font-size: 20rpx;
-  letter-spacing: 4rpx;
-  color: #7fb0d8;
-}
-
-.hero-title {
-  font-size: 46rpx;
+.lb-title {
+  font-size: 56rpx;
   font-weight: 700;
-  letter-spacing: 4rpx;
-  color: #f4f8ff;
+  letter-spacing: 3rpx;
+  color: #17273a;
 }
 
-.hero-sub {
-  font-size: 24rpx;
-  line-height: 1.7;
-  color: #a9c6e4;
+.lb-sub {
+  font-size: 26rpx;
+  line-height: 1.9;
+  color: #7c93a8;
 }
 
+/* ── 四宫格统计 ───────────────────────────────────────────────────────── */
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20rpx;
-  margin: 24rpx;
+  margin: 32rpx 24rpx 0;
 }
 
 .stat {
-  padding: 26rpx;
+  padding: 32rpx 28rpx;
   background: #fff;
-  border: 1rpx solid var(--hk-border);
-  border-radius: 20rpx;
+  border: 1rpx solid #dce7f2;
+  border-radius: 24rpx;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: 10rpx;
+  box-shadow: 0 2rpx 12rpx rgba(23, 58, 102, 0.05);
 }
 
 .stat-num {
-  font-size: 40rpx;
+  font-size: 46rpx;
   font-weight: 700;
-  color: var(--hk-foreground);
+  letter-spacing: 1rpx;
+  color: #17273a;
 }
 
 .stat-label {
-  font-size: 22rpx;
+  font-size: 23rpx;
   letter-spacing: 1rpx;
-  color: var(--hk-muted);
+  color: #8fa6bb;
 }
 
-.rule-note {
-  display: block;
-  margin: 10rpx 0 20rpx;
-  line-height: 1.7;
+/* ── 分区 ─────────────────────────────────────────────────────────────── */
+.lb-section {
+  padding: 48rpx 40rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
 }
 
+.eyebrow {
+  font-size: 20rpx;
+  letter-spacing: 5rpx;
+  color: #5f7f9e;
+}
+
+.section-title {
+  font-size: 38rpx;
+  font-weight: 650;
+  letter-spacing: 2rpx;
+  color: #17273a;
+}
+
+.explain {
+  font-size: 25rpx;
+  line-height: 1.85;
+  color: #7c93a8;
+}
+
+/* ── 各区统计（单列卡片）────────────────────────────────────────────── */
+.district-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin-top: 12rpx;
+}
+
+.district-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 28rpx 30rpx;
+  background: #fff;
+  border: 1rpx solid #e3edf6;
+  border-radius: 22rpx;
+  box-shadow: 0 2rpx 10rpx rgba(23, 58, 102, 0.04);
+}
+
+.district-dot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  flex: none;
+}
+
+.district-name {
+  flex: 1;
+  font-size: 29rpx;
+  font-weight: 600;
+  color: #17273a;
+}
+
+.district-count {
+  font-size: 25rpx;
+  color: #8fa6bb;
+}
+
+/* ── 排行榜表 ─────────────────────────────────────────────────────────── */
 .rank-list {
-  margin-top: 8rpx;
+  margin-top: 16rpx;
+  background: #fff;
+  border: 1rpx solid #dce7f2;
+  border-radius: 22rpx;
+  padding: 8rpx 26rpx;
 }
 
 .rank-row {
   display: flex;
   align-items: center;
-  gap: 18rpx;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #f2f7fc;
+  gap: 20rpx;
+  padding: 26rpx 0;
+  border-bottom: 1rpx solid #eef3f8;
 }
 
 .rank-row:last-child {
@@ -77,11 +144,11 @@
 }
 
 .rank-no {
-  width: 50rpx;
+  width: 56rpx;
   flex: none;
   font-size: 26rpx;
   font-weight: 600;
-  color: var(--hk-muted);
+  color: #8fa6bb;
 }
 
 .rank-main {
@@ -93,9 +160,9 @@
 }
 
 .rank-name {
-  font-size: 28rpx;
+  font-size: 29rpx;
   font-weight: 600;
-  color: var(--hk-foreground);
+  color: #17273a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -103,59 +170,65 @@
 
 .rank-meta {
   font-size: 22rpx;
-  color: var(--hk-muted);
+  color: #8fa6bb;
 }
 
 .rank-points {
-  font-size: 28rpx;
+  font-size: 29rpx;
   font-weight: 600;
-  color: var(--hk-gold);
+  color: #c9952a;
 }
 
-.team-dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 50%;
-  flex: none;
-}
-
-.district-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16rpx;
-  margin-top: 12rpx;
-}
-
-.district-cell {
+/* 我的荣誉占位卡（对齐网页 lb-me） */
+.my-honor {
+  margin-top: 16rpx;
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  padding: 16rpx;
-  border-radius: 14rpx;
-  background: #f6fafd;
+  gap: 20rpx;
+  padding: 32rpx 28rpx;
+  background: #fff;
+  border: 1rpx dashed #8fd0ff;
+  border-radius: 22rpx;
 }
 
-.district-dot {
-  width: 14rpx;
-  height: 14rpx;
+.my-honor-tag {
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 50%;
+  background: #e3f4ff;
+  border: 1rpx solid #b9dcf5;
+  color: #0b6fa8;
+  font-size: 26rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
 }
 
-.district-name {
+.my-honor-main {
   flex: 1;
-  font-size: 24rpx;
-  color: var(--hk-foreground);
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
-.district-count {
-  font-size: 22rpx;
-  color: var(--hk-muted);
+.my-honor-title {
+  font-size: 30rpx;
+  font-weight: 650;
+  color: #17273a;
+}
+
+.my-honor-sub {
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #8fa6bb;
 }
 
 .empty.small {
   padding: 40rpx 20rpx;
   font-size: 24rpx;
+  color: #8fa6bb;
 }
 
 .retry {
