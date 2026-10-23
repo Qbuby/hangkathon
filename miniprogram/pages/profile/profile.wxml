@@ -1,0 +1,71 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="loading">正在读取登录状态…</view>
+
+  <view wx:elif="{{error}}" class="empty">
+    <text>{{error}}</text>
+    <button class="btn btn-ghost retry" bindtap="refresh">重新加载</button>
+  </view>
+
+  <!-- 未登录 -->
+  <block wx:elif="{{!loggedIn}}">
+    <view class="card login-card">
+      <text class="eyebrow">HONOR · 数字杭州市民</text>
+      <text class="h1">登录后查看你的勋章</text>
+      <text class="muted">
+        「数字杭州市民」是杭客松唯一的荣誉勋章：参加活动、提交产出、代表战队出战，
+        都会折算成平台贡献值，把勋章从 1 星慢慢升到 5 星。
+      </text>
+      <button class="btn btn-primary btn-block login-btn" bindtap="onLogin">微信一键登录</button>
+      <text class="muted tiny">登录只用于识别身份，不会读取你的其他数据。</text>
+    </view>
+  </block>
+
+  <!-- 已登录 -->
+  <block wx:else>
+    <view class="medal">
+      <text class="medal-eyebrow">HONOR · 数字杭州市民</text>
+      <view class="medal-identity">
+        <view class="avatar">{{avatarText}}</view>
+        <text class="medal-name">{{nameText}}</text>
+      </view>
+      <view class="stars">
+        <text wx:for="{{[1,2,3,4,5]}}" wx:key="*this" class="star {{item <= level.stars ? 'on' : 'off'}}">★</text>
+      </view>
+      <text class="medal-title">{{level.stars}} 星 · {{level.title}}</text>
+      <view class="points">
+        <text class="points-num">{{points}}</text>
+        <text class="points-label">平台贡献值</text>
+      </view>
+      <view class="progress-bar"><view class="progress-fill" style="width: {{progress}}%"></view></view>
+      <text class="medal-next">{{nextText}}</text>
+      <text class="medal-note">
+        完成活动后按举办身份、个人表现与战队表现折算平台贡献值，勋章星级只升不降。
+      </text>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">ACTIVITIES</text>
+      <text class="h2">我的报名</text>
+      <text class="muted">{{joinCount}} 场 · 已提交 {{submissionCount}} 件作品</text>
+
+      <view wx:if="{{joins.length === 0}}" class="empty small">还没有报名任何活动。</view>
+      <view wx:else class="join-list">
+        <view wx:for="{{joins}}" wx:key="activityId" class="join-row" data-id="{{item.activityId}}" bindtap="openActivity">
+          <view class="join-main">
+            <text class="join-date">{{item.joinedAt}} 报名</text>
+            <text wx:if="{{item.invited}}" class="muted tiny">由他人邀请参加</text>
+          </view>
+          <text class="join-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">MORE</text>
+      <text class="h2">更多</text>
+      <button wx:if="{{canPublish}}" class="btn btn-primary btn-block" bindtap="goCreate">发起活动</button>
+      <button wx:if="{{isAdmin}}" class="btn btn-ghost btn-block gap" bindtap="goManage">管理端</button>
+      <button class="btn btn-ghost btn-block gap" bindtap="onLogout">退出登录</button>
+    </view>
+  </block>
+</view>

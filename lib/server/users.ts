@@ -1,4 +1,6 @@
 import { eq, sql } from "drizzle-orm";
+import { headers } from "next/headers";
+import { decode } from "next-auth/jwt";
 import { auth } from "@/auth";
 import { getDb, schema } from "@/db";
 import { requireNotBlacklisted } from "./blacklist";
@@ -7,6 +9,11 @@ import { requireNotBlacklisted } from "./blacklist";
  * 服务端身份解析：会话里的 email 是唯一身份来源，users 表按 email upsert。
  * 只有配了 DATABASE_URL 的部署才有数据库；没有时这些函数会抛错，路由层统一回 503。
  * 管理员：users.role='admin'，由 ADMIN_EMAILS 环境变量引导提权（ensureAdminSeed，幂等）。
+ *
+ * 两种凭据都接受：
+ *   · Cookie（浏览器）：Auth.js 自己读 `__Secure-authjs.session-token`
+ *   · Bearer（小程序）：`Authorization: Bearer <token>`，见 bearerSession()
+ * 两者解出来的都是同一个 JWT，所以下游 48 个 require* 调用点不需要任何改动。
  */
 
 export type ServerUser = {
@@ -34,12 +41,63 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+/**
+ * 签发时会话 cookie 的两个可能名字。
+ *
+ * Auth.js 用 `useSecureCookies` 决定前缀（https → `__Secure-`），而**这个前缀同时是
+ * JWT 加密的 salt** —— 解不出来就等于没登录。小程序永远走 https，但本地调试、
+ * 反向代理没传 `x-forwarded-proto` 时可能签发的是不带前缀的那个。
+ * 两个都试一次，代价只是多一次 HMAC 派生，换来"换个环境不会突然全员掉线"。
+ */
+const SESSION_SALT_CANDIDATES = ["__Secure-authjs.session-token", "authjs.session-token"] as const;
+
+/**
+ * 从 `Authorization: Bearer <token>` 解析会话。
+ *
+ * 为什么需要它：`wx.request` 不像浏览器那样自动保存并回放 cookie，
+ * 小程序只能显式携带 token。没有这条兜底，小程序里每个接口都会 401。
+ *
+ * 任何异常（token 被篡改、格式不对、缺 AUTH_SECRET）一律返回 null ——
+ * 认证失败不该让接口 500，而应该当作未登录处理。
+ */
+export async function bearerSession(): Promise<{ email: string | null; name: string | null } | null> {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) return null;
+  const header = (await headers()).get("authorization") ?? "";
+  const raw = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!raw) return null;
+
+  for (const salt of SESSION_SALT_CANDIDATES) {
+    try {
+      const payload = await decode({ token: raw, secret, salt });
+      if (payload && typeof payload.email === "string" && payload.email) {
+        return {
+          email: payload.email,
+          name: typeof payload.name === "string" ? payload.name : null,
+        };
+      }
+    } catch {
+      // 换下一个 salt 再试；全失败就当作未登录。
+    }
+  }
+  return null;
+}
+
 /** 当前登录用户（未登录返回 null）。 */
 export async function currentUser(): Promise<ServerUser | null> {
   const session = await auth();
-  const email = session?.user?.email?.trim().toLowerCase();
+  let email = session?.user?.email?.trim().toLowerCase();
+  let name = session?.user?.name ?? null;
+
+  // Cookie 没解出身份时才看 Bearer —— 浏览器请求不必为此多读一次 header。
+  if (!email) {
+    const bearer = await bearerSession();
+    email = bearer?.email?.trim().toLowerCase();
+    name = bearer?.name ?? null;
+  }
+
   if (!email) return null;
-  return ensureUser(email, session?.user?.name ?? null);
+  return ensureUser(email, name);
 }
 
 /**

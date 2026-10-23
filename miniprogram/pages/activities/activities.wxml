@@ -1,0 +1,49 @@
+<view class="page">
+  <!-- 顶部横幅 -->
+  <view class="hero">
+    <text class="hero-title">世界 AI 上杭州</text>
+    <text class="hero-sub">杭州的 AI 活动与赛事平台</text>
+  </view>
+
+  <!-- 区筛选 -->
+  <scroll-view class="district-bar" scroll-x enable-flex>
+    <view
+      wx:for="{{districts}}"
+      wx:key="id"
+      class="district-chip {{district === item.id ? 'is-on' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="onDistrictTap"
+    >{{item.name}}</view>
+  </scroll-view>
+
+  <view wx:if="{{loading}}" class="loading">正在加载活动…</view>
+
+  <view wx:elif="{{error}}" class="empty">
+    <text>{{error}}</text>
+    <button class="btn btn-ghost retry" bindtap="onRetry">重新加载</button>
+  </view>
+
+  <view wx:elif="{{activities.length === 0}}" class="empty">这个区暂时没有活动。</view>
+
+  <block wx:else>
+    <view
+      wx:for="{{activities}}"
+      wx:key="id"
+      class="card activity-card"
+      data-slug="{{item.slug}}"
+      bindtap="openDetail"
+    >
+      <view class="activity-head">
+        <text class="activity-title">{{item.title}}</text>
+        <text wx:if="{{item.reviewStatus === 'pending'}}" class="tag tag-gold">审核中</text>
+        <text wx:elif="{{item.mine}}" class="tag">我发起的</text>
+      </view>
+      <text wx:if="{{item.subtitle}}" class="activity-sub">{{item.subtitle}}</text>
+      <view class="activity-meta">
+        <text class="tag">{{item.districtText}}</text>
+        <text class="tag">{{item.priceText}}</text>
+        <text class="muted">{{item.dateText}}</text>
+      </view>
+    </view>
+  </block>
+</view>

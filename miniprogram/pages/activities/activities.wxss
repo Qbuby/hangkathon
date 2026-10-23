@@ -1,0 +1,81 @@
+.hero {
+  padding: 56rpx 40rpx 44rpx;
+  background: linear-gradient(160deg, #0b2748, #123a63);
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.hero-title {
+  font-size: 52rpx;
+  font-weight: 700;
+  letter-spacing: 8rpx;
+  color: #f4f8ff;
+}
+
+.hero-sub {
+  font-size: 24rpx;
+  letter-spacing: 2rpx;
+  color: #a9c6e4;
+}
+
+.district-bar {
+  white-space: nowrap;
+  padding: 20rpx 24rpx;
+  background: #fff;
+  border-bottom: 1rpx solid var(--hk-border);
+}
+
+.district-chip {
+  display: inline-block;
+  margin-right: 16rpx;
+  padding: 10rpx 26rpx;
+  border-radius: 30rpx;
+  background: var(--hk-bg);
+  color: var(--hk-muted);
+  font-size: 26rpx;
+}
+
+.district-chip.is-on {
+  background: var(--hk-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.activity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.activity-head {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.activity-title {
+  flex: 1;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--hk-foreground);
+}
+
+.activity-sub {
+  font-size: 26rpx;
+  color: var(--hk-muted);
+  line-height: 1.7;
+}
+
+.activity-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 4rpx;
+}
+
+.retry {
+  margin-top: 24rpx;
+  width: 240rpx;
+}

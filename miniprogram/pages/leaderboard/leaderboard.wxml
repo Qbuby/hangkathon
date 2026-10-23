@@ -1,0 +1,74 @@
+<view class="page">
+  <view class="hero">
+    <text class="hero-eyebrow">LEADERBOARD</text>
+    <text class="hero-title">排行榜</text>
+    <text class="hero-sub">在杭客松参加活动、完成作品、获得认可，就会积累贡献值。</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">正在加载…</view>
+
+  <view wx:elif="{{error}}" class="empty">
+    <text>{{error}}</text>
+    <button class="btn btn-ghost retry" bindtap="onRetry">重新加载</button>
+  </view>
+
+  <block wx:else>
+    <view class="stats">
+      <view class="stat"><text class="stat-num">{{totalText}}</text><text class="stat-label">累计荣誉值</text></view>
+      <view class="stat"><text class="stat-num">{{activityCount}}</text><text class="stat-label">已发布活动</text></view>
+      <view class="stat"><text class="stat-num">{{citizenCount}}</text><text class="stat-label">参与者</text></view>
+      <view class="stat"><text class="stat-num">{{teams.length}}</text><text class="stat-label">战队</text></view>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">CITIZENS</text>
+      <text class="h2">个人的贡献</text>
+      <text class="muted rule-note">贡献值决定「数字杭州市民」的星级 —— 只升不降。</text>
+
+      <view wx:if="{{topUsers.length === 0}}" class="empty small">
+        还没有贡献记录。报名参加一场活动，就会开始积累。
+      </view>
+
+      <view wx:else class="rank-list">
+        <view wx:for="{{topUsers}}" wx:key="name" class="rank-row">
+          <text class="rank-no">{{item.rank}}</text>
+          <view class="rank-main">
+            <text class="rank-name">{{item.name}}</text>
+            <text class="rank-meta">{{item.activities}} 场活动{{item.team ? ' · ' + item.team.name : ''}}</text>
+          </view>
+          <text class="rank-points">{{item.pointsText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">TEAMS</text>
+      <text class="h2">战队荣誉</text>
+      <text class="muted rule-note">战队荣誉 = 队员贡献之和。</text>
+
+      <view wx:if="{{teams.length === 0}}" class="empty small">暂无战队荣誉数据。</view>
+
+      <view wx:else class="rank-list">
+        <view wx:for="{{teams}}" wx:key="id" class="rank-row">
+          <view class="team-dot" style="background: {{item.color}}"></view>
+          <view class="rank-main">
+            <text class="rank-name">{{item.name}}</text>
+          </view>
+          <text class="rank-points">{{item.pointsText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">DISTRICTS</text>
+      <text class="h2">各区活动数</text>
+      <view class="district-grid">
+        <view wx:for="{{districts}}" wx:key="id" class="district-cell">
+          <view class="district-dot" style="background: {{item.color}}"></view>
+          <text class="district-name">{{item.name}}</text>
+          <text class="district-count">{{item.count}} 场</text>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

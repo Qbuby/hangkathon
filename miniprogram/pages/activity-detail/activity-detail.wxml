@@ -1,0 +1,61 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="loading">正在加载…</view>
+
+  <view wx:elif="{{error}}" class="empty">
+    <text>{{error}}</text>
+    <button class="btn btn-ghost retry" bindtap="load">重新加载</button>
+  </view>
+
+  <block wx:elif="{{activity}}">
+    <view class="banner">
+      <text class="banner-eyebrow">ACTIVITY</text>
+      <text class="banner-title">{{activity.title}}</text>
+      <text wx:if="{{activity.subtitle}}" class="banner-sub">{{activity.subtitle}}</text>
+      <view class="banner-meta">
+        <text class="banner-tag">{{activity.dateText}}</text>
+        <text class="banner-tag">{{joinCount}} 人已报名</text>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">WHAT YOU DO</text>
+      <text class="h2">你要做什么</text>
+      <text class="body-text">{{activity.overview || "暂无活动说明。"}}</text>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">DETAILS</text>
+      <text class="h2">活动信息</text>
+      <view class="kv"><text class="k">主办方</text><text class="v">{{activity.host || "—"}}</text></view>
+      <view class="kv"><text class="k">形式</text><text class="v">{{activity.format === 'online' ? '线上' : '线下'}}</text></view>
+      <view wx:if="{{activity.format !== 'online'}}" class="kv"><text class="k">地点</text><text class="v">{{activity.venue || "待定"}}</text></view>
+      <view class="kv"><text class="k">奖金</text><text class="v">{{activity.prizeText}}</text></view>
+      <view class="kv"><text class="k">费用</text><text class="v">{{activity.pricing === 'paid' ? activity.fee : '免费'}}</text></view>
+      <view wx:if="{{activity.criteriaText}}" class="kv"><text class="k">评审</text><text class="v">{{activity.criteriaText}}</text></view>
+      <view wx:if="{{activity.awardsText}}" class="kv"><text class="k">奖项</text><text class="v">{{activity.awardsText}}</text></view>
+      <view wx:if="{{activity.contact}}" class="kv"><text class="k">联系</text><text class="v">{{activity.contact}}</text></view>
+    </view>
+
+    <view class="card">
+      <text wx:if="{{joined}}" class="joined-note">你已报名本场活动</text>
+      <button
+        wx:if="{{!joined}}"
+        class="btn btn-primary btn-block"
+        loading="{{joining}}"
+        disabled="{{joining}}"
+        bindtap="onJoin"
+      >报名参加</button>
+
+      <button wx:if="{{joined}}" class="btn btn-ghost btn-block submit-gap" bindtap="onSubmitWork">提交作品</button>
+      <button class="btn btn-ghost btn-block submit-gap" bindtap="onInvite">复制邀请链接</button>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">MORE</text>
+      <text class="h2">关于本活动</text>
+      <text class="body-text small">
+        报名与作品数据与网页版完全同步。你也可以在浏览器打开 https://hangkathon.com 查看完整页面。
+      </text>
+    </view>
+  </block>
+</view>

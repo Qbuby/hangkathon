@@ -1,0 +1,32 @@
+{
+  "pages": [
+    "pages/activities/activities",
+    "pages/activity-detail/activity-detail",
+    "pages/leaderboard/leaderboard",
+    "pages/profile/profile",
+    "pages/create/create",
+    "pages/submit/submit",
+    "pages/manage/manage"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#0b2748",
+    "navigationBarTitleText": "杭客松",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#eef5fc"
+  },
+  "tabBar": {
+    "color": "#8fa6bb",
+    "selectedColor": "#1b9cfc",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/activities/activities", "text": "活动" },
+      { "pagePath": "pages/leaderboard/leaderboard", "text": "排行榜" },
+      { "pagePath": "pages/profile/profile", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

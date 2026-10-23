@@ -1,0 +1,100 @@
+.banner {
+  padding: 48rpx 40rpx 40rpx;
+  background: linear-gradient(160deg, #0b2748, #123a63);
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.banner-eyebrow {
+  font-size: 20rpx;
+  letter-spacing: 4rpx;
+  color: #7fb0d8;
+}
+
+.banner-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #f4f8ff;
+}
+
+.banner-sub {
+  font-size: 26rpx;
+  color: #a9c6e4;
+  line-height: 1.6;
+}
+
+.banner-meta {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+
+.banner-tag {
+  padding: 6rpx 18rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.12);
+  color: #cfe4f7;
+  font-size: 22rpx;
+}
+
+.body-text {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.85;
+  color: #42566b;
+  white-space: pre-wrap;
+}
+
+.body-text.small {
+  font-size: 24rpx;
+  color: var(--hk-muted);
+}
+
+.kv {
+  display: flex;
+  gap: 20rpx;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #f2f7fc;
+}
+
+.kv:last-child {
+  border-bottom: none;
+}
+
+.k {
+  width: 120rpx;
+  flex: none;
+  font-size: 24rpx;
+  color: var(--hk-muted);
+}
+
+.v {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--hk-foreground);
+  white-space: pre-wrap;
+}
+
+.joined-note {
+  display: block;
+  margin-bottom: 20rpx;
+  padding: 18rpx;
+  border-radius: 14rpx;
+  background: #f4fafe;
+  border: 1rpx dashed #bcd9f0;
+  color: #0b6fa8;
+  font-size: 26rpx;
+  text-align: center;
+}
+
+.submit-gap {
+  margin-top: 18rpx;
+}
+
+.retry {
+  margin-top: 24rpx;
+  width: 240rpx;
+}

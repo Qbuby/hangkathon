@@ -1,0 +1,175 @@
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin-top: 60rpx;
+}
+
+.login-btn {
+  margin-top: 12rpx;
+}
+
+.medal {
+  margin: 24rpx;
+  padding: 36rpx 32rpx;
+  background: #fff;
+  border: 1rpx solid var(--hk-border);
+  border-radius: 24rpx;
+  box-shadow: 0 2rpx 16rpx rgba(23, 58, 102, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.medal-eyebrow {
+  font-size: 20rpx;
+  letter-spacing: 4rpx;
+  color: var(--hk-muted);
+}
+
+.medal-identity {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #e3f4ff;
+  border: 1rpx solid #cfe1f2;
+  color: #0b6fa8;
+  font-weight: 600;
+  font-size: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.medal-name {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: var(--hk-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stars {
+  display: flex;
+  gap: 10rpx;
+}
+
+.star {
+  font-size: 36rpx;
+}
+
+.star.on {
+  color: #f0b429;
+}
+
+.star.off {
+  color: #dce4ee;
+}
+
+.medal-title {
+  font-size: 26rpx;
+  letter-spacing: 1rpx;
+  color: var(--hk-gold);
+}
+
+.points {
+  display: flex;
+  align-items: baseline;
+  gap: 14rpx;
+}
+
+.points-num {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: var(--hk-foreground);
+}
+
+.points-label {
+  font-size: 24rpx;
+  letter-spacing: 1rpx;
+  color: var(--hk-muted);
+}
+
+.progress-bar {
+  height: 12rpx;
+  border-radius: 8rpx;
+  background: #e8f0f8;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, #5fc8ff, #1b9cfc);
+}
+
+.medal-next {
+  font-size: 24rpx;
+  color: var(--hk-muted);
+}
+
+.medal-note {
+  font-size: 22rpx;
+  line-height: 1.75;
+  color: #93a8bd;
+}
+
+.join-list {
+  margin-top: 12rpx;
+}
+
+.join-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #f2f7fc;
+}
+
+.join-row:last-child {
+  border-bottom: none;
+}
+
+.join-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.join-date {
+  font-size: 26rpx;
+  color: var(--hk-foreground);
+}
+
+.join-arrow {
+  font-size: 34rpx;
+  color: #b9cee0;
+}
+
+.tiny {
+  font-size: 22rpx;
+  line-height: 1.7;
+}
+
+.gap {
+  margin-top: 18rpx;
+}
+
+.empty.small {
+  padding: 40rpx 20rpx;
+  font-size: 24rpx;
+}
+
+.retry {
+  margin-top: 24rpx;
+  width: 240rpx;
+}

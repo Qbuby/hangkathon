@@ -1,0 +1,67 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="loading">正在加载…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+
+  <block wx:else>
+    <view class="hero">
+      <text class="hero-eyebrow">SUBMIT</text>
+      <text class="hero-title">提交作品</text>
+      <text wx:if="{{activity}}" class="hero-sub">{{activity.title}}</text>
+    </view>
+
+    <view class="card">
+      <text class="h2">粘贴抖音作品链接</text>
+      <text class="muted note">
+        平台只接受抖音站内作品链接（v.douyin.com 或 www.douyin.com/video/数字）。
+        提交后会自动抓取点赞、评论等公开数据，用于评审与颁奖统计。
+      </text>
+
+      <textarea
+        class="field-textarea url-input"
+        placeholder="https://v.douyin.com/xxxxxxx/"
+        value="{{url}}"
+        bindinput="onUrlInput"
+        auto-height
+      />
+
+      <button
+        class="btn btn-primary btn-block"
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bindtap="onSubmit"
+      >{{submitting ? '提交并抓取数据…' : '提交作品'}}</button>
+    </view>
+
+    <view wx:if="{{result}}" class="card result-card">
+      <text class="eyebrow">SUBMITTED</text>
+      <text class="h2">已提交</text>
+      <view class="kv"><text class="k">作品链接</text><text class="v small-text">{{result.url}}</text></view>
+      <view wx:if="{{result.authorName}}" class="kv"><text class="k">作者</text><text class="v">{{result.authorName}}</text></view>
+      <view wx:if="{{result.diggCount !== undefined}}" class="kv"><text class="k">点赞</text><text class="v">{{result.diggCount}}</text></view>
+      <view wx:if="{{result.commentCount !== undefined}}" class="kv"><text class="k">评论</text><text class="v">{{result.commentCount}}</text></view>
+      <view wx:if="{{result.metricsError}}" class="kv">
+        <text class="k">提示</text>
+        <text class="v">数据抓取失败（{{result.metricsError}}），作品本身已提交成功。</text>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">MY WORKS</text>
+      <text class="h2">我在这场活动的作品</text>
+      <view wx:if="{{mySubmissions.length === 0}}" class="empty small">还没有提交作品。</view>
+      <view wx:else class="work-list">
+        <view
+          wx:for="{{mySubmissions}}"
+          wx:key="url"
+          class="work-row"
+          data-url="{{item.url}}"
+          bindtap="copyUrl"
+        >
+          <text class="work-url">{{item.url}}</text>
+          <text class="muted tiny">点击复制</text>
+        </view>
+      </view>
+      <text class="muted tiny tip">作品只有你自己和管理员可见，不会公开展示。</text>
+    </view>
+  </block>
+</view>

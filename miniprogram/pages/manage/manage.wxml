@@ -1,0 +1,69 @@
+<view class="page">
+  <view wx:if="{{phase === 'loading'}}" class="loading">正在校验权限…</view>
+
+  <view wx:elif="{{phase === 'forbidden'}}" class="card gate">
+    <text class="h1">无法进入管理端</text>
+    <text class="muted">{{error}}</text>
+    <button class="btn btn-ghost btn-block gap" bindtap="onRetry">重试</button>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{overview}}" class="stats">
+      <view class="stat"><text class="stat-num">{{overview.pendingActivities}}</text><text class="stat-label">待审活动</text></view>
+      <view class="stat"><text class="stat-num">{{overview.pendingReviews}}</text><text class="stat-label">待审作品</text></view>
+      <view class="stat"><text class="stat-num">{{overview.pendingAgents}}</text><text class="stat-label">待审申请</text></view>
+    </view>
+
+    <view class="tabs">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="id"
+        class="tab {{tab === item.id ? 'on' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="switchTab"
+      >{{item.name}}</view>
+    </view>
+
+    <!-- 活动审核 -->
+    <block wx:if="{{tab === 'activities'}}">
+      <view wx:if="{{activities.length === 0}}" class="empty">没有待审核的活动。</view>
+      <view wx:for="{{activities}}" wx:key="slug" class="card">
+        <text class="h2">{{item.title}}</text>
+        <text class="muted">{{item.district}} · {{item.dateText}} · 发起人 {{item.ownerName || item.ownerEmail}}</text>
+        <text wx:if="{{item.overview}}" class="muted preview">{{item.overview}}</text>
+        <view class="actions">
+          <button class="btn btn-primary btn-sm" data-slug="{{item.slug}}" data-action="approve" loading="{{busyId === item.slug}}" bindtap="reviewActivity">通过</button>
+          <button class="btn btn-ghost btn-sm" data-slug="{{item.slug}}" data-action="delete" loading="{{busyId === item.slug}}" bindtap="reviewActivity">删除</button>
+        </view>
+      </view>
+    </block>
+
+    <!-- 作品审核 -->
+    <block wx:elif="{{tab === 'submissions'}}">
+      <view wx:if="{{submissions.length === 0}}" class="empty">没有待审核的作品。</view>
+      <view wx:for="{{submissions}}" wx:key="id" class="card">
+        <text class="muted">{{item.activityTitle}} · {{item.submittedText}}</text>
+        <text class="work-url" data-url="{{item.url}}" bindtap="copyUrl">{{item.url}}</text>
+        <text wx:if="{{item.caption}}" class="muted preview">{{item.caption}}</text>
+        <view class="actions">
+          <button class="btn btn-primary btn-sm" data-id="{{item.id}}" data-status="approved" loading="{{busyId === item.id}}" bindtap="reviewSubmission">通过</button>
+          <button class="btn btn-ghost btn-sm" data-id="{{item.id}}" data-status="rejected" loading="{{busyId === item.id}}" bindtap="reviewSubmission">驳回</button>
+        </view>
+      </view>
+    </block>
+
+    <!-- 代理商申请 -->
+    <block wx:elif="{{tab === 'agents'}}">
+      <view wx:if="{{agents.length === 0}}" class="empty">没有待审核的申请。</view>
+      <view wx:for="{{agents}}" wx:key="id" class="card">
+        <text class="h2">{{item.contactName}}</text>
+        <text class="muted">{{item.organization || "个人"}} · {{item.phone}}</text>
+        <text class="muted preview">{{item.statement}}</text>
+        <view class="actions">
+          <button class="btn btn-primary btn-sm" data-id="{{item.id}}" data-status="approved" loading="{{busyId === item.id}}" bindtap="reviewAgent">通过</button>
+          <button class="btn btn-ghost btn-sm" data-id="{{item.id}}" data-status="rejected" loading="{{busyId === item.id}}" bindtap="reviewAgent">驳回</button>
+        </view>
+      </view>
+    </block>
+  </block>
+</view>

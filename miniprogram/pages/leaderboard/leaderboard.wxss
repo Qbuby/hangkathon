@@ -1,0 +1,164 @@
+.hero {
+  padding: 48rpx 40rpx 36rpx;
+  background: linear-gradient(160deg, #0b2748, #123a63);
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.hero-eyebrow {
+  font-size: 20rpx;
+  letter-spacing: 4rpx;
+  color: #7fb0d8;
+}
+
+.hero-title {
+  font-size: 46rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
+  color: #f4f8ff;
+}
+
+.hero-sub {
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #a9c6e4;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20rpx;
+  margin: 24rpx;
+}
+
+.stat {
+  padding: 26rpx;
+  background: #fff;
+  border: 1rpx solid var(--hk-border);
+  border-radius: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.stat-num {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--hk-foreground);
+}
+
+.stat-label {
+  font-size: 22rpx;
+  letter-spacing: 1rpx;
+  color: var(--hk-muted);
+}
+
+.rule-note {
+  display: block;
+  margin: 10rpx 0 20rpx;
+  line-height: 1.7;
+}
+
+.rank-list {
+  margin-top: 8rpx;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f2f7fc;
+}
+
+.rank-row:last-child {
+  border-bottom: none;
+}
+
+.rank-no {
+  width: 50rpx;
+  flex: none;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--hk-muted);
+}
+
+.rank-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  min-width: 0;
+}
+
+.rank-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--hk-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-meta {
+  font-size: 22rpx;
+  color: var(--hk-muted);
+}
+
+.rank-points {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--hk-gold);
+}
+
+.team-dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  flex: none;
+}
+
+.district-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-top: 12rpx;
+}
+
+.district-cell {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx;
+  border-radius: 14rpx;
+  background: #f6fafd;
+}
+
+.district-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  flex: none;
+}
+
+.district-name {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--hk-foreground);
+}
+
+.district-count {
+  font-size: 22rpx;
+  color: var(--hk-muted);
+}
+
+.empty.small {
+  padding: 40rpx 20rpx;
+  font-size: 24rpx;
+}
+
+.retry {
+  margin-top: 24rpx;
+  width: 240rpx;
+}

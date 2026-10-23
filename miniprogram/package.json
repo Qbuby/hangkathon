@@ -1,0 +1,8 @@
+{
+  "name": "hangkathon",
+  "version": "1.0.0",
+  "description": "杭客松 · 杭州 AI 活动与赛事平台",
+  "private": true,
+  "scripts": {},
+  "dependencies": {}
+}

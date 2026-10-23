@@ -1,0 +1,164 @@
+<view class="page">
+  <view wx:if="{{phase === 'loading'}}" class="loading">正在校验发布身份…</view>
+
+  <view wx:elif="{{phase === 'login'}}" class="card gate">
+    <text class="h1">先登录，再发起活动</text>
+    <text class="muted">
+      发起活动需要平台授权的代理商身份。登录后我们会校验你的账号；
+      如果你还不是代理商，可以直接在下一步提交申请。
+    </text>
+    <button class="btn btn-primary btn-block gap" bindtap="boot">微信一键登录</button>
+  </view>
+
+  <!-- 代理商申请 -->
+  <block wx:elif="{{phase === 'apply'}}">
+    <view class="card gate">
+      <text class="h1">发起活动需要代理商身份</text>
+      <text class="muted">
+        平台的活动发布权只对代理商开放：代理商负责发起和运营活动，参与者以个人身份报名参赛。
+        填写下面的身份声明与联系方式提交审核，通过后即可发起活动。
+      </text>
+    </view>
+
+    <view wx:if="{{application && application.status === 'pending'}}" class="card">
+      <text class="tag tag-gold">审核中</text>
+      <text class="muted block-note">你的申请已提交，审核通过后即可发起活动。如需修改，可在下方更新后重新提交。</text>
+    </view>
+    <view wx:if="{{application && application.status === 'rejected'}}" class="card">
+      <text class="tag tag-gold">未通过</text>
+      <text class="muted block-note">原因：{{application.reviewNote || "未填写"}}。可修改后重新提交。</text>
+    </view>
+
+    <view class="card">
+      <text class="eyebrow">APPLICATION</text>
+      <text class="h2">代理商申请</text>
+
+      <view class="field">
+        <text class="field-label">联系人 *</text>
+        <input class="field-input" data-field="contactName" value="{{applyForm.contactName}}" bindinput="onApplyField" placeholder="你的真实姓名" />
+      </view>
+      <view class="field">
+        <text class="field-label">机构 / 组织</text>
+        <input class="field-input" data-field="organization" value="{{applyForm.organization}}" bindinput="onApplyField" placeholder="公司、社团或团队名称（没有可留空）" />
+      </view>
+      <view class="field">
+        <text class="field-label">联系电话 *</text>
+        <input class="field-input" type="number" data-field="phone" value="{{applyForm.phone}}" bindinput="onApplyField" placeholder="手机号或座机" />
+      </view>
+      <view class="field">
+        <text class="field-label">邮箱</text>
+        <input class="field-input" data-field="email" value="{{applyForm.email}}" bindinput="onApplyField" placeholder="默认使用登录邮箱" />
+      </view>
+      <view class="field">
+        <text class="field-label">身份声明 *（至少 10 个字）</text>
+        <textarea class="field-textarea" data-field="statement" value="{{applyForm.statement}}" bindinput="onApplyField" placeholder="你是谁、计划发起什么类型的活动" />
+      </view>
+
+      <button class="btn btn-primary btn-block" loading="{{busy}}" disabled="{{busy}}" bindtap="onApply">提交申请</button>
+    </view>
+  </block>
+
+  <!-- 活动表单 -->
+  <block wx:elif="{{phase === 'form'}}">
+    <view class="card">
+      <text class="eyebrow">NEW ACTIVITY</text>
+      <text class="h2">发起活动</text>
+      <text class="muted block-note">提交后由平台审核，通过即在活动看板公开。</text>
+
+      <view class="field">
+        <text class="field-label">活动名称 *</text>
+        <input class="field-input" value="{{form.title}}" bindinput="onTitleInput" placeholder="例如：AI 创造者杭客松 · 夏季场" />
+      </view>
+      <view class="field">
+        <text class="field-label">活动代号 *（小写字母、数字、连字符）</text>
+        <input class="field-input" data-field="slug" value="{{form.slug}}" bindinput="onField" placeholder="ai-creators-summer" />
+      </view>
+      <view class="field">
+        <text class="field-label">一句话说明 *</text>
+        <input class="field-input" data-field="subtitle" value="{{form.subtitle}}" bindinput="onField" placeholder="用一个周末，把想法做成能跑的原型" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">活动类别 *</text>
+        <picker mode="selector" range="{{categories}}" range-key="label" bindchange="onPickCategory">
+          <view class="picker-value">{{form.category}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <text class="field-label">所属区 *</text>
+        <picker mode="selector" range="{{districts}}" range-key="name" bindchange="onPickDistrict">
+          <view class="picker-value">{{form.district}}</view>
+        </picker>
+      </view>
+
+      <view class="field">
+        <text class="field-label">详细介绍</text>
+        <textarea class="field-textarea" data-field="overview" value="{{form.overview}}" bindinput="onField" placeholder="背景、面向谁、期待什么样的作品……" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">主办方 *</text>
+        <input class="field-input" data-field="host" value="{{form.host}}" bindinput="onField" placeholder="个人、团队或机构名称" />
+      </view>
+      <view class="field">
+        <text class="field-label">联系方式 *（会公示在活动页）</text>
+        <input class="field-input" data-field="contact" value="{{form.contact}}" bindinput="onField" placeholder="微信号 / 邮箱 / 手机号" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">参与形式</text>
+        <view class="seg">
+          <view class="seg-item {{form.format === 'offline' ? 'on' : ''}}" data-value="offline" bindtap="onFormat">线下</view>
+          <view class="seg-item {{form.format === 'online' ? 'on' : ''}}" data-value="online" bindtap="onFormat">线上</view>
+        </view>
+      </view>
+      <view wx:if="{{form.format === 'offline'}}" class="field">
+        <text class="field-label">活动地点 *</text>
+        <input class="field-input" data-field="venue" value="{{form.venue}}" bindinput="onField" placeholder="例如：杭州市西湖区 · 某某空间" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">参与费用</text>
+        <view class="seg">
+          <view class="seg-item {{form.pricing === 'free' ? 'on' : ''}}" data-value="free" bindtap="onPricing">免费</view>
+          <view class="seg-item {{form.pricing === 'paid' ? 'on' : ''}}" data-value="paid" bindtap="onPricing">收费</view>
+        </view>
+      </view>
+      <view wx:if="{{form.pricing === 'paid'}}" class="field">
+        <text class="field-label">费用说明 *</text>
+        <input class="field-input" data-field="fee" value="{{form.fee}}" bindinput="onField" placeholder="例如：每人 199 元，含两日餐食与场地" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">开始日期 *</text>
+        <picker mode="date" data-field="startsAt" value="{{form.startsAt}}" bindchange="onPickDate">
+          <view class="picker-value">{{form.startsAt || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <text class="field-label">截止日期 *</text>
+        <picker mode="date" data-field="endsAt" value="{{form.endsAt}}" bindchange="onPickDate">
+          <view class="picker-value">{{form.endsAt || '请选择'}}</view>
+        </picker>
+      </view>
+
+      <text class="muted tiny">
+        评审维度与奖项：小程序端使用默认值（完成度 40% · 创意 30% · 可用性 30%，不设奖金奖项）。
+        需要精细配置请用网页版发起。
+      </text>
+
+      <button class="btn btn-primary btn-block gap-lg" loading="{{busy}}" disabled="{{busy}}" bindtap="onCreate">提交审核</button>
+    </view>
+  </block>
+
+  <!-- 成功 -->
+  <block wx:elif="{{phase === 'done'}}">
+    <view class="card gate">
+      <text class="h1">已提交，等待审核</text>
+      <text class="muted">
+        活动「{{created.title}}」已进入审核队列，通过后会在活动看板公开。
+      </text>
+      <button class="btn btn-primary btn-block gap" bindtap="goActivities">去看活动</button>
+    </view>
+  </block>
+</view>

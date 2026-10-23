@@ -1,0 +1,59 @@
+.gate {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin-top: 40rpx;
+}
+
+.gap {
+  margin-top: 12rpx;
+}
+
+.gap-lg {
+  margin-top: 28rpx;
+}
+
+.block-note {
+  display: block;
+  margin: 12rpx 0 24rpx;
+  line-height: 1.8;
+}
+
+.picker-value {
+  padding: 20rpx 24rpx;
+  border: 1rpx solid var(--hk-border);
+  border-radius: 16rpx;
+  background: #fbfdff;
+  font-size: 28rpx;
+  color: var(--hk-foreground);
+}
+
+.seg {
+  display: flex;
+  gap: 12rpx;
+}
+
+.seg-item {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx;
+  border-radius: 16rpx;
+  background: #f6fafd;
+  border: 1rpx solid var(--hk-border);
+  color: var(--hk-muted);
+  font-size: 26rpx;
+}
+
+.seg-item.on {
+  background: #e3f4ff;
+  border-color: #8fd0ff;
+  color: var(--hk-primary-dark);
+  font-weight: 600;
+}
+
+.tiny {
+  font-size: 22rpx;
+  line-height: 1.75;
+  display: block;
+  margin-top: 20rpx;
+}

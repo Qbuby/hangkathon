@@ -1,0 +1,92 @@
+.gate {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin-top: 40rpx;
+}
+
+.gap {
+  margin-top: 12rpx;
+}
+
+.stats {
+  display: flex;
+  gap: 16rpx;
+  margin: 24rpx;
+}
+
+.stat {
+  flex: 1;
+  padding: 24rpx 16rpx;
+  background: #fff;
+  border: 1rpx solid var(--hk-border);
+  border-radius: 18rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.stat-num {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: var(--hk-foreground);
+}
+
+.stat-label {
+  font-size: 20rpx;
+  color: var(--hk-muted);
+}
+
+.tabs {
+  display: flex;
+  margin: 0 24rpx 8rpx;
+  background: #fff;
+  border: 1rpx solid var(--hk-border);
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 22rpx 0;
+  font-size: 26rpx;
+  color: var(--hk-muted);
+}
+
+.tab.on {
+  background: #e3f4ff;
+  color: var(--hk-primary-dark);
+  font-weight: 600;
+}
+
+.preview {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #4a6d8c;
+  overflow: hidden;
+}
+
+.work-url {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #0b6fa8;
+  word-break: break-all;
+}
+
+.actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.btn-sm {
+  flex: 1;
+  height: 72rpx;
+  font-size: 26rpx;
+  border-radius: 36rpx;
+}

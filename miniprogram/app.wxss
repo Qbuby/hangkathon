@@ -1,0 +1,168 @@
+/**
+ * 全局样式。配色直接复用网页端 globals.css 的 CSS 变量值，
+ * 让两端看起来是同一个产品。
+ */
+
+page {
+  --hk-primary: #1b9cfc;
+  --hk-primary-dark: #0b6fa8;
+  --hk-foreground: #17273a;
+  --hk-muted: #7c93a8;
+  --hk-border: #dce7f2;
+  --hk-bg: #eef5fc;
+  --hk-card: #ffffff;
+  --hk-gold: #c9952a;
+
+  background: var(--hk-bg);
+  color: var(--hk-foreground);
+  font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.page {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+/* ── 通用卡片 ───────────────────────────────────────────────────────────── */
+.card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: var(--hk-card);
+  border: 1rpx solid var(--hk-border);
+  border-radius: 24rpx;
+  box-shadow: 0 2rpx 16rpx rgba(23, 58, 102, 0.05);
+}
+
+.card-tight {
+  padding: 24rpx;
+}
+
+/* ── 标题 ───────────────────────────────────────────────────────────────── */
+.eyebrow {
+  font-size: 20rpx;
+  letter-spacing: 4rpx;
+  color: var(--hk-muted);
+  text-transform: uppercase;
+}
+
+.h1 {
+  font-size: 44rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  margin: 8rpx 0;
+}
+
+.h2 {
+  font-size: 34rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  margin: 8rpx 0;
+}
+
+.muted {
+  color: var(--hk-muted);
+  font-size: 24rpx;
+}
+
+/* ── 按钮 ───────────────────────────────────────────────────────────────── */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  letter-spacing: 1rpx;
+  border: none;
+}
+
+.btn-primary {
+  background: linear-gradient(92deg, #3ec2f7, #1b9cfc);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-ghost {
+  background: #fff;
+  color: var(--hk-primary-dark);
+  border: 1rpx solid var(--hk-border);
+}
+
+.btn[disabled] {
+  opacity: 0.45;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ── 表单 ───────────────────────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  margin-bottom: 26rpx;
+}
+
+.field-label {
+  font-size: 24rpx;
+  color: var(--hk-muted);
+}
+
+.field-input,
+.field-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20rpx 24rpx;
+  border: 1rpx solid var(--hk-border);
+  border-radius: 16rpx;
+  background: #fbfdff;
+  font-size: 28rpx;
+  color: var(--hk-foreground);
+}
+
+.field-textarea {
+  height: 200rpx;
+}
+
+/* ── 空状态 / 加载 ──────────────────────────────────────────────────────── */
+.empty {
+  padding: 80rpx 40rpx;
+  text-align: center;
+  color: var(--hk-muted);
+  font-size: 26rpx;
+}
+
+.loading {
+  padding: 60rpx;
+  text-align: center;
+  color: var(--hk-muted);
+  font-size: 26rpx;
+}
+
+/* ── 标签 ───────────────────────────────────────────────────────────────── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  letter-spacing: 1rpx;
+  background: #e3f4ff;
+  color: var(--hk-primary-dark);
+}
+
+.tag-gold {
+  background: #fdf8ec;
+  color: var(--hk-gold);
+  border: 1rpx solid #e6c168;
+}
+
+/* ── 分隔线 ─────────────────────────────────────────────────────────────── */
+.divider {
+  height: 1rpx;
+  background: var(--hk-border);
+  margin: 24rpx 0;
+}
