@@ -175,6 +175,37 @@
       </view>
     </view>
 
+    <!-- 杭客松精选（人工收录，排在自动抓取之前） -->
+    <view wx:if="{{curatedEvents.length > 0}}" class="feed-group">
+      <view class="group-head">
+        <text class="group-title">杭客松精选</text>
+        <text class="group-count">{{curatedEvents.length}} 场</text>
+      </view>
+
+      <view
+        wx:for="{{curatedEvents}}"
+        wx:key="id"
+        class="feed-item curated-item"
+        data-url="{{item.url}}"
+        bindtap="openExternal"
+      >
+        <image wx:if="{{item.imageUrl}}" class="curated-cover" src="{{item.imageUrl}}" mode="aspectFill" lazy-load />
+        <view class="curated-body">
+          <view class="curated-meta">
+            <text class="curated-tag">精选</text>
+            <text wx:if="{{item.prizeText}}" class="curated-prize">{{item.prizeText}}</text>
+          </view>
+          <text class="curated-title">{{item.titleZh || item.title}}</text>
+          <text wx:if="{{item.titleZh}}" class="curated-original">原文 · {{item.title}}</text>
+          <text class="curated-when">{{item.whenText}}</text>
+          <text wx:if="{{item.curatedIntro}}" class="curated-intro">{{item.curatedIntro}}</text>
+          <view class="curated-actions">
+            <text class="curated-cta">复制官网链接 →</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
     <!-- 国内平台活动（外部抓取） -->
     <view wx:if="{{externalEvents.length > 0}}" class="feed-group">
       <view class="group-head">

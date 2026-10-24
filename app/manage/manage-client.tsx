@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Download, EyeOff, Globe, RefreshCw, Rocket, ShieldChe
 import { Button } from "@/components/ui/button";
 import { categoryLabel, formatLabel, judgingLabel, joinPolicyLabel, pricingLabel, prizeText, submissionLabels, type Activity } from "@/lib/activity";
 import { factionById } from "@/lib/factions";
+import { sourceLabel } from "@/lib/external-events";
 import { usePageMotion } from "../motion-scope";
 import { LoginPanel } from "../login-panel";
 import "../activities/[slug]/detail.css";
@@ -238,11 +239,19 @@ function awardStats(submissions: AdminSubmission[]): AwardStat[] {
   return [...byUser.values()].sort((a, b) => b.total - a.total || b.works - a.works || a.email.localeCompare(b.email));
 }
 
-const SOURCE_LABEL: Record<string, string> = {
+/**
+ * 管理端的外部赛事来源标签。旧 id（contest_watchers / chinahpc / ccf）是历史数据，
+ * 保留映射；当前来源统一走 lib/external-events.ts 的 sourceLabel()。
+ */
+const LEGACY_SOURCE_LABEL: Record<string, string> = {
   contest_watchers: "Contest Watchers",
   chinahpc: "中国高性能计算",
   ccf: "CCF",
 };
+
+function eventSourceLabel(source: string) {
+  return LEGACY_SOURCE_LABEL[source] ?? sourceLabel(source);
+}
 
 /** 客户端 CSV（带 BOM，Excel 直接打开不乱码）。 */
 function downloadCsv(filename: string, header: string[], rows: (string | number | null)[][]) {
@@ -1611,7 +1620,7 @@ export default function ManageClient() {
                               {event.title}
                             </a>
                           </td>
-                          <td>{SOURCE_LABEL[event.source] ?? event.source}</td>
+                          <td>{eventSourceLabel(event.source)}</td>
                           <td className="manage-act-date">
                             {event.startsAt ? new Date(event.startsAt).toLocaleDateString("zh-CN") : "—"}
                             {event.deadlineAt ? ` / 截止 ${new Date(event.deadlineAt).toLocaleDateString("zh-CN")}` : ""}

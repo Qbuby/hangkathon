@@ -1,8 +1,9 @@
-import { and, asc, eq, gte, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/db";
 import { translateToChinese } from "./translate";
-import { isEventSource } from "../external-events";
+import { CURATED_EVENTS } from "../curated-events";
+import { CURATED_SOURCE, isIngestSource } from "../external-events";
 import {
   WINDOW_FUTURE_DAYS,
   WINDOW_PAST_DAYS,
@@ -42,6 +43,75 @@ function toEvent(row: Row): ExternalEvent {
 
 const DAY_MS = 86_400_000;
 const BATCH_SIZE = 200;
+
+/**
+ * 人工精选幂等入库：把 lib/curated-events.ts 当作种子数据。
+ *
+ * 与抓取 upsert 的三点差异，都是刻意的：
+ *   · 只写 curated 来源的行，不碰抓取内容；
+ *   · 每次都覆盖文案与日期（代码是唯一事实来源），但**不覆盖 hidden** ——
+ *     管理端把某条隐藏后，下次部署不该悄悄复活它；
+ *   · lastSeenAt 每次刷新，配合清理任务的 source 豁免形成双保险（其实不刷也不会被删）。
+ */
+export async function ensureCuratedEvents(): Promise<number> {
+  if (CURATED_EVENTS.length === 0) return 0;
+  const db = getDb();
+  let stored = 0;
+  for (const event of CURATED_EVENTS) {
+    await db
+      .insert(schema.externalEvents)
+      .values({
+        source: CURATED_SOURCE,
+        externalId: event.sourceId,
+        title: event.title,
+        titleZh: event.titleZh,
+        url: event.url,
+        category: event.category,
+        location: event.location ?? null,
+        online: event.online ?? null,
+        startsAt: event.startsAt ? new Date(event.startsAt) : null,
+        endsAt: event.endsAt ? new Date(event.endsAt) : null,
+        deadlineAt: event.deadlineAt ? new Date(event.deadlineAt) : null,
+        prize: event.prize ?? null,
+        description: event.description ?? null,
+        descriptionZh: event.descriptionZh ?? null,
+        detailText: event.detailText ?? null,
+        detailTextZh: event.detailTextZh ?? null,
+        imageUrl: event.imageUrl ?? null,
+        tags: event.tags,
+      })
+      .onConflictDoUpdate({
+        target: [schema.externalEvents.source, schema.externalEvents.externalId],
+        set: {
+          title: sql`excluded.title`,
+          titleZh: sql`excluded.title_zh`,
+          url: sql`excluded.url`,
+          category: sql`excluded.category`,
+          location: sql`excluded.location`,
+          online: sql`excluded.online`,
+          startsAt: sql`excluded.starts_at`,
+          endsAt: sql`excluded.ends_at`,
+          deadlineAt: sql`excluded.deadline_at`,
+          prize: sql`excluded.prize`,
+          description: sql`excluded.description`,
+          descriptionZh: sql`excluded.description_zh`,
+          detailText: sql`excluded.detail_text`,
+          detailTextZh: sql`excluded.detail_text_zh`,
+          imageUrl: sql`excluded.image_url`,
+          tags: sql`excluded.tags`,
+          lastSeenAt: sql`now()`,
+        },
+      });
+    stored += 1;
+  }
+  // 代码里已删除的精选条目一并下线（与预置活动同一套「代码即事实」口径）；
+  // 抓取来源的行不受影响。
+  const keep = CURATED_EVENTS.map((event) => event.sourceId);
+  await db
+    .delete(schema.externalEvents)
+    .where(and(eq(schema.externalEvents.source, CURATED_SOURCE), notInArray(schema.externalEvents.externalId, keep)));
+  return stored;
+}
 
 /**
  * 一轮抓取的入库：逐条校验、按 (source, external_id) upsert、更新 last_seen_at。
@@ -102,11 +172,15 @@ export async function upsertExternalEvents(rawEvents: unknown[]): Promise<{ rece
 }
 
 /**
- * 展示口径与抓取窗口一致：开始日期在 [now-7d, now+90d]；或已在进行、
- * 结束/截止日期在 [now, now+90d]（Deadline 驱动的目录站与长期进行中的赛事）。
+ * 展示口径：
+ *   · 抓取来源与抓取窗口一致 —— 开始日期在 [now-7d, now+90d]，或已在进行、
+ *     结束/截止日期在 [now, now+90d]（Deadline 驱动的目录站与长期进行中的赛事）；
+ *   · 人工精选（curated）不受窗口限制，只要还没结束就展示 —— 它们的周期本来
+ *     就可能长达半年（迪拜那场从 2026-10 跑到 2027-05），套 90 天窗口等于永远看不到。
  */
 export async function listExternalEvents(): Promise<ExternalEvent[]> {
   const db = getDb();
+  await ensureCuratedEventsOnce();
   const now = new Date();
   const past = new Date(now.getTime() - WINDOW_PAST_DAYS * DAY_MS);
   const future = new Date(now.getTime() + WINDOW_FUTURE_DAYS * DAY_MS);
@@ -121,12 +195,39 @@ export async function listExternalEvents(): Promise<ExternalEvent[]> {
           and(gte(schema.externalEvents.startsAt, past), lte(schema.externalEvents.startsAt, future)),
           endsSoon(schema.externalEvents.endsAt),
           endsSoon(schema.externalEvents.deadlineAt),
+          // 人工精选：开始时间可以很久以前、结束时间可以很久以后，只看「是否已结束」。
+          // 与 lib/curated-events.ts 的 curatedVisibleAt 同口径：结束/截止哪个晚按哪个，
+          // 两者都没有就长期有效。
+          and(
+            eq(schema.externalEvents.source, CURATED_SOURCE),
+            or(
+              and(isNull(schema.externalEvents.endsAt), isNull(schema.externalEvents.deadlineAt)),
+              gte(schema.externalEvents.endsAt, now),
+              gte(schema.externalEvents.deadlineAt, now),
+            ),
+          ),
         ),
       ),
     )
     .orderBy(sql`${schema.externalEvents.startsAt} asc nulls last`, asc(schema.externalEvents.endsAt))
     .limit(500);
   return rows.map(toEvent);
+}
+
+/**
+ * 进程级「精选已入库」标记：public GET /api/events 每次访问都会走到这里，
+ * 不该每次都写库。首次成功后置位；失败时不置位，下一次请求自动重试。
+ * （多实例部署时每个进程各跑一次，upsert 是幂等的，没有副作用。）
+ */
+let curatedSeeded = false;
+async function ensureCuratedEventsOnce(): Promise<void> {
+  if (curatedSeeded) return;
+  try {
+    await ensureCuratedEvents();
+    curatedSeeded = true;
+  } catch (error) {
+    console.error("[events] 人工精选入库失败，下次请求重试", error);
+  }
 }
 
 /** 过期清理：整场活动（结束/截止/开始取最晚的）过去两周、或两周没被任何一轮抓取再见到，删掉。 */
@@ -138,18 +239,28 @@ export async function cleanupExternalEvents(): Promise<number> {
   const gone = await db
     .delete(schema.externalEvents)
     .where(
-      or(
-        sql`coalesce(${schema.externalEvents.endsAt}, ${schema.externalEvents.deadlineAt}, ${schema.externalEvents.startsAt}) < ${cutoff}`,
-        lt(schema.externalEvents.lastSeenAt, staleSeen),
+      // curated 由代码管理，不进清理 —— 它不参与每日抓取，last_seen_at 不会被刷新
+      and(
+        ne(schema.externalEvents.source, CURATED_SOURCE),
+        or(
+          sql`coalesce(${schema.externalEvents.endsAt}, ${schema.externalEvents.deadlineAt}, ${schema.externalEvents.startsAt}) < ${cutoff}`,
+          lt(schema.externalEvents.lastSeenAt, staleSeen),
+        ),
       ),
     )
     .returning({ id: schema.externalEvents.id });
   return gone.length;
 }
 
-/** 详情页用：按主键取单条全球赛事（窗口过滤不适用——详情页照常展示）。 */
+/**
+ * 详情页用：按主键取单条全球赛事（窗口过滤不适用——详情页照常展示）。
+ *
+ * 这里也要走一次精选入库：精选详情页是可直接分享的链接，用户可能**没先打开
+ * 活动列表**就点进来。若只在列表接口里入库，冷启动后的第一个请求会 404。
+ */
 export async function getExternalEventById(id: string): Promise<ExternalEvent | null> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  await ensureCuratedEventsOnce();
   const db = getDb();
   const [row] = await db.select().from(schema.externalEvents).where(eq(schema.externalEvents.id, id)).limit(1);
   return row ? toEvent(row) : null;
@@ -219,7 +330,8 @@ export async function updateEventDetails(
   const db = getDb();
   let updated = 0;
   for (const item of details) {
-    if (!isEventSource(item.source)) continue;
+    // 只允许抓取来源：curated 的文案与海报由代码管理，不能被 enrichment 覆盖
+    if (!isIngestSource(item.source)) continue;
     const patch: Record<string, unknown> = {};
     if (item.imageUrl) patch.imageUrl = item.imageUrl;
     if (item.detailText) {

@@ -12,7 +12,13 @@ const {
   EVENT_SOURCES,
   normalizeEventInput,
   filterByWindow,
+  isCuratedSource,
+  isIngestSource,
+  sourceLabel,
 } = await import(`data:text/javascript;base64,${Buffer.from(libJs).toString("base64")}`);
+
+/** 抓取脚本能产出的来源（curated 是代码专属，没有 fixture，也不该出现在 fetch.py 里）。 */
+const INGEST_SOURCES = EVENT_SOURCES.filter((item) => item.id !== "curated");
 
 const SCRIPT = fileURLToPath(new URL("./fetch.py", import.meta.url));
 
@@ -35,9 +41,9 @@ function runFetch(args) {
 test("self-check：每个适配器都能从自己的 fixture 解析出条目", () => {
   const probe = spawnSync(python, [SCRIPT, "--self-check"], { encoding: "utf8" });
   assert.equal(probe.status, 0, probe.stderr);
-  // 7 个源都要有 fixture（有 fixture 才测得到解析器）
-  assert.equal(EVENT_SOURCES.length, 7);
-  for (const { id } of EVENT_SOURCES) {
+  // 7 个抓取源都要有 fixture（curated 是代码专属来源，不参与抓取，见 lib/curated-events.ts）
+  assert.equal(INGEST_SOURCES.length, 7);
+  for (const { id } of INGEST_SOURCES) {
     assert.match(probe.stderr, new RegExp(`${id}: [1-9]\\d*/`), `${id} 的 fixture 应至少解析出 1 条`);
   }
 });
@@ -47,7 +53,7 @@ test("离线全量跑：输出契约齐全、跨源去重、日期为 ISO", () =
   assert.ok(result.fetchedAt);
   assert.equal(result.window.pastDays, 7);
   assert.equal(result.window.futureDays, 90);
-  for (const { id } of EVENT_SOURCES) {
+  for (const { id } of INGEST_SOURCES) {
     assert.ok(result.sources[id], `缺 ${id} 的来源统计`);
     assert.ok(!result.sources[id].error, `${id} 不该报错：${result.sources[id].error}`);
   }
@@ -118,4 +124,41 @@ test("filterByWindow：与 fetch.py 的窗口口径一致（开始日期在窗�
 
   const kept = filterByWindow([inside, tooOld, tooNew, deadlineOnly, deadlinePast, ongoing, marathon], now).map((item) => item.sourceId);
   assert.deepEqual(kept, ["in", "ddl", "run"]);
+});
+
+test("curated 是代码专属来源：ingest 拒绝、窗口不拦、标签可读", () => {
+  // 抓取脚本与 ingest 接口都不能写 curated（否则外部可以伪造「杭客松精选」）
+  assert.equal(isIngestSource("curated"), false);
+  assert.equal(isIngestSource("topcoder"), true);
+  assert.equal(isCuratedSource("curated"), true);
+  assert.equal(isCuratedSource("topcoder"), false);
+  assert.equal(
+    normalizeEventInput({
+      source: "curated",
+      sourceId: "fake",
+      title: "伪造的精选",
+      url: "https://example.com",
+      startsAt: "2026-10-01T00:00:00Z",
+      tags: [],
+    }),
+    null,
+  );
+  assert.equal(sourceLabel("curated"), "杭客松精选");
+  assert.equal(sourceLabel("hudongba"), "互动吧");
+  assert.equal(sourceLabel("no-such-source"), "no-such-source", "未知来源回落到 id，不能崩");
+
+  // 半年跨度的精选在窗口外也要展示；结束之后不展示
+  const longRunning = {
+    source: "curated",
+    sourceId: "dubai",
+    title: "Create AI Agents Championship",
+    url: "https://example.com",
+    category: "competition",
+    startsAt: "2026-10-07T00:00:00.000Z",
+    endsAt: "2027-05-07T00:00:00.000Z",
+    tags: [],
+  };
+  const ended = { ...longRunning, sourceId: "ended", endsAt: "2026-09-01T00:00:00.000Z" };
+  const now = new Date("2026-12-01T00:00:00Z");
+  assert.deepEqual(filterByWindow([longRunning, ended], now).map((item) => item.sourceId), ["dubai"]);
 });

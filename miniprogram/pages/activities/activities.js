@@ -104,6 +104,7 @@ Page({
     groups: [],
     mineCount: 0,
     externalEvents: [],
+    curatedEvents: [],
     externalLoading: true,
   },
 
@@ -149,7 +150,7 @@ Page({
   async loadExternal() {
     try {
       const data = await get("/api/events", { silent: true });
-      const list = (data.events || []).slice(0, 20).map((event) => ({
+      const all = (data.events || []).map((event) => ({
         ...event,
         badge: dateBadge(event.startsAt || event.deadlineAt),
         badgeColor: DATE_STYLES[sourceStyle(event.category)] || DATE_STYLES.competition,
@@ -158,10 +159,18 @@ Page({
           .filter(Boolean)
           .join(" · "),
         intro: clampIntro(event.descriptionZh || event.description || event.detailTextZh || event.detailText || ""),
+        // 精选卡片文案更长（人工撰写），截断放宽到 90 字
+        curatedIntro: clampText(event.descriptionZh || event.description || "", 90),
+        prizeText: event.prize || "",
       }));
-      this.setData({ externalEvents: list, externalLoading: false });
+      // 人工精选与自动抓取分开：精选在前（与网页端一致），数量通常个位数
+      this.setData({
+        curatedEvents: all.filter((event) => event.source === "curated"),
+        externalEvents: all.filter((event) => event.source !== "curated").slice(0, 20),
+        externalLoading: false,
+      });
     } catch {
-      this.setData({ externalEvents: [], externalLoading: false });
+      this.setData({ curatedEvents: [], externalEvents: [], externalLoading: false });
     }
   },
 
@@ -294,6 +303,7 @@ function sourceLabel(source) {
     contestwatchers: "Contest Watchers",
     xprize: "XPRIZE",
     studentcompetitions: "Student Competitions",
+    curated: "杭客松精选",
   };
   return map[source] || source;
 }
@@ -334,7 +344,11 @@ function districtName(id) {
 
 /** 简介截断：网页端是 clampIntro，这里保持同样的观感。 */
 function clampIntro(text) {
+  return clampText(text, 62);
+}
+
+function clampText(text, limit) {
   const value = String(text || "").replace(/\s+/g, " ").trim();
   if (!value) return "";
-  return value.length > 62 ? value.slice(0, 62) + "…" : value;
+  return value.length > limit ? value.slice(0, limit) + "…" : value;
 }

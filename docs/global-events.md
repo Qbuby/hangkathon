@@ -67,6 +67,34 @@ systemd timer (每天 07:30, deploy/hangkathon-events.timer)
   两周没更新（源不再产出）或开始日期过期 30 天的行会被清理。
 - localStorage 模式（Vercel 那份）`/api/events` 返回 503，前端 `listGlobalEvents()` 捕获后返回空列表，整块不渲染。
 
+## 人工精选（curated，2026-10-24 起）
+
+自动抓取只能覆盖「近期」赛事：窗口是 `[今天-7 天, 今天+90 天]`。周期长达半年的重点赛事
+（例如迪拜的 Create AI Agents Championship，2026-10 到 2027-05）会被这个窗口直接过滤掉，
+而它们恰恰最该被推荐。所以另开一条**代码专属**通道：
+
+- 数据写在 `lib/curated-events.ts`（`CURATED_EVENTS`），随部署同步入库，来源 id 固定为 `curated`；
+- **ingest 接口不接受 curated**（`isIngestSource()` 显式排除），只有代码能产生，外部无法用抓取令牌伪造「杭客松精选」；
+- 展示不看 90 天窗口，只看结束/截止时间是否已过；`cleanupExternalEvents()` 按 source 豁免，
+  不会被「两周没再见到」删掉；`hidden` 标记不被覆盖，管理端仍可隐藏；
+- `/api/events` 与精选详情页都会触发一次幂等入库（进程级标记，失败下次请求重试），
+  所以直接把详情链接分享给别人也能打开；
+- 活动页把精选单独成块（`app/curated-events.tsx`）排在自动抓取之前；小程序同样单列「杭客松精选」；
+- 不做站内报名：卡片与详情页的「前往官网」都指向主办方页面，正文明确声明
+  「不参与杭客松的贡献值与荣誉结算」。
+
+新增一条精选：改 `lib/curated-events.ts` → 跑 `node --test scripts/curated-events.test.mjs`
+（校验 sourceId 唯一、https、日期合法且起止有序、站内海报真实存在、事实与文案一致）→ 提交部署。
+
+已收录：
+
+| sourceId | 赛事 | 主办方 | 时间 |
+| --- | --- | --- | --- |
+| `create-ai-agents-championship-2026` | Create AI Agents Championship | Dubai Chamber of Digital Economy | 2026-10-07 开放报名 · 2027-01 截止 · 2027-05 第一周总决赛 |
+
+> 官网时间只公开到月份，日期字段里的具体日是按月边界取的排序值，详情页正文已明确
+> 「具体日以官网为准」。奖金口径：四个类别各 USD 150,000，总额 USD 750,000。
+
 ## 取数礼貌
 
 - 每源每天 1–2 个请求（Reedsy 翻 2 页），带自标识 UA（`HangkathonEvents/1.0`），20s 超时，失败重试一次。
@@ -76,13 +104,15 @@ systemd timer (每天 07:30, deploy/hangkathon-events.timer)
 ## 测试
 
 ```sh
-node --test scripts/events/events.test.mjs
+node --test scripts/events/events.test.mjs scripts/curated-events.test.mjs
 ```
 
 - 每个 adapter 有 `scripts/events/fixtures/` 样本（按实测的页面结构构造），
   `fetch.py --self-check` 离线验证解析器；
 - 跨语言契约：node 测试实际 spawn `python3 fetch.py --fixture --no-window` 校验输出契约；
-- `normalizeEventInput` / `filterByWindow` 的通过与拒绝路径。
+- `normalizeEventInput` / `filterByWindow` 的通过与拒绝路径；
+- 人工精选：`scripts/curated-events.test.mjs` 校验数据结构、海报文件存在、
+  以及「ingest 必须拒绝 curated / 窗口必须放行长周期精选」两条不变量。
 
 页面结构变了导致某源解析出 0 条时：先 `python3 scripts/events/fetch.py --source <名字>` 看真实输出，
 更新对应 fixture 与正则。

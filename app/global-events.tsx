@@ -7,10 +7,10 @@ import {
   categoryLabel,
   EVENT_CATEGORIES,
   filterByWindow,
+  sourceLabel,
   type EventCategory,
   type ExternalEvent,
 } from "@/lib/external-events";
-import { EVENT_SOURCES } from "@/lib/external-events";
 import "./global-events.css";
 
 type CategoryFilter = "all" | EventCategory;
@@ -20,7 +20,6 @@ const CATEGORY_FILTERS: { value: CategoryFilter; label: string }[] = [
   ...EVENT_CATEGORIES.filter((value) => value !== "activity").map((value) => ({ value, label: categoryLabel(value) })),
 ];
 
-const SOURCE_LABEL = new Map(EVENT_SOURCES.map((item) => [item.id, item.label]));
 
 /** 与看板卡片一致的简介截断长度。 */
 const INTRO_CLAMP = 92;
@@ -138,7 +137,7 @@ export default function GlobalEvents({ events, eventsLoaded }: { events: Externa
                     <MapPin size={13} aria-hidden="true" />
                     {event.online ? "线上" : (event.location || "地点见官网")}
                     <span className="feed-sep" aria-hidden="true">·</span>
-                    来源 {SOURCE_LABEL.get(event.source) ?? event.source}
+                    来源 {sourceLabel(event.source)}
                     <span className="feed-sep" aria-hidden="true">·</span>
                     {categoryLabel(event.category)}
                   </p>

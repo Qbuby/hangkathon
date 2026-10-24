@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { hasDatabase } from "@/db";
 import { getExternalEventById } from "@/lib/server/external-events";
+import { isCuratedSource } from "@/lib/external-events";
 import GlobalEventDetail from "./global-event-detail";
 
 /**
@@ -13,6 +14,8 @@ import GlobalEventDetail from "./global-event-detail";
  *      刻意**不**在 robots.txt 里 Disallow 这条路径：被禁止抓取的页面爬虫拿不到 noindex，
  *      反而可能以「仅限此 URL 使用 robots.txt」的裸链形式出现在结果里。
  *   2. 标题带上赛事名 —— 即便不收录，分享出去的标题也能看懂，不再是全站同一个「详情」。
+ *
+ * 人工精选（curated）走同一个详情页，但措辞不同：不是抓取、不是机翻。
  */
 export const dynamic = "force-dynamic";
 
@@ -34,11 +37,14 @@ export async function generateMetadata({
   const { id } = await params;
   const event = await loadEvent(id);
   const name = event ? event.titleZh || event.title : "全球赛事";
+  const curated = Boolean(event && isCuratedSource(event.source));
+  const label = curated ? "杭客松精选" : "全球赛事";
+  const origin = curated
+    ? "杭客松编辑人工核对官网后收录，报名时间与赛程以主办方官网为准。"
+    : "来自全球竞赛平台的赛事信息，报名时间与赛程以主办方官网为准。";
   return {
-    title: `${name} · 全球赛事`,
-    description: event
-      ? `${event.titleZh || event.title}，来自 ${event.source} 的全球竞赛信息，报名时间与赛程以主办方官网为准。`
-      : "来自全球竞赛平台的赛事信息，报名时间与赛程以主办方官网为准。",
+    title: `${name} · ${label}`,
+    description: event ? `${event.titleZh || event.title}，${origin}` : origin,
     // 不收录第三方内容，但跟随页面上的官网链接，把权重传给原站
     robots: { index: false, follow: true },
   };

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { animate, type JSAnimation } from "animejs";
 import { Coins, MapPin } from "lucide-react";
 import { CATEGORIES, categoryLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
-import { EVENT_SOURCES, type ExternalEvent } from "@/lib/external-events";
+import { sourceLabel, type ExternalEvent } from "@/lib/external-events";
 import { prefersReducedMotion, usePageMotion } from "./motion-scope";
 import "./board.css";
 
@@ -99,8 +99,6 @@ function Chip({
     </button>
   );
 }
-
-const SOURCE_LABEL = new Map(EVENT_SOURCES.map((item) => [item.id, item.label]));
 
 export default function ActivityBoard({
   activities,
@@ -291,7 +289,7 @@ export default function ActivityBoard({
   function renderLocalEvent(event: ExternalEvent) {
     const badge = dateBadge(event.startsAt ?? event.endsAt ?? event.deadlineAt ?? "");
     const where = event.online ? "线上" : (event.location || "地点见官网");
-    const source = SOURCE_LABEL.get(event.source) ?? event.source;
+    const source = sourceLabel(event.source);
     return (
       <article
         className="feed-item"

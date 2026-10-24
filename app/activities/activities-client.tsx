@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import ActivityBoard from "../activity-board";
+import CuratedEvents from "../curated-events";
 import GlobalEvents from "../global-events";
 import SiteHeader from "../site-header";
 import { Button } from "@/components/ui/button";
 import { listActivities, listGlobalEvents, type ActivityView } from "@/lib/api/data";
-import { eventScope, type ExternalEvent } from "@/lib/external-events";
+import { eventScope, isCuratedSource, type ExternalEvent } from "@/lib/external-events";
 
 /** 本地赛事板块里外部平台活动的展示上限（数据全量入库，只挑最近的）。 */
 const LOCAL_EVENTS_LIMIT = 20;
@@ -70,14 +71,19 @@ export default function ActivitiesClient({
         <ActivityBoard
           activities={activities}
           localEvents={globalEvents
-            .filter((event) => eventScope(event.source) === "local")
+            .filter((event) => !isCuratedSource(event.source) && eventScope(event.source) === "local")
             // 接口已按开始日期升序返回，取最近的 20 场
             .slice(0, LOCAL_EVENTS_LIMIT)}
           mode={mode}
           loaded={loaded}
           action={<Button asChild className="primary-action"><Link href="/create">发起活动 <ArrowUpRight size={19} /></Link></Button>}
         />
-        <GlobalEvents events={globalEvents.filter((event) => eventScope(event.source) === "global")} eventsLoaded={eventsLoaded} />
+        {/* 人工精选排在自动抓取之前：先给编辑背书的内容，再给每日流水 */}
+        <CuratedEvents events={globalEvents} loaded={eventsLoaded} />
+        <GlobalEvents
+          events={globalEvents.filter((event) => !isCuratedSource(event.source) && eventScope(event.source) === "global")}
+          eventsLoaded={eventsLoaded}
+        />
       </div>
     </main>
   );
