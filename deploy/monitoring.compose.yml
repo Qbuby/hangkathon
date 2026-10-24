@@ -18,6 +18,10 @@ services:
     image: docker.m.daocloud.io/louislam/uptime-kuma:1
     container_name: hangkathon-uptime
     restart: unless-stopped
+    # OOM 优先级：监控是「出事时唯一还活着的人」，不能被部署的构建挤死。
+    # 2026-10-24 事故：一次部署的构建峰值把运行中的 uptime node 杀了，
+    # 监控自己重启 = 告警断线，且重启期间谁都收不到 Down/Up 通知。
+    oom_score_adj: -900
     # 仅环回可达：公网入口只有 nginx 反代的子域名
     ports:
       - "127.0.0.1:3001:3001"

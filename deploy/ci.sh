@@ -79,6 +79,68 @@ check_disk_before_build() {
   return 0
 }
 
+# 内存水位闸门（**只读，绝不杀进程**）。
+#
+# 2026-10-24 事故：机器只有 1870MB 内存，一次 next build 的峰值约 1.4GB，
+# 加上运行中的三个容器（约 280MB），构建期可用内存只剩 ~1.1GB ——
+# 内核于是开始 OOM，而**被杀的是运行中的站点进程**：
+#
+#   · 构建进程继承 dockerd 的 oom_score_adj=-500 → 受保护；
+#   · 运行中的 next-server（adj=0）→ 被杀 → 容器靠 restart 策略约 60 秒后爬回来；
+#   · 于是每次部署必然 502，Uptime Kuma 报一条 Down 再报一条 Up。
+#
+# 这里再加一道闸门：可用内存不足以容纳一次构建时，**跳过本次部署**，
+# 等下一个 3 分钟周期内存宽裕了再构建。跳过比 OOM 划算 ——
+# 少发一次版，站点始终在线。
+#
+# 返回：0 可以继续部署；非 0 表示内存不足，应跳过本次部署。
+check_memory_before_build() {
+  # MemAvailable 已经扣掉内核回收不到的部分，最接近「真能分配多少」。
+  # 路径可覆盖：故障注入要用假的 meminfo 验证这条闸门真的会拦。
+  MEMINFO_FILE="${MEMINFO_FILE:-/proc/meminfo}"
+  avail_mb="$(awk '/^MemAvailable:/ {print int($2/1024)}' "$MEMINFO_FILE" 2>/dev/null || true)"
+  case "$avail_mb" in ''|*[!0-9]*) log "读不到内存水位，按放行处理"; return 0 ;; esac
+
+  # 一次构建的实测峰值：next build（Turbopack）约 1.4GB。这里留 1.6GB 的余量，
+  # 让构建有足够空间且不必触发 OOM —— 低于它就不构建。
+  MIN_AVAIL_MB="${MIN_AVAIL_MB:-1600}"
+  if [ "$avail_mb" -lt "$MIN_AVAIL_MB" ]; then
+    log "可用内存仅 ${avail_mb}MB（阈值 ${MIN_AVAIL_MB}MB），**跳过本次部署**以免构建期 OOM 误杀运行中的站点。"
+    log "处置：确认无残留构建进程（ps -eo pid,rss,args --sort=-rss | head），或临时加内存后重试。"
+    hk_alert "【杭客松】CI 因内存不足跳过部署" \
+      "服务器 $(hostname) $(date '+%F %T') 可用内存 ${avail_mb}MB（阈值 ${MIN_AVAIL_MB}MB），已跳过构建。站点未受影响。"
+    return 1
+  fi
+
+  log "提示：可用内存 ${avail_mb}MB（阈值 ${MIN_AVAIL_MB}MB），本次继续部署。"
+  return 0
+}
+
+# 保证内核愿意用 swap 换出（**只调这一个参数，不杀任何进程**）。
+#
+# 2026-10-24 事故的第二层原因：阿里云镜像把 vm.swappiness 设成 0 ——
+# 内核于是**宁可不换出那 2.3GB 空闲 swap，也直接开始杀进程**。
+# 加上这一条，内存紧张时的顺序变成「先换出、再考虑杀谁」，而 OOM 的受害者
+# 也就更可能落在构建进程（可丢弃）而不是运行中的站点（不可丢）。
+#
+# 幂等且每轮都做：主机重启会把 swappiness 复位成 0，而 CI 每 3 分钟跑一次，
+# 所以这里顺带把重启后的值也修回来。
+ensure_swap_policy() {
+  current="$(cat /proc/sys/vm/swappiness 2>/dev/null || echo '')"
+  case "$current" in
+    ''|*[!0-9]*) log "读不到 vm.swappiness，跳过"; return 0 ;;
+    0)
+      if sysctl -w vm.swappiness=10 >/dev/null 2>&1; then
+        log "vm.swappiness 0 → 10（内存紧张时先换出，而不是直接杀进程）"
+      else
+        log "提示：vm.swappiness 仍是 0，改不动（需要 root 或 sysctl 权限）"
+      fi
+      ;;
+    *) log "vm.swappiness=${current}，无需调整" ;;
+  esac
+  return 0
+}
+
 # 部署后验证：容器健康只说明"进程起来了"，不代表契约没坏。
 # 两个套件用仓库里的脚本（纯 Node 标准库，不需要在宿主机装依赖），
 # 通过一个临时 node 容器执行 —— 宿主机上没有 node。
@@ -163,9 +225,15 @@ if [ "$LOCAL" = "$REMOTE" ]; then
   exit 0
 fi
 
-# 构建前先看磁盘：空间不足就别构建（构建到一半写满会把镜像写坏）。
-# 这一条是本轮唯一被允许的"预防性动作" —— 它不碰 dockerd。
+# 构建前先看磁盘与内存：任一不足就别构建（构建到一半写满会把镜像写坏；
+# 构建期 OOM 会误杀运行中的站点，代价是整站 502）。这两条是本轮唯一被允许的
+# "预防性动作" —— 它们不碰 dockerd。
+ensure_swap_policy
 if ! check_disk_before_build; then
+  hk_ping fail
+  exit 1
+fi
+if ! check_memory_before_build; then
   hk_ping fail
   exit 1
 fi

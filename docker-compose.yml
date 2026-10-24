@@ -5,6 +5,19 @@ services:
     image: postgres:18-alpine
     container_name: hangkathon-postgres
     restart: unless-stopped
+    # OOM 优先级：-900 表示**内核要杀进程时先杀别的**。
+    #
+    # 2026-10-24 事故：机器只有 1870MB 内存，一次 `docker compose up -d --build`
+    # 的构建峰值约 1.4GB，把运行中的站点挤到只剩 ~1.1GB 可用。此时内核的
+    # OOM killer 按 oom_score 挑目标，而**优先级是反的**：
+    #   · 构建进程继承 dockerd 的 oom_score_adj=-500 → 受保护；
+    #   · 运行中的 next-server（adj=0）→ 被杀。
+    # 结果每次部署必然 502：容器靠 restart:unless-stopped 约 60 秒后爬回来，
+    # Uptime Kuma 于是报一条 Down 再报一条 Up（2026-10-24 每次部署都复现）。
+    #
+    # 把长期运行的服务设成 -900，构建进程就成了被优先放弃的那个 ——
+    # 部署失败顶多丢一次发布，站点不会跟着一起死。
+    oom_score_adj: -900
     # 只在 compose 内网可达，不发布端口（宿主机的 5432 是宝塔那台，互不干扰）
     expose:
       - "5432"
@@ -35,6 +48,8 @@ services:
     image: hangkathon:local
     container_name: hangkathon
     restart: unless-stopped
+    # 同上：构建期内存吃紧时，优先放弃构建而不是运行中的站点。
+    oom_score_adj: -900
     depends_on:
       postgres:
         condition: service_healthy

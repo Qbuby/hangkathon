@@ -217,6 +217,56 @@ else
   hk_check 1 "dockerd 内存 $((DOCKERD_RSS_KB / 1024))MB"
 fi
 
+# 容器 OOM 优先级：必须比构建进程（-500）更受保护。
+#
+# 2026-10-24 事故：机器只有 1870MB 内存，一次 next build 峰值约 1.4GB，构建期可用
+# 内存只剩 ~1.1GB → 内核 OOM。而**被杀的是运行中的站点**：
+#   · 构建进程继承 dockerd 的 oom_score_adj=-500 → 受保护；
+#   · 运行中的 next-server / uptime node（adj=0）→ 挨刀 → 站点 502、监控自己重启。
+# 结果每次部署必出一条 Down 再一条 Up（Uptime Kuma 告警里的那两个）。
+#
+# 这里查 compose 里有没有把长期服务设成更低的 adj（-900）。真被改了或被手工
+# `docker update` 覆盖过，这里会报出来 —— 少了它，下次部署又会重演。
+check_oom_priority() {
+  _expected='oom_score_adj: -900'
+  _bad=0
+  _checked=0
+  for _f in "$APP_DIR/docker-compose.yml" "$APP_DIR/deploy/monitoring.compose.yml"; do
+    if [ ! -f "$_f" ]; then
+      continue
+    fi
+    _checked=$((_checked + 1))
+    if grep -q "$_expected" "$_f"; then
+      _n="$(grep -c "$_expected" "$_f" || true)"
+      log "OK $(basename "$_f") 长期服务 OOM 优先级 $_expected（$_n 处）"
+    else
+      log "ALERT $(basename "$_f") 缺少 '$_expected' —— 构建期 OOM 会优先杀掉运行中的站点"
+      _bad=$((_bad + 1))
+    fi
+  done
+  # 一个都没查到（比如开发机没有这两个文件）不算异常，只说明本项无从检查。
+  [ "$_checked" -eq 0 ] && return 0
+  return "$_bad"
+}
+if check_oom_priority; then
+  hk_check 1 "长期服务的 OOM 优先级（-900）配置在位"
+else
+  hk_check 0 "长期服务的 OOM 优先级（-900）配置缺失 —— 部署期 OOM 会误杀运行中的站点"
+fi
+
+# swap 可用性：swappiness=0 时内核**宁可不换出也直接杀进程**（阿里云镜像的默认值）。
+# 2026-10-24 的 OOM 就是被这个放大的：机器上有 2.3GB 空闲 swap，却因为
+# swappiness=0 没用上，直接把运行中的站点杀了。
+#
+# 读不到就不算异常：这台检查也会在开发机（无 /proc）上跑，
+# 读不到只能说明"这个环境不适用"，不能算自检失败。
+SWAPPINESS="$(cat /proc/sys/vm/swappiness 2>/dev/null || echo '')"
+case "$SWAPPINESS" in
+  ''|*[!0-9]*) log "注：读不到 vm.swappiness（返回 '$SWAPPINESS'），本项跳过" ;;
+  0) hk_check 0 "vm.swappiness=0 —— 内核不会用 swap 换出，内存紧张时直接杀进程（应设为 10）" ;;
+  *) hk_check 1 "vm.swappiness=${SWAPPINESS}（>0，内存紧张时会先换出而不是直接杀进程）" ;;
+esac
+
 hk_finish \
   "【杭客松】完整性自检告警" \
   "服务器 $(hostname) 于 $(date '+%F %T') 自检未通过：$HK_CHECK_FAILED/$HK_CHECK_TOTAL 项异常，明细见 $HK_LOG" \

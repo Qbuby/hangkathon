@@ -468,6 +468,84 @@ FAKE
   rm -f "$CODE"
 fi
 
+# ── 场景 12 ────────────────────────────────────────────────────────────────
+# 2026-10-24 事故链：1870MB 内存的机器上，next build 峰值约 1.4GB，构建期可用内存
+# 只剩 ~1.1GB → 内核 OOM → 被杀的是**运行中**的站点进程（构建进程继承 dockerd 的
+# oom_score_adj=-500 受保护，站点进程 adj=0 挨刀）→ 每次部署必然 502，
+# Uptime Kuma 报一条 Down 再报一条 Up。
+#
+# 护栏有两条，这条锁住「构建前看内存」的那条：内存不足就别构建，等下一个周期。
+# 少发一次版，站点始终在线 —— 远比 OOM 划算。
+case_start 12 "内存不足 → CI 必须跳过构建并告警（而非硬着头皮构建到 OOM 误杀站点）"
+if [ "$SKIP" = "0" ]; then
+  C="$SANDBOX/c12"; mkdir -p "$C/log" "$C/run"
+  # 假 /proc/meminfo：MemAvailable 只有 400MB（低于默认 1600MB 阈值）
+  cat > "$SANDBOX/bin/meminfo" <<'FAKE'
+#!/bin/sh
+cat <<'MEM'
+MemTotal:        1916928 kB
+MemFree:          120000 kB
+MemAvailable:     409600 kB
+SwapTotal:       3145728 kB
+SwapFree:        2400000 kB
+MEM
+FAKE
+  chmod +x "$SANDBOX/bin/meminfo"
+  # 静态断言：内存闸门存在、在构建之前、失败时跳过部署并告警
+  expect_contains "$SANDBOX/app/deploy/ci.sh" "check_memory_before_build" "存在内存闸门函数调用"
+  expect_contains "$SANDBOX/app/deploy/ci.sh" "跳过本次部署" "内存不足时明确说跳过部署"
+  expect_contains "$SANDBOX/app/deploy/ci.sh" "CI 因内存不足跳过部署" "内存不足时发出告警"
+  expect_contains "$SANDBOX/app/deploy/ci.sh" "MemAvailable" "内存水位取 MemAvailable（内核真正能分配的部分）"
+
+  # 闸门必须在**真正执行**构建的那一行之前（与场景 11 同样的坑：注释里也有那串字）
+  mem_gate_line=$(grep -n 'if ! check_memory_before_build' "$SANDBOX/app/deploy/ci.sh" | head -1 | cut -d: -f1)
+  build_line=$(grep -n '^[[:space:]]*if ! docker compose up -d --build' "$SANDBOX/app/deploy/ci.sh" | head -1 | cut -d: -f1)
+  if [ -n "$mem_gate_line" ] && [ -n "$build_line" ] && [ "$mem_gate_line" -lt "$build_line" ]; then
+    ok "内存闸门在构建之前（第 $mem_gate_line 行 < 第 $build_line 行）"
+  else
+    bad "内存闸门必须在 docker compose 构建之前（gate=${mem_gate_line:-无} build=${build_line:-无}）"
+  fi
+
+  # 真跑一次闸门：注入低内存 → 必须跳过构建（退出非 0）
+  #
+  # 闸门函数住在 ci.sh 里（和生产用的**同一份**代码），所以直接从 ci.sh 里把它抽出来
+  # 再 source —— 不能另外抄一份到测试里，否则测的就不是线上跑的那份了。
+  # 抽取范围：从函数定义行到**行首**的 `}`（函数体内的 `}` 都有缩进，不会提前收尾）。
+  sed -n '/^check_memory_before_build() {/,/^}/p' "$SANDBOX/app/deploy/ci.sh" > "$C/gate.sh"
+  if ! grep -q 'check_memory_before_build' "$C/gate.sh"; then
+    bad "没能从 ci.sh 里抽出 check_memory_before_build（闸门函数结构变了？）"
+  else
+    ok "从 ci.sh 抽出了真实的 check_memory_before_build"
+  fi
+  MEMOUT="$C/out.log"
+  (
+    export APP_DIR="$SANDBOX/app"
+    export HK_LOG="$C/log/ci.log"
+    export MEMINFO_FILE="$SANDBOX/bin/meminfo"
+    . "$SANDBOX/app/deploy/lib/common.sh"
+    hk_init ci
+    . "$C/gate.sh"
+    check_memory_before_build
+  ) > "$MEMOUT" 2>&1
+  mem_rc=$?
+  if [ "$mem_rc" -ne 0 ] && [ "$mem_rc" -ne 127 ]; then
+    ok "低内存时闸门返回非 0（跳过构建，rc=$mem_rc）"
+  else
+    bad "低内存时闸门必须返回非 0（实际 $mem_rc；127=函数没找到，视为假绿）"
+  fi
+  expect_contains "$MEMOUT" "跳过本次部署" "低内存时明确说跳过部署"
+  expect_contains "$MEMOUT" "400MB" "低内存时把实测水位写进日志"
+
+  # 反向：CI 代码绝不能**执行**任何杀进程/清内存的动作 ——
+  # 「自动杀进程腾内存」比 OOM 更危险（会杀掉自己）。
+  CODE="$(mktemp)"
+  sed 's/^[[:space:]]*#.*$//' "$SANDBOX/app/deploy/ci.sh" | sed 's/[[:space:]]#.*$//' > "$CODE"
+  for forbidden in 'kill -9' 'pkill' 'killall' 'echo 9 >' 'swapoff' 'system_prune'; do
+    expect_missing "$CODE" "$forbidden" "CI 代码不得执行 '$forbidden'（注释里说明原因是可以的）"
+  done
+  rm -f "$CODE"
+fi
+
 echo
 echo "故障注入：$pass 通过，$fail 失败"
 [ "$fail" -eq 0 ] || exit 1
