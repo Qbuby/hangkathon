@@ -152,6 +152,8 @@ Page({
       const data = await get("/api/events", { silent: true });
       const all = (data.events || []).map((event) => ({
         ...event,
+        // 站内相对路径（/assets/...）在小程序里会被当成包内文件 —— 必须补上站点域名
+        imageUrl: absoluteUrl(event.imageUrl),
         badge: dateBadge(event.startsAt || event.deadlineAt),
         badgeColor: DATE_STYLES[sourceStyle(event.category)] || DATE_STYLES.competition,
         whenText: whenText(event.startsAt || event.deadlineAt),
@@ -292,6 +294,14 @@ function sourceStyle(category) {
   if (category === "hackathon") return "competition";
   if (category === "award") return "award";
   return "local";
+}
+
+/** 相对路径补站点域名：小程序把 /assets/... 当包内文件，不补就打不开。 */
+function absoluteUrl(value) {
+  const path = String(value || "");
+  if (!path) return "";
+  if (/^https?:\/\//.test(path)) return path;
+  return require("../../utils/request").BASE_URL + path;
 }
 
 function sourceLabel(source) {
