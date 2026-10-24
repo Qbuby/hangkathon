@@ -88,7 +88,9 @@ function whenText(event: ExternalEvent) {
 }
 
 function introText(event: ExternalEvent) {
-  const text = event.descriptionZh || event.description || event.detailTextZh || event.detailText || "";
+  // Topcoder 等来源的简介带 markdown 加粗号，卡片里原样显示会很难看
+  const text = (event.descriptionZh || event.description || event.detailTextZh || event.detailText || "")
+    .replace(/\*\*/g, "");
   return text.length > INTRO_CLAMP ? `${text.slice(0, INTRO_CLAMP).trimEnd()}……` : text;
 }
 
