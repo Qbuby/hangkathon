@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { animate, type JSAnimation } from "animejs";
 import { Coins, MapPin } from "lucide-react";
 import { CATEGORIES, categoryLabel, pricingLabel, prizeText, type Activity } from "@/lib/activity";
-import { sourceLabel, type ExternalEvent } from "@/lib/external-events";
 import { prefersReducedMotion, usePageMotion } from "./motion-scope";
 import "./board.css";
 
@@ -64,26 +63,6 @@ function dateBadge(value: string) {
 /** 折叠态显示的介绍字数（超出则截断并给「展开更多」）。 */
 const INTRO_CLAMP = 92;
 
-function dayLabelCn(iso: string) {
-  const parts = new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", timeZone: "Asia/Shanghai" }).formatToParts(new Date(iso));
-  const month = parts.find((part) => part.type === "month")?.value ?? "";
-  const day = parts.find((part) => part.type === "day")?.value ?? "";
-  return `${month}月${day}日`;
-}
-
-function clampIntro(text: string) {
-  return text.length > 92 ? `${text.slice(0, 92).trimEnd()}……` : text;
-}
-
-function whenText(event: ExternalEvent) {
-  if (event.startsAt) {
-    const start = dayLabelCn(event.startsAt);
-    return event.endsAt ? `${start} – ${dayLabelCn(event.endsAt)}` : `${start} 开始`;
-  }
-  const end = event.endsAt ?? event.deadlineAt;
-  return end ? `截止 ${dayLabelCn(end)} 前报名` : "时间以官网为准";
-}
-
 function Chip({
   active,
   onClick,
@@ -102,14 +81,11 @@ function Chip({
 
 export default function ActivityBoard({
   activities,
-  localEvents = [],
   mode = "local",
   loaded = true,
   action,
 }: {
   activities: Activity[];
-  /** 从国内平台抓取的江浙沪线下活动（窗口内），挂在本板块尾部。 */
-  localEvents?: ExternalEvent[];
   /** local：数据只在这台设备的浏览器里；server：数据在服务端数据库里。 */
   mode?: "local" | "server";
   loaded?: boolean;
@@ -286,58 +262,13 @@ export default function ActivityBoard({
     );
   }
 
-  function renderLocalEvent(event: ExternalEvent) {
-    const badge = dateBadge(event.startsAt ?? event.endsAt ?? event.deadlineAt ?? "");
-    const where = event.online ? "线上" : (event.location || "地点见官网");
-    const source = sourceLabel(event.source);
-    return (
-      <article
-        className="feed-item"
-        key={`${event.source}:${event.sourceId}`}
-        data-reveal="item"
-        role="link"
-        tabIndex={0}
-        aria-label={`查看${event.title}详情`}
-        onClick={() => router.push(`/activities/global/${event.id}`)}
-        onKeyDown={(ev) => {
-          if (ev.key === "Enter") router.push(`/activities/global/${event.id}`);
-        }}
-      >
-        <div className="feed-item-top">
-          <div className="feed-date is-local" aria-hidden="true">
-            <span>{badge.month}</span>
-            <strong>{badge.day}</strong>
-          </div>
-          <div className="feed-item-head">
-            <h3>{event.titleZh || event.title}</h3>
-            <p className="feed-when">{whenText(event)}</p>
-          </div>
-        </div>
-        <p className="feed-where">
-          <MapPin size={13} aria-hidden="true" />
-          {where}
-          <span className="feed-sep" aria-hidden="true">·</span>
-          来源 {source}
-        </p>
-        {event.descriptionZh && <p className="feed-intro">{clampIntro(event.descriptionZh)}</p>}
-        {!event.descriptionZh && event.description && <p className="feed-intro">{clampIntro(event.description)}</p>}
-        {!event.descriptionZh && !event.description && event.detailTextZh && <p className="feed-intro">{clampIntro(event.detailTextZh)}</p>}
-        {!event.descriptionZh && !event.description && !event.detailTextZh && event.detailText && <p className="feed-intro">{clampIntro(event.detailText)}</p>}
-        <p className="feed-meta">
-          {event.prize && <span className="feed-prize">{event.prize}</span>}
-          <span className="feed-cta">查看详情 →</span>
-        </p>
-      </article>
-    );
-  }
-
   return (
     <section id="activities" className="board" aria-labelledby="board-title">
       <div className="board-head">
         <div>
-          <p className="eyebrow" data-reveal="block">LOCAL EVENTS</p>
-          <h2 id="board-title" data-reveal="block">本地赛事</h2>
-          <p className="board-sub" data-reveal="block">杭客松的自有活动对个人开放：点进去报名，完成作品或任务，积累荣誉、赢取奖励。下面还收录了每日从国内平台抓取的江浙沪线下活动。</p>
+          <p className="eyebrow" data-reveal="block">HANGKATHON EVENTS</p>
+          <h2 id="board-title" data-reveal="block">杭客松活动</h2>
+          <p className="board-sub" data-reveal="block">杭客松的自有活动对个人开放：点进去报名，完成作品或任务，积累荣誉、赢取奖励。站外赛事（江浙沪线下、全球竞赛与编辑精选）都在下方「赛事日历」。</p>
           <ol className="board-flow" data-reveal="block" aria-label="参加流程：发现活动，报名参加，完成作品或任务，获得荣誉">
             {FLOW_STEPS.map((step, index) => (
               <li key={step}><i aria-hidden="true">{index + 1}</i>{step}</li>
@@ -369,17 +300,6 @@ export default function ActivityBoard({
                 </div>
               </div>
             ))
-          )}
-          {localEvents.length > 0 && (
-            <div className="feed-group">
-              <div className="feed-group-head" data-reveal="item">
-                <h3>国内平台活动</h3>
-                <span>{localEvents.length} 场</span>
-              </div>
-              <div className="feed-list">
-                {localEvents.map((event) => renderLocalEvent(event))}
-              </div>
-            </div>
           )}
         </div>
 

@@ -1,0 +1,34 @@
+{
+  "__statusBarHeight": 44,
+  "flowSteps": ["发现活动", "报名参加", "完成作品/任务", "获得荣誉"],
+  "categories": [
+    { "value": "all", "label": "全部" },
+    { "value": "creation", "label": "内容创作" },
+    { "value": "tooling", "label": "工具与效率" }
+  ],
+  "prizeFilters": [{ "value": "all", "label": "全部" }, { "value": "with", "label": "有奖金" }],
+  "formatFilters": [{ "value": "all", "label": "全部" }, { "value": "online", "label": "线上" }],
+  "costFilters": [{ "value": "all", "label": "全部" }, { "value": "free", "label": "免费" }],
+  "sorts": [{ "value": "latest", "label": "最新发布" }],
+  "category": "all", "prize": "all", "format": "all", "cost": "all", "sort": "latest",
+  "dateFrom": "", "dateTo": "", "filterOpen": true,
+  "loading": false, "error": "", "errorDetail": "", "apiBase": "https://hangkathon.com",
+  "mineCount": 0,
+  "groups": [
+    {
+      "id": "ongoing", "title": "进行中",
+      "items": [
+        {
+          "id": "1", "slug": "guoqing-77", "title": "我 AI 中国 · 2026 国庆 AI 短视频创作大赛",
+          "badge": { "month": "10月", "day": "01" },
+          "badgeColor": "linear-gradient(145deg,#5fc8ff,#1b9cfc)",
+          "whenText": "10月01日 开始", "whereText": "线上 · 其他",
+          "categoryText": "内容创作", "intro": "用 AI 创作一部致敬新中国 77 周年的短视频。",
+          "isPending": false, "host": "杭客松"
+        }
+      ]
+    }
+  ],
+  "externalEvents": [],
+  "externalLoading": false
+}

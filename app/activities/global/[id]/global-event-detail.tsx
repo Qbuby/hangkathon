@@ -7,7 +7,7 @@ import SiteHeader from "../../../site-header";
 import { categoryLabel, eventScope, isCuratedSource, sourceLabel, type ExternalEvent } from "@/lib/external-events";
 import { getGlobalEvent } from "@/lib/api/data";
 import "../../[slug]/detail.css";
-import "../../../global-events.css";
+import "../../../event-calendar.css";
 
 function fmtDay(iso: string) {
   return new Date(iso).toLocaleDateString("zh-CN", { month: "long", day: "numeric", timeZone: "Asia/Shanghai" });

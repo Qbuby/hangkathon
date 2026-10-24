@@ -1,11 +1,11 @@
 <view class="page">
   <!-- ── 页头：与网页 /activities 的 board-head 对齐 ───────────────────── -->
   <view class="board-head">
-    <text class="eyebrow">LOCAL EVENTS</text>
-    <text class="board-title">本地赛事</text>
+    <text class="eyebrow">HANGKATHON EVENTS</text>
+    <text class="board-title">杭客松活动</text>
     <text class="board-sub">
       杭客松的自有活动对个人开放：点进去报名，完成作品或任务，积累荣誉、赢取奖励。
-      下面还收录了每日从国内平台抓取的江浙沪线下活动。
+      站外赛事（江浙沪线下、全球竞赛与编辑精选）都在下方「赛事日历」。
     </text>
 
     <view class="flow">
@@ -206,10 +206,10 @@
       </view>
     </view>
 
-    <!-- 国内平台活动（外部抓取） -->
+    <!-- 赛事日历：互动吧 + 全球抓取统一成一条时间线（精选已置顶在上） -->
     <view wx:if="{{externalEvents.length > 0}}" class="feed-group">
       <view class="group-head">
-        <text class="group-title">国内平台活动</text>
+        <text class="group-title">赛事日历</text>
         <text class="group-count">{{externalEvents.length}} 场</text>
       </view>
 
